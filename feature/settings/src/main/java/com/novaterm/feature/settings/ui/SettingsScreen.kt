@@ -1,5 +1,6 @@
 package com.novaterm.feature.settings.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -7,7 +8,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -24,8 +28,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.novaterm.feature.settings.R
 import com.novaterm.feature.settings.data.TerminalPreferences
+
+/** Available color scheme options with display labels. */
+private val COLOR_SCHEMES = listOf(
+    "gruvbox-dark" to "Gruvbox Dark",
+    "gruvbox-light" to "Gruvbox Light",
+    "solarized-dark" to "Solarized Dark",
+    "monokai" to "Monokai",
+    "nord" to "Nord",
+    "dracula" to "Dracula",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,13 +50,21 @@ fun SettingsScreen(
     onPreferencesChanged: (TerminalPreferences) -> Unit,
     onBack: () -> Unit,
 ) {
+    // Local slider state that follows external preference changes.
+    var fontSize by remember(preferences.fontSize) {
+        mutableFloatStateOf(preferences.fontSize.toFloat())
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.settings_back),
+                        )
                     }
                 }
             )
@@ -52,13 +76,19 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // ── Appearance ─────────────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_appearance))
+
             // Font size
-            var fontSize by remember { mutableFloatStateOf(preferences.fontSize.toFloat()) }
             ListItem(
-                headlineContent = { Text("Font size") },
+                headlineContent = { Text(stringResource(R.string.settings_font_size)) },
                 supportingContent = {
                     Column {
-                        Text("${fontSize.toInt()} sp")
+                        Text(
+                            stringResource(R.string.settings_font_size_value, fontSize.toInt()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Slider(
                             value = fontSize,
                             onValueChange = { fontSize = it },
@@ -72,75 +102,126 @@ fun SettingsScreen(
                 }
             )
 
+            // Color scheme
+            var schemeMenuExpanded by remember { mutableStateOf(false) }
+            val currentSchemeLabel = COLOR_SCHEMES
+                .firstOrNull { it.first == preferences.colorScheme }
+                ?.second ?: preferences.colorScheme
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_color_scheme)) },
+                supportingContent = { Text(currentSchemeLabel) },
+                modifier = Modifier.clickable { schemeMenuExpanded = true }
+            )
+            DropdownMenu(
+                expanded = schemeMenuExpanded,
+                onDismissRequest = { schemeMenuExpanded = false }
+            ) {
+                COLOR_SCHEMES.forEach { (id, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(colorScheme = id))
+                            schemeMenuExpanded = false
+                        }
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── Behavior ───────────────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_behavior))
+
             // Keep screen on
-            ListItem(
-                headlineContent = { Text("Keep screen on") },
-                supportingContent = { Text("Prevent display from sleeping while terminal is active") },
-                trailingContent = {
-                    Switch(
-                        checked = preferences.keepScreenOn,
-                        onCheckedChange = {
-                            onPreferencesChanged(preferences.copy(keepScreenOn = it))
-                        }
-                    )
-                }
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_keep_screen_on),
+                subtitle = stringResource(R.string.settings_keep_screen_on_desc),
+                checked = preferences.keepScreenOn,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(keepScreenOn = it))
+                },
             )
 
-            // Vibrate on key
-            ListItem(
-                headlineContent = { Text("Haptic feedback") },
-                supportingContent = { Text("Vibrate on extra key press") },
-                trailingContent = {
-                    Switch(
-                        checked = preferences.hapticFeedback,
-                        onCheckedChange = {
-                            onPreferencesChanged(preferences.copy(hapticFeedback = it))
-                        }
-                    )
-                }
+            // Haptic feedback
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_haptic_feedback),
+                subtitle = stringResource(R.string.settings_haptic_feedback_desc),
+                checked = preferences.hapticFeedback,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(hapticFeedback = it))
+                },
             )
 
-            // Bell
-            ListItem(
-                headlineContent = { Text("Terminal bell") },
-                supportingContent = { Text("Vibrate on bell character") },
-                trailingContent = {
-                    Switch(
-                        checked = preferences.bellEnabled,
-                        onCheckedChange = {
-                            onPreferencesChanged(preferences.copy(bellEnabled = it))
-                        }
-                    )
-                }
+            // Terminal bell
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_bell),
+                subtitle = stringResource(R.string.settings_bell_desc),
+                checked = preferences.bellEnabled,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(bellEnabled = it))
+                },
             )
 
-            // Show extra keys
-            ListItem(
-                headlineContent = { Text("Extra keys bar") },
-                supportingContent = { Text("Show shortcut keys above keyboard") },
-                trailingContent = {
-                    Switch(
-                        checked = preferences.showExtraKeys,
-                        onCheckedChange = {
-                            onPreferencesChanged(preferences.copy(showExtraKeys = it))
-                        }
-                    )
-                }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── Input ──────────────────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_input))
+
+            // Extra keys bar
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_extra_keys),
+                subtitle = stringResource(R.string.settings_extra_keys_desc),
+                checked = preferences.showExtraKeys,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(showExtraKeys = it))
+                },
             )
 
             // Back button as ESC
-            ListItem(
-                headlineContent = { Text("Back button sends ESC") },
-                supportingContent = { Text("Map hardware back button to Escape key") },
-                trailingContent = {
-                    Switch(
-                        checked = preferences.backIsEscape,
-                        onCheckedChange = {
-                            onPreferencesChanged(preferences.copy(backIsEscape = it))
-                        }
-                    )
-                }
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_back_is_escape),
+                subtitle = stringResource(R.string.settings_back_is_escape_desc),
+                checked = preferences.backIsEscape,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(backIsEscape = it))
+                },
             )
         }
     }
+}
+
+/** Section header label inside the settings list. */
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+/**
+ * A settings row where tapping anywhere in the row toggles the switch,
+ * not just tapping the tiny switch widget.
+ */
+@Composable
+private fun ToggleSettingRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        trailingContent = {
+            Switch(
+                checked = checked,
+                onCheckedChange = null, // Handled by the row click.
+            )
+        },
+        modifier = Modifier.clickable { onCheckedChange(!checked) }
+    )
 }

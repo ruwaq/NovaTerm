@@ -28,3 +28,14 @@ fun <T> OpResult<T>.getOrThrow(): T = when (this) {
     is OpResult.Success -> value
     is OpResult.Failure -> throw cause ?: IllegalStateException(error)
 }
+
+inline fun <T, R> OpResult<T>.map(transform: (T) -> R): OpResult<R> = when (this) {
+    is OpResult.Success -> OpResult.Success(transform(value))
+    is OpResult.Failure -> this
+}
+
+inline fun <T> runCatchingOp(block: () -> T): OpResult<T> = try {
+    OpResult.Success(block())
+} catch (e: Exception) {
+    OpResult.Failure(e.message ?: "Unknown error", e)
+}

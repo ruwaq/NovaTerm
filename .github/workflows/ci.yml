@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
 jobs:
   unit-tests:
     name: Unit Tests
@@ -19,15 +23,15 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon
+        run: ./gradlew testDebugUnitTest --no-daemon -Pandroid.aapt2FromMavenOverride=
 
       - name: Upload test results
         if: always()
@@ -44,15 +48,15 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Run Android Lint
-        run: ./gradlew lintDebug --no-daemon
+        run: ./gradlew lintDebug --no-daemon -Pandroid.aapt2FromMavenOverride=
 
       - name: Upload lint results
         if: always()
@@ -70,18 +74,19 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon -Pandroid.aapt2FromMavenOverride=
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: novaterm-debug
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14

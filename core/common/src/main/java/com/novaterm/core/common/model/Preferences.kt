@@ -14,11 +14,14 @@ data class TerminalConfig(
 ) {
     init {
         require(fontSize in FONT_SIZE_RANGE) { "fontSize must be in $FONT_SIZE_RANGE, got $fontSize" }
-        require(scrollbackLines >= 0) { "scrollbackLines must be >= 0, got $scrollbackLines" }
+        require(scrollbackLines in SCROLLBACK_RANGE) { "scrollbackLines must be in $SCROLLBACK_RANGE, got $scrollbackLines" }
+        require(fontFamily.isNotBlank()) { "fontFamily must not be blank" }
+        require(terminalType.isNotBlank()) { "terminalType must not be blank" }
     }
 
     companion object {
         val FONT_SIZE_RANGE = 8..32
+        val SCROLLBACK_RANGE = 0..100_000
     }
 }
 

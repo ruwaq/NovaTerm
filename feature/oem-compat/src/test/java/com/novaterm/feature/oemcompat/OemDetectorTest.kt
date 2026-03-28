@@ -10,6 +10,18 @@ import org.junit.Test
 
 class OemDetectorTest {
 
+    private fun fakeOemInfo(
+        brand: OemBrand,
+        isBatteryOptimized: Boolean = true,
+    ) = OemInfo(
+        brand = brand,
+        manufacturer = brand.displayName,
+        model = "TestModel",
+        androidVersion = 35,
+        androidVersionName = "15",
+        isBatteryOptimized = isBatteryOptimized,
+    )
+
     @Test
     fun `all OEM brands have non-empty display names`() {
         OemBrand.entries.forEach { brand ->
@@ -42,39 +54,37 @@ class OemDetectorTest {
     }
 
     @Test
+    fun `Tecno and Infinix have high aggressiveness`() {
+        assertEquals(4, OemBrand.TECNO.aggressiveness)
+        assertEquals(4, OemBrand.INFINIX.aggressiveness)
+    }
+
+    @Test
+    fun `Nothing has moderate aggressiveness`() {
+        assertEquals(3, OemBrand.NOTHING.aggressiveness)
+    }
+
+    @Test
     fun `battery whitelist needed for aggressive OEMs when optimized`() {
-        val xiaomiOptimized = OemInfo(
-            brand = OemBrand.XIAOMI,
-            manufacturer = "Xiaomi",
-            model = "15T Pro",
-            androidVersion = 35,
-            isBatteryOptimized = true,
-        )
-        assertTrue(OemDetector.needsBatteryWhitelist(xiaomiOptimized))
+        assertTrue(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.XIAOMI)))
+        assertTrue(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.TECNO)))
+        assertTrue(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.INFINIX)))
+        assertTrue(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.NOTHING)))
     }
 
     @Test
     fun `battery whitelist not needed when already exempted`() {
-        val xiaomiExempted = OemInfo(
-            brand = OemBrand.XIAOMI,
-            manufacturer = "Xiaomi",
-            model = "15T Pro",
-            androidVersion = 35,
-            isBatteryOptimized = false,
+        assertFalse(
+            OemDetector.needsBatteryWhitelist(
+                fakeOemInfo(OemBrand.XIAOMI, isBatteryOptimized = false)
+            )
         )
-        assertFalse(OemDetector.needsBatteryWhitelist(xiaomiExempted))
     }
 
     @Test
     fun `battery whitelist not needed for non-aggressive OEMs`() {
-        val googleOptimized = OemInfo(
-            brand = OemBrand.GOOGLE,
-            manufacturer = "Google",
-            model = "Pixel 9",
-            androidVersion = 35,
-            isBatteryOptimized = true,
-        )
-        assertFalse(OemDetector.needsBatteryWhitelist(googleOptimized))
+        assertFalse(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.GOOGLE)))
+        assertFalse(OemDetector.needsBatteryWhitelist(fakeOemInfo(OemBrand.MOTOROLA)))
     }
 
     @Test
@@ -109,6 +119,23 @@ class OemDetectorTest {
         assertTrue(
             "Samsung instructions should mention Never sleeping",
             instructions.any { it.contains("Never sleeping", ignoreCase = true) }
+        )
+    }
+
+    @Test
+    fun `Tecno instructions mention phone manager`() {
+        val instructions = OemDetector.getInstructions(OemBrand.TECNO)
+        assertTrue(
+            "Tecno instructions should mention Phone Manager",
+            instructions.any { it.contains("Phone Manager", ignoreCase = true) }
+        )
+    }
+
+    @Test
+    fun `Infinix shares Tecno instructions`() {
+        assertEquals(
+            OemDetector.getInstructions(OemBrand.TECNO),
+            OemDetector.getInstructions(OemBrand.INFINIX),
         )
     }
 }
