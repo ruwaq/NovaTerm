@@ -1,6 +1,10 @@
 package com.novaterm.feature.settings.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,29 +29,31 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
-/**
- * Scheme definition for the picker: ID, display name, and key colors for preview.
- */
 data class SchemePreview(
     val id: String,
     val name: String,
     val background: Color,
     val foreground: Color,
-    val accent: Color,       // prompt/cursor color
+    val accent: Color,
     val red: Color,
     val green: Color,
     val yellow: Color,
@@ -108,12 +114,31 @@ private val SCHEMES = listOf(
     ),
 )
 
+// Terminal lines for the typing animation preview
+private data class PreviewLine(
+    val labelColor: Int, // index into scheme colors: 0=accent, 1=red, 2=green, 3=yellow, 4=blue, 5=cyan, 6=fg
+    val label: String,
+    val text: String,
+)
+
+private val PREVIEW_LINES = listOf(
+    PreviewLine(0, "~$", " neofetch"),
+    PreviewLine(6, "", ""),
+    PreviewLine(2, "  OS", "      Android 15 aarch64"),
+    PreviewLine(3, "  Host", "    Xiaomi 15T Pro"),
+    PreviewLine(1, "  Shell", "   zsh 5.9"),
+    PreviewLine(4, "  Term", "    NovaTerm 0.1.0"),
+    PreviewLine(5, "  Uptime", "  2 hours, 15 mins"),
+    PreviewLine(6, "", ""),
+    PreviewLine(0, "~$", " echo \"Hello, World!\""),
+    PreviewLine(6, "", "Hello, World!"),
+    PreviewLine(0, "~$", ""),
+)
+
 /**
  * First-launch color scheme picker with live terminal preview.
- * Shows a simulated terminal output that updates colors in real-time
- * as the user browses schemes.
- *
- * @param onSchemeSelected Called with the chosen scheme ID when user taps "Continue".
+ * Features a typewriter animation that types out terminal content,
+ * smooth color transitions between schemes, and haptic feedback.
  */
 @Composable
 fun ColorSchemePickerScreen(
@@ -121,8 +146,30 @@ fun ColorSchemePickerScreen(
 ) {
     var selectedIndex by remember { mutableIntStateOf(0) }
     val scheme = SCHEMES[selectedIndex]
+    val haptic = LocalHapticFeedback.current
 
-    // Animate color transitions for smooth preview
+    // Typing animation state
+    var visibleChars by remember { mutableIntStateOf(0) }
+    val totalChars = remember { PREVIEW_LINES.sumOf { it.label.length + it.text.length + 1 } }
+
+    // Typewriter effect: reveal characters one by one
+    LaunchedEffect(Unit) {
+        while (visibleChars < totalChars) {
+            delay(18L) // ~55 chars/sec typing speed
+            visibleChars++
+        }
+    }
+
+    // Cursor blink
+    val infiniteTransition = rememberInfiniteTransition(label = "cursor")
+    val cursorAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(530), RepeatMode.Reverse),
+        label = "cursorBlink",
+    )
+
+    // Animate color transitions
     val bg by animateColorAsState(scheme.background, tween(300), label = "bg")
     val fg by animateColorAsState(scheme.foreground, tween(300), label = "fg")
     val accent by animateColorAsState(scheme.accent, tween(300), label = "accent")
@@ -131,6 +178,12 @@ fun ColorSchemePickerScreen(
     val yellow by animateColorAsState(scheme.yellow, tween(300), label = "yellow")
     val blue by animateColorAsState(scheme.blue, tween(300), label = "blue")
     val cyan by animateColorAsState(scheme.cyan, tween(300), label = "cyan")
+    val magenta by animateColorAsState(scheme.magenta, tween(300), label = "magenta")
+
+    fun colorForIndex(idx: Int): Color = when (idx) {
+        0 -> accent; 1 -> red; 2 -> green; 3 -> yellow
+        4 -> blue; 5 -> cyan; else -> fg
+    }
 
     Column(
         modifier = Modifier
@@ -139,7 +192,7 @@ fun ColorSchemePickerScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
             text = "Choose your theme",
@@ -147,73 +200,117 @@ fun ColorSchemePickerScreen(
             color = MaterialTheme.colorScheme.onBackground,
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "You can change this later in Settings",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Live terminal preview ─────────────────────────────
+        // ── Live terminal preview with typing animation ───────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(bg)
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                // Simulated terminal output
-                TerminalLine(accent, fg, "~$", " neofetch")
-                Spacer(modifier = Modifier.height(4.dp))
-                TerminalLine(green, fg, "OS:", " Android 15 aarch64")
-                TerminalLine(yellow, fg, "Host:", " Xiaomi 15T Pro")
-                TerminalLine(red, fg, "Shell:", " zsh 5.9")
-                TerminalLine(blue, fg, "Term:", " NovaTerm 0.1.0")
-                TerminalLine(cyan, fg, "Uptime:", " 2 hours, 15 mins")
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                var charsRemaining = visibleChars
+
+                PREVIEW_LINES.forEach { line ->
+                    val fullText = line.label + line.text
+                    val lineVisible = charsRemaining.coerceAtMost(fullText.length)
+                    charsRemaining -= lineVisible + 1 // +1 for newline
+
+                    if (charsRemaining + lineVisible + 1 > 0) {
+                        val visibleLabel = line.label.take(lineVisible)
+                        val visibleText = if (lineVisible > line.label.length) {
+                            line.text.take(lineVisible - line.label.length)
+                        } else ""
+
+                        val isLastVisible = charsRemaining <= 0 && visibleChars < totalChars
+
+                        Row {
+                            if (visibleLabel.isNotEmpty()) {
+                                Text(
+                                    text = visibleLabel,
+                                    color = colorForIndex(line.labelColor),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                            Text(
+                                text = visibleText + if (isLastVisible) "█" else "",
+                                color = if (isLastVisible) fg.copy(alpha = cursorAlpha) else fg,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
+                }
+
+                // Blinking cursor on last line after typing completes
+                if (visibleChars >= totalChars) {
+                    Text(
+                        text = "█",
+                        color = accent.copy(alpha = cursorAlpha),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
-                // Color test blocks
+
+                // Color palette blocks
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(
-                        scheme.red, scheme.green, scheme.yellow,
-                        scheme.blue, scheme.magenta, scheme.cyan,
-                    ).forEach { color ->
-                        val animatedColor by animateColorAsState(color, tween(300), label = "block")
+                    listOf(red, green, yellow, blue, magenta, cyan).forEach { color ->
                         Box(
                             modifier = Modifier
-                                .size(width = 20.dp, height = 14.dp)
-                                .background(animatedColor, RoundedCornerShape(2.dp))
+                                .size(width = 24.dp, height = 12.dp)
+                                .background(color, RoundedCornerShape(2.dp))
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                TerminalLine(accent, fg, "~$", " echo \"Hello NovaTerm\"")
-                TerminalLine(fg, fg, "", "Hello NovaTerm")
-                TerminalLine(accent, fg, "~$", " █")
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Scheme name ───────────────────────────────────────
+        Text(
+            text = scheme.name,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // ── Scheme selector chips ─────────────────────────────
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp),
         ) {
             itemsIndexed(SCHEMES) { index, item ->
                 SchemeChip(
                     name = item.name,
                     background = item.background,
                     accent = item.accent,
+                    foreground = item.foreground,
                     isSelected = index == selectedIndex,
-                    onClick = { selectedIndex = index },
+                    onClick = {
+                        if (index != selectedIndex) {
+                            selectedIndex = index
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                    },
                 )
             }
         }
@@ -222,41 +319,22 @@ fun ColorSchemePickerScreen(
 
         // ── Continue button ───────────────────────────────────
         Button(
-            onClick = { onSchemeSelected(scheme.id) },
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSchemeSelected(scheme.id)
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
         ) {
-            Text("Continue with ${scheme.name}")
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.titleSmall,
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun TerminalLine(
-    labelColor: Color,
-    textColor: Color,
-    label: String,
-    text: String,
-) {
-    Row {
-        if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                color = labelColor,
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-        Text(
-            text = text,
-            color = textColor,
-            fontSize = 13.sp,
-            fontFamily = FontFamily.Monospace,
-        )
     }
 }
 
@@ -265,6 +343,7 @@ private fun SchemeChip(
     name: String,
     background: Color,
     accent: Color,
+    foreground: Color,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -279,24 +358,27 @@ private fun SchemeChip(
             )
             .padding(8.dp),
     ) {
-        // Color preview circle
+        // Color preview circle — larger for touch
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(56.dp)
                 .clip(CircleShape)
                 .background(background)
-                .border(1.dp, accent, CircleShape),
+                .then(
+                    if (isSelected) Modifier.border(2.dp, accent, CircleShape)
+                    else Modifier.border(1.dp, foreground.copy(alpha = 0.3f), CircleShape)
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = ">_",
                 color = accent,
-                fontSize = 12.sp,
+                fontSize = 16.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = name,
             style = MaterialTheme.typography.labelSmall,
@@ -304,7 +386,7 @@ private fun SchemeChip(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             maxLines = 2,
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier.width(68.dp),
         )
     }
 }
