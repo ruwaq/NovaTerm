@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -99,6 +100,14 @@ fun NovaTermApp(
                 viewModel.completeOnboarding(schemeId)
             },
         )
+        return
+    }
+
+    // About screen
+    var showAbout by remember { mutableStateOf(false) }
+    if (showAbout) {
+        BackHandler { showAbout = false }
+        AboutScreen(onBack = { showAbout = false })
         return
     }
 
@@ -217,6 +226,10 @@ fun NovaTermApp(
                 },
                 onSettings = {
                     viewModel.showSettings()
+                    scope.launch { drawerState.close() }
+                },
+                onAbout = {
+                    showAbout = true
                     scope.launch { drawerState.close() }
                 },
             )
@@ -473,6 +486,7 @@ private fun DrawerContent(
     onCloseSession: (Int) -> Unit,
     onNewSession: () -> Unit,
     onSettings: () -> Unit,
+    onAbout: () -> Unit,
 ) {
     val novaColors = LocalNovaTermColors.current
 
@@ -524,6 +538,14 @@ private fun DrawerContent(
             label = { Text(stringResource(R.string.action_settings)) },
             selected = false,
             onClick = onSettings,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Info, contentDescription = "About") },
+            label = { Text("About") },
+            selected = false,
+            onClick = onAbout,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
     }
