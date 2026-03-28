@@ -23,6 +23,18 @@
     <fields>;
 }
 
+# === NovaTerm model/data classes (used by DataStore, SharedPreferences, enum valueOf) ===
+-keep class com.novaterm.core.common.model.TerminalConfig { *; }
+-keep class com.novaterm.core.common.model.SessionInfo { *; }
+-keep class com.novaterm.core.common.model.TerminalDimensions { *; }
+-keep class com.novaterm.core.common.model.SessionStatus { *; }
+-keep class com.novaterm.core.common.model.ColorScheme { *; }
+-keep class com.novaterm.core.common.util.OpResult { *; }
+-keep class com.novaterm.core.common.util.OpResult$* { *; }
+-keep class com.novaterm.feature.oemcompat.detection.OemBrand { *; }
+-keep class com.novaterm.feature.oemcompat.detection.OemInfo { *; }
+-keep class com.novaterm.feature.settings.data.TerminalPreferences { *; }
+
 # === Compose ===
 # Compose compiler handles most of this, but keep @Composable metadata
 -keep class androidx.compose.runtime.** { *; }

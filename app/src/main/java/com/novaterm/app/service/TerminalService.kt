@@ -13,12 +13,16 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.novaterm.app.NovaTermApp
 import com.novaterm.app.R
 import com.novaterm.app.ui.MainActivity
+import com.novaterm.core.session.manager.AndroidShellProvider
+import com.novaterm.core.session.manager.TermuxSessionManager
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -26,14 +30,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File
 
 /**
  * Foreground service managing terminal sessions.
  *
- * Exposes session list as [StateFlow] so the UI layer can observe
- * changes reactively. Handles wake/wifi locks for long-running tasks
- * and implements all [TerminalSessionClient] callbacks.
+ * Thin facade that delegates to [TermuxSessionManager] for session lifecycle,
+ * [AndroidShellProvider] for shell discovery and environment setup.
+ * Exposes session list as [StateFlow] so the UI layer can observe reactively.
  */
 class TerminalService : Service() {
 
@@ -45,6 +48,11 @@ class TerminalService : Service() {
 
     private val binder = LocalBinder()
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    // ── Core delegates ────────────────────────────────────
+
+    private lateinit var shellProvider: AndroidShellProvider
+    private lateinit var sessionManager: TermuxSessionManager
 
     // ── Session state (observable) ─────────────────────────
 
@@ -62,7 +70,6 @@ class TerminalService : Service() {
 
     // ── Preferences bridge ──────────────────────────────────
 
-    /** Set by the UI layer so the service can check preferences. */
     @Volatile var bellEnabled: Boolean = true
 
     // ── Locks ──────────────────────────────────────────────
@@ -83,7 +90,6 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Must invalidate on main thread (TerminalView.invalidate)
             val callback = onScreenUpdated ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 callback()
@@ -94,7 +100,7 @@ class TerminalService : Service() {
 
         override fun onTitleChanged(changedSession: TerminalSession) {
             _sessions.update { it.toList() }
-            onTextChanged(changedSession) // also refresh screen
+            onTextChanged(changedSession)
         }
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
@@ -102,8 +108,6 @@ class TerminalService : Service() {
                 current.filter { it !== finishedSession }
             }
             updateNotification()
-            // Don't stopSelf here — let removeSession handle it
-            // to avoid double-stop race condition
         }
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
@@ -124,9 +128,14 @@ class TerminalService : Service() {
 
         override fun onBell(session: TerminalSession) {
             if (!bellEnabled) return
-            @Suppress("DEPRECATION")
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            vibrator?.vibrate(50L)
+            val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+            vibrator?.vibrate(VibrationEffect.createOneShot(50L, VibrationEffect.DEFAULT_AMPLITUDE))
         }
 
         override fun onColorsChanged(session: TerminalSession) {}
@@ -166,14 +175,20 @@ class TerminalService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        shellProvider = AndroidShellProvider(this)
+        sessionManager = TermuxSessionManager(shellProvider)
+        sessionManager.setClient(sessionClient)
+
         startForeground(NOTIFICATION_ID, buildNotification())
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_EXIT -> {
-                _sessions.value.forEach { it.finishIfRunning() }
+                val snapshot = _sessions.value.toList()
                 _sessions.value = emptyList()
+                snapshot.forEach { it.finishIfRunning() }
                 releaseLocks()
                 stopSelf()
             }
@@ -190,72 +205,41 @@ class TerminalService : Service() {
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onDestroy() {
-        onScreenUpdated = null // prevent memory leak
-        _sessions.value.forEach { it.finishIfRunning() }
+        onScreenUpdated = null
+        val snapshot = _sessions.value.toList()
+        snapshot.forEach { it.finishIfRunning() }
         releaseLocks()
         super.onDestroy()
     }
 
     // ── Public API ─────────────────────────────────────────
 
-    fun createSession(): TerminalSession {
-        val shell = findShell()
-        val env = buildEnvironment(shell)
-        val cwd = resolveHomeDir()
+    fun createSession(): TerminalSession? {
+        return try {
+            val shell = shellProvider.findShell()
+            val env = shellProvider.buildEnvironment()
+            val cwd = shellProvider.defaultWorkingDirectory()
 
-        Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
+            Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
 
-        val session = TerminalSession(
-            shell,
-            cwd,
-            arrayOf(shell),
-            env,
-            TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
-            sessionClient,
-        )
+            val session = TerminalSession(
+                shell,
+                cwd,
+                arrayOf(shell),
+                env,
+                TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
+                sessionClient,
+            )
 
-        Log.i(TAG, "Session created: pid=${session.pid} running=${session.isRunning}")
+            Log.i(TAG, "Session created: pid=${session.pid} running=${session.isRunning}")
 
-        _sessions.update { it + session }
-        updateNotification()
+            _sessions.update { it + session }
+            updateNotification()
 
-        // Write welcome banner + short prompt on first session
-        if (_sessions.value.size == 1 && isFirstLaunch) {
-            isFirstLaunch = false
-            mainHandler.postDelayed({
-                session.write(buildWelcomeCommands())
-            }, 300) // Small delay to let shell initialize
-        }
-
-        return session
-    }
-
-    private var isFirstLaunch = true
-
-    private fun buildWelcomeCommands(): String {
-        // Use printf with actual escape chars (not literal \033)
-        // \u001b = ESC character that the shell interprets correctly
-        val esc = "\\x1b"
-        return buildString {
-            append("clear\n")
-            append("printf '\\n'\n")
-            append("printf '\\n'\n")
-            append("printf '\\n'\n")
-            append("printf '         ${esc}[38;5;208m╔══════════════════════════╗${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[1;38;5;208m███╗${esc}[0m ${esc}[1;38;5;214mNovaTerm${esc}[0m      ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[1;38;5;208m╚══╝${esc}[0m ${esc}[38;5;246mv0.1.0${esc}[0m        ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[38;5;246mby ${esc}[38;5;214mPrometeoDEV${esc}[0m       ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
-            append("printf '         ${esc}[38;5;208m╚══════════════════════════╝${esc}[0m\\n'\n")
-            append("printf '\\n'\n")
-            append("printf '    ${esc}[38;5;246m• Pinch to zoom text${esc}[0m\\n'\n")
-            append("printf '    ${esc}[38;5;246m• Long-press keys for popups${esc}[0m\\n'\n")
-            append("printf '    ${esc}[38;5;246m• + button for new sessions${esc}[0m\\n'\n")
-            append("printf '\\n'\n")
-            // Set short colored prompt using printf-safe method
-            append("PS1='\$ '\n")
+            session
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create session", e)
+            null
         }
     }
 
@@ -288,8 +272,7 @@ class TerminalService : Service() {
                 "novaterm:service-wakelock",
             )
         }
-        // 4 hour timeout as safety net (auto-release if app crashes)
-        wakeLock?.acquire(4 * 60 * 60 * 1000L)
+        wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
 
         if (wifiLock == null) {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -307,97 +290,6 @@ class TerminalService : Service() {
         wakeLock = null
         if (wifiLock?.isHeld == true) wifiLock?.release()
         wifiLock = null
-    }
-
-    // ── Shell environment ──────────────────────────────────
-
-    private fun resolveHomeDir(): String {
-        val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
-        val home = File("$base/home")
-        val tmpdir = File("$base/usr/tmp")
-        val firstRun = !home.isDirectory
-        if (firstRun) home.mkdirs()
-        if (!tmpdir.isDirectory) tmpdir.mkdirs()
-
-        if (firstRun) {
-            setupFirstRun(home)
-        }
-
-        return home.absolutePath
-    }
-
-    private fun setupFirstRun(home: File) {
-        // Create a short PS1 prompt (the full path is too long on Android)
-        val profile = File(home, ".profile")
-        if (!profile.exists()) {
-            profile.writeText(buildString {
-                appendLine("# NovaTerm - short prompt")
-                appendLine("export PS1='\\[\\e[38;5;208m\\]>\\[\\e[0m\\] '")
-                appendLine()
-            })
-        }
-
-        // Create MOTD welcome message
-        val motd = File(home, ".motd")
-        if (!motd.exists()) {
-            motd.writeText(buildString {
-                appendLine()
-                appendLine("\u001b[38;5;208m  ╭─────────────────────────────╮\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0            \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  Next-gen Android Terminal   \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  ╰─────────────────────────────╯\u001b[0m")
-                appendLine()
-                appendLine("\u001b[38;5;246m  Tips:\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Pinch to zoom text\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Long-press extra keys for popups\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Swipe from left edge for drawer\u001b[0m")
-                appendLine("\u001b[38;5;246m  • + button to add sessions\u001b[0m")
-                appendLine()
-            })
-        }
-
-        // Create .shrc that shows MOTD and sources .profile
-        val shrc = File(home, ".shrc")
-        if (!shrc.exists()) {
-            shrc.writeText(buildString {
-                appendLine("# NovaTerm shell init")
-                appendLine("[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"")
-                appendLine("[ -f \"\$HOME/.motd\" ] && cat \"\$HOME/.motd\"")
-                appendLine()
-            })
-        }
-    }
-
-    private fun findShell(): String {
-        val base = filesDir.parentFile?.absolutePath ?: return "/system/bin/sh"
-        val candidates = listOf(
-            "$base/usr/bin/bash",
-            "$base/usr/bin/sh",
-            "/system/bin/sh",
-        )
-        return candidates.firstOrNull { File(it).canExecute() }
-            ?: "/system/bin/sh"
-    }
-
-    private fun buildEnvironment(shell: String): Array<String> {
-        val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
-        val prefix = "$base/usr"
-        val home = "$base/home"
-
-        return arrayOf(
-            "TERM=xterm-256color",
-            "COLORTERM=truecolor",
-            "HOME=$home",
-            "PREFIX=$prefix",
-            "SHELL=$shell",
-            "LANG=en_US.UTF-8",
-            "PATH=$prefix/bin:$prefix/bin/applets:/system/bin",
-            "TMPDIR=$prefix/tmp",
-            "LD_LIBRARY_PATH=$prefix/lib",
-            "ENV=$home/.shrc",  // Loaded by sh on startup
-            "ANDROID_DATA=${System.getenv("ANDROID_DATA") ?: "/data"}",
-            "ANDROID_ROOT=${System.getenv("ANDROID_ROOT") ?: "/system"}",
-        )
     }
 
     // ── Notifications ──────────────────────────────────────
@@ -428,7 +320,7 @@ class TerminalService : Service() {
         )
 
         val count = _sessions.value.size
-        val lockLabel = if (isWakeLockHeld) "WL: ON" else "WL: OFF"
+        val lockLabel = getString(if (isWakeLockHeld) R.string.action_wake_lock_on else R.string.action_wake_lock_off)
 
         return NotificationCompat.Builder(this, NovaTermApp.CHANNEL_SERVICE)
             .setContentTitle(getString(R.string.notification_title_running))
@@ -437,6 +329,8 @@ class TerminalService : Service() {
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setShowWhen(false)
+            .setPriority(if (isWakeLockHeld) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(android.R.drawable.ic_input_add, getString(R.string.action_new_session), newSessionIntent)
             .addAction(android.R.drawable.ic_lock_lock, lockLabel, wakeLockIntent)
             .addAction(android.R.drawable.ic_delete, getString(R.string.action_exit), exitIntent)
@@ -454,6 +348,7 @@ class TerminalService : Service() {
         private const val REQ_EXIT = 1
         private const val REQ_NEW_SESSION = 2
         private const val REQ_TOGGLE_WAKELOCK = 3
+        private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
         const val ACTION_EXIT = "com.novaterm.app.action.EXIT"
         const val ACTION_NEW_SESSION = "com.novaterm.app.action.NEW_SESSION"

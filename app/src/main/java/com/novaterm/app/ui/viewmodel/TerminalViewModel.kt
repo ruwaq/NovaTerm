@@ -47,7 +47,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
-            val svc = (binder as TerminalService.LocalBinder).service
+            val svc = (binder as? TerminalService.LocalBinder)?.service ?: return
             _service.value = svc
             if (svc.sessionCount == 0) {
                 svc.createSession()
@@ -67,7 +67,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         app.bindService(
             Intent(app, TerminalService::class.java),
             serviceConnection,
-            Context.BIND_AUTO_CREATE,
+            Context.BIND_AUTO_CREATE or Context.BIND_ABOVE_CLIENT,
         )
         bound = true
     }
@@ -105,7 +105,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun createSession() {
         val svc = _service.value ?: return
-        svc.createSession()
+        svc.createSession() ?: return
         _currentSessionIndex.value = svc.sessionCount - 1
     }
 

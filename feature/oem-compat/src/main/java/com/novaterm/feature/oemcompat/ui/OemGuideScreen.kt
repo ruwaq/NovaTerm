@@ -26,24 +26,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.novaterm.feature.oemcompat.R
 import com.novaterm.feature.oemcompat.detection.OemInfo
 
-/**
- * Guide screen that shows battery-optimization instructions specific to the
- * user's device brand.
- *
- * All business logic results (instructions, whether whitelist is needed) are
- * passed in as parameters so that the composable is pure UI and testable
- * in @Preview without a real [android.content.Context].
- *
- * @param oemInfo                   Detected device info.
- * @param needsWhitelist            Whether the user still needs to disable battery optimization.
- * @param instructions              Step-by-step instructions for this brand.
- * @param onRequestBatteryExemption Launches the system battery-exemption dialog.
- * @param onOpenAutostartSettings   Opens the OEM autostart activity (null if unavailable).
- * @param onBack                    Navigate back.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OemGuideScreen(
@@ -57,10 +44,10 @@ fun OemGuideScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Battery Optimization") },
+                title = { Text(stringResource(R.string.oem_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.oem_back))
                     }
                 }
             )
@@ -86,23 +73,26 @@ fun OemGuideScreen(
                 ListItem(
                     headlineContent = {
                         Text(
-                            if (needsWhitelist) "Action required"
-                            else "You're all set"
+                            if (needsWhitelist) stringResource(R.string.oem_action_required)
+                            else stringResource(R.string.oem_all_set)
                         )
                     },
                     supportingContent = {
                         Text(
                             if (needsWhitelist)
-                                "${oemInfo.brand.displayName} devices aggressively kill background apps. Follow the steps below to keep NovaTerm running."
+                                stringResource(R.string.oem_warning_desc, oemInfo.brand.displayName)
                             else
-                                "Battery optimization is disabled. NovaTerm will run reliably in the background."
+                                stringResource(R.string.oem_ok_desc)
                         )
                     },
                     leadingContent = {
                         Icon(
                             if (needsWhitelist) Icons.Default.Warning
                             else Icons.Default.CheckCircle,
-                            contentDescription = if (needsWhitelist) "Warning" else "OK",
+                            contentDescription = if (needsWhitelist)
+                                stringResource(R.string.oem_icon_warning)
+                            else
+                                stringResource(R.string.oem_icon_ok),
                         )
                     }
                 )
@@ -111,29 +101,27 @@ fun OemGuideScreen(
             if (needsWhitelist) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Primary action: system battery optimization dialog.
                 Button(
                     onClick = onRequestBatteryExemption,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Disable battery optimization")
+                    Text(stringResource(R.string.oem_disable_optimization))
                 }
 
-                // Secondary action: OEM-specific autostart settings (if available).
                 if (onOpenAutostartSettings != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = onOpenAutostartSettings,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Open autostart settings")
+                        Text(stringResource(R.string.oem_open_autostart))
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Steps for ${oemInfo.brand.displayName}",
+                    text = stringResource(R.string.oem_steps_for, oemInfo.brand.displayName),
                     style = MaterialTheme.typography.titleMedium,
                 )
 
@@ -154,14 +142,13 @@ fun OemGuideScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Device info footer.
                 Text(
-                    text = "Device: ${oemInfo.manufacturer} ${oemInfo.model}",
+                    text = stringResource(R.string.oem_device_label, oemInfo.manufacturer, oemInfo.model),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Android ${oemInfo.androidVersionName} (API ${oemInfo.androidVersion})",
+                    text = stringResource(R.string.oem_android_label, oemInfo.androidVersionName, oemInfo.androidVersion),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

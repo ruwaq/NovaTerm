@@ -8,11 +8,16 @@
     <string name="notification_title_running">NovaTerm is running</string>
     <string name="notification_sessions">%d session(s) active</string>
 
+    <!-- Notification channel descriptions -->
+    <string name="notification_channel_service_desc">Keeps terminal sessions alive in the background</string>
+    <string name="notification_channel_alerts_desc">Important terminal alerts and process notifications</string>
+
     <!-- Actions -->
     <string name="action_new_session">New session</string>
     <string name="action_exit">Exit</string>
-    <string name="action_wake_lock">Wake Lock</string>
     <string name="action_settings">Settings</string>
+    <string name="action_wake_lock_on">WL: ON</string>
+    <string name="action_wake_lock_off">WL: OFF</string>
 
     <!-- Tabs -->
     <string name="tab_session">Session %d</string>

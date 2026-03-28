@@ -15,7 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "novaterm_config")
@@ -62,14 +61,12 @@ class DataStoreConfigStore(
             prefs[Keys.BACK_IS_ESCAPE] = newConfig.backIsEscape
             prefs[Keys.TERMINAL_TYPE] = newConfig.terminalType
         }
-        // DataStore.edit suspends until persisted; the collect in init{}
-        // will update _config, but we also force a read to ensure the
-        // StateFlow is up-to-date before this function returns.
-        _config.value = context.dataStore.data.first().toTerminalConfig()
+        // The collect{} in init propagates new values to _config automatically.
+        // No need for a second read — DataStore.edit already suspends until persisted.
     }
 
     private fun Preferences.toTerminalConfig(): TerminalConfig {
-        val fontSize = (this[Keys.FONT_SIZE] ?: 14)
+        val fontSize = (this[Keys.FONT_SIZE] ?: 18)
             .coerceIn(TerminalConfig.FONT_SIZE_RANGE)
         val scrollback = (this[Keys.SCROLLBACK_LINES] ?: 10_000)
             .coerceIn(TerminalConfig.SCROLLBACK_RANGE)
@@ -89,7 +86,7 @@ class DataStoreConfigStore(
             hapticFeedback = this[Keys.HAPTIC_FEEDBACK] ?: true,
             bellEnabled = this[Keys.BELL_ENABLED] ?: true,
             showExtraKeys = this[Keys.SHOW_EXTRA_KEYS] ?: true,
-            backIsEscape = this[Keys.BACK_IS_ESCAPE] ?: false,
+            backIsEscape = this[Keys.BACK_IS_ESCAPE] ?: true,
             terminalType = this[Keys.TERMINAL_TYPE] ?: "xterm-256color",
         )
     }

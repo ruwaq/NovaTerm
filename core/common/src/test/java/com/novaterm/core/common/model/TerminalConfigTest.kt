@@ -11,7 +11,7 @@ class TerminalConfigTest {
     @Test
     fun `default config has sensible values`() {
         val config = TerminalConfig()
-        assertEquals(14, config.fontSize)
+        assertEquals(18, config.fontSize)
         assertEquals("monospace", config.fontFamily)
         assertEquals(ColorScheme.GRUVBOX_DARK, config.colorScheme)
         assertEquals(10_000, config.scrollbackLines)
@@ -19,7 +19,7 @@ class TerminalConfigTest {
         assertTrue(config.hapticFeedback)
         assertTrue(config.bellEnabled)
         assertTrue(config.showExtraKeys)
-        assertFalse(config.backIsEscape)
+        assertTrue(config.backIsEscape)
         assertEquals("xterm-256color", config.terminalType)
     }
 

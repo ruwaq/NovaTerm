@@ -22,9 +22,9 @@ object Ember {
     // Backgrounds (warm dark — matches Termux Gruvbox Soft Dark)
     val Bg0Hard = Color(0xFF32302F)  // Terminal background area
     val Bg0 = Color(0xFF3C3836)      // Main background (matches terminal bg)
-    val Bg1 = Color(0xFF3C3836)      // Surface variant (same as bg for seamless look)
-    val Bg2 = Color(0xFF504945)      // Elevated surface
-    val Bg3 = Color(0xFF665C54)      // Borders
+    val Bg1 = Color(0xFF45403D)      // Surface variant (visually distinct from Bg0)
+    val Bg2 = Color(0xFF504945)      // Elevated surface, pressed keys
+    val Bg3 = Color(0xFF665C54)      // Borders, active elements
     val Bg4 = Color(0xFF7C6F64)      // Muted elements
 
     // Foregrounds (warm cream — easy on eyes)
@@ -91,7 +91,10 @@ private val EmberDark = darkColorScheme(
     onSurface = Ember.Fg1,
     surfaceVariant = Ember.Bg1,
     onSurfaceVariant = Ember.Fg4,
-    surfaceContainerHighest = Ember.Bg2,
+    surfaceContainerLow = Ember.Bg0Hard,
+    surfaceContainer = Ember.Bg0,
+    surfaceContainerHigh = Ember.Bg2,
+    surfaceContainerHighest = Ember.Bg3,
     outline = Ember.Bg4,
     outlineVariant = Ember.Bg3,
     error = Ember.Red,

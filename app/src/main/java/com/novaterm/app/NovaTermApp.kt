@@ -19,7 +19,7 @@ class NovaTermApp : Application() {
             getString(R.string.notification_channel_service),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Keeps terminal sessions alive in the background"
+            description = getString(R.string.notification_channel_service_desc)
             setShowBadge(false)
         }
 
@@ -28,7 +28,7 @@ class NovaTermApp : Application() {
             getString(R.string.notification_channel_alerts),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "Important terminal alerts and process notifications"
+            description = getString(R.string.notification_channel_alerts_desc)
         }
 
         manager.createNotificationChannels(listOf(serviceChannel, alertsChannel))
