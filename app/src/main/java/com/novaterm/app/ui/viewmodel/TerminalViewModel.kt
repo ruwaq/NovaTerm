@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -101,6 +102,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _currentSessionIndex = MutableStateFlow(0)
     val currentSessionIndex: StateFlow<Int> = _currentSessionIndex.asStateFlow()
 
+    /** Custom tab names set by the user (index → name). Overrides terminal title. */
+    private val _sessionNames = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val sessionNames: StateFlow<Map<Int, String>> = _sessionNames.asStateFlow()
+
     private val _ctrlActive = MutableStateFlow(false)
     val ctrlActive: StateFlow<Boolean> = _ctrlActive.asStateFlow()
 
@@ -158,6 +163,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     fun selectSession(index: Int) {
         _currentSessionIndex.value = index
     }
+
+    fun renameSession(index: Int, name: String) {
+        _sessionNames.update { it + (index to name) }
+    }
+
+    fun getSessionName(index: Int): String? = _sessionNames.value[index]
 
     fun toggleCtrl() {
         _ctrlActive.value = !_ctrlActive.value

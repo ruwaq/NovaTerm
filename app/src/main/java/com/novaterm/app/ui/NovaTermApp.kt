@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -68,7 +71,7 @@ import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NovaTermApp(
     viewModel: TerminalViewModel,
@@ -80,6 +83,7 @@ fun NovaTermApp(
     val preferences by viewModel.preferences.collectAsState()
     val showSettings by viewModel.showSettings.collectAsState()
     val showOnboarding by viewModel.showOnboarding.collectAsState()
+    val sessionNames by viewModel.sessionNames.collectAsState()
 
     val novaColors = LocalNovaTermColors.current
 
@@ -112,6 +116,10 @@ fun NovaTermApp(
 
     // History search state
     var showHistory by remember { mutableStateOf(false) }
+
+    // Tab rename state
+    var renamingTabIndex by remember { mutableStateOf<Int?>(null) }
+    var renameText by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -157,6 +165,37 @@ fun NovaTermApp(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::cancelCloseSession) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Tab rename dialog
+    renamingTabIndex?.let { index ->
+        AlertDialog(
+            onDismissRequest = { renamingTabIndex = null },
+            title = { Text("Rename session") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    placeholder = { Text("Session name") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (index in sessions.indices && renameText.isNotBlank()) {
+                        viewModel.renameSession(index, renameText.trim())
+                    }
+                    renamingTabIndex = null
+                }) {
+                    Text("Rename")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { renamingTabIndex = null }) {
                     Text("Cancel")
                 }
             },
@@ -226,7 +265,17 @@ fun NovaTermApp(
                                     onClick = {
                                         scope.launch { pagerState.animateScrollToPage(index) }
                                     },
-                                    modifier = Modifier.height(40.dp),
+                                    modifier = Modifier
+                                        .height(40.dp)
+                                        .combinedClickable(
+                                            onClick = {
+                                                scope.launch { pagerState.animateScrollToPage(index) }
+                                            },
+                                            onLongClick = {
+                                                renameText = session.title?.takeIf { it.isNotBlank() } ?: ""
+                                                renamingTabIndex = index
+                                            },
+                                        ),
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -245,7 +294,8 @@ fun NovaTermApp(
                                                 )
                                         )
                                         Text(
-                                            text = session.title?.takeIf { it.isNotBlank() }
+                                            text = sessionNames[index]
+                                                ?: session.title?.takeIf { it.isNotBlank() }
                                                 ?: stringResource(R.string.tab_session, index + 1),
                                             style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1,
