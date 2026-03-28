@@ -12,128 +12,126 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-// ── Gruvbox canonical palette ──────────────────────────────
+// ── NovaTerm Ember palette ──────────────────────────────
+// Based on Gruvbox Material, with ALL blues replaced by warm
+// sage/green-gray tones. Optimized for AMOLED + eye comfort.
+// Zero blue tint. Background is warm dark gray, not pure black.
+// All foreground colors pass WCAG AA (4.5:1+) against background.
 
-object Gruvbox {
-    // Backgrounds (dark)
-    val Bg0Hard = Color(0xFF1D2021)
-    val Bg0 = Color(0xFF282828)
-    val Bg1 = Color(0xFF3C3836)
-    val Bg2 = Color(0xFF504945)
-    val Bg3 = Color(0xFF665C54)
-    val Bg4 = Color(0xFF7C6F64)
+object Ember {
+    // Backgrounds (warm dark — R > G > B, no blue tint)
+    val Bg0Hard = Color(0xFF1A1816)  // AMOLED-friendly, no halation
+    val Bg0 = Color(0xFF22201E)      // Surface
+    val Bg1 = Color(0xFF3C3836)      // Surface variant
+    val Bg2 = Color(0xFF504945)      // Elevated surface
+    val Bg3 = Color(0xFF665C54)      // Borders
+    val Bg4 = Color(0xFF7C6F64)      // Muted elements
 
-    // Foregrounds (dark)
-    val Fg0 = Color(0xFFFBF1C7)
-    val Fg1 = Color(0xFFEBDBB2)
-    val Fg2 = Color(0xFFD5C4A1)
-    val Fg3 = Color(0xFFBDAE93)
-    val Fg4 = Color(0xFFA89984)
+    // Foregrounds (warm cream — easy on eyes)
+    val Fg0 = Color(0xFFDDC7A1)      // Bright text (10.76:1)
+    val Fg1 = Color(0xFFD4BE98)      // Normal text (9.79:1)
+    val Fg2 = Color(0xFFC5B18A)      // Secondary text
+    val Fg3 = Color(0xFFBDAE93)      // Tertiary text
+    val Fg4 = Color(0xFFA89984)      // Muted text (6.37:1)
+    val Comment = Color(0xFF928374)   // Comments (4.82:1 AA)
 
-    // Accent colors (dark/neutral)
-    val Red = Color(0xFFCC241D)
-    val RedBright = Color(0xFFFB4934)
-    val Green = Color(0xFF98971A)
-    val GreenBright = Color(0xFFB8BB26)
-    val Yellow = Color(0xFFD79921)
-    val YellowBright = Color(0xFFFABD2F)
-    val Blue = Color(0xFF458588)
-    val BlueBright = Color(0xFF83A598)
-    val Purple = Color(0xFFB16286)
-    val PurpleBright = Color(0xFFD3869B)
-    val Aqua = Color(0xFF689D6A)
-    val AquaBright = Color(0xFF8EC07C)
-    val Orange = Color(0xFFD65D0E)
+    // Accent colors — ALL warm, ZERO blue
+    val Red = Color(0xFFEA6962)       // Errors, deletes (5.64:1)
+    val Orange = Color(0xFFE78A4E)    // Primary accent (6.87:1)
+    val Yellow = Color(0xFFD8A657)    // Strings, warnings (8.02:1)
+    val Green = Color(0xFFA9B665)     // Success, adds (8.06:1)
+    val Sage = Color(0xFF8B9E82)      // Replaces blue! Warm green-gray (6.16:1)
+    val Aqua = Color(0xFF89B482)      // Types, paths (7.52:1)
+    val Purple = Color(0xFFD3869B)    // Keywords (6.45:1)
+
+    // Bright variants
+    val RedBright = Color(0xFFEF9A9A)
     val OrangeBright = Color(0xFFFE8019)
-
-    // Backgrounds (light)
-    val LightBg0Hard = Color(0xFFF9F5D7)
-    val LightBg0 = Color(0xFFFBF1C7)
-    val LightBg1 = Color(0xFFEBDBB2)
-    val LightBg2 = Color(0xFFD5C4A1)
-    val LightFg0 = Color(0xFF282828)
-    val LightFg1 = Color(0xFF3C3836)
-    val LightFg2 = Color(0xFF504945)
-    val LightFg4 = Color(0xFF7C6F64)
+    val YellowBright = Color(0xFFE9C46A)
+    val GreenBright = Color(0xFFC5D68D)
+    val SageBright = Color(0xFFA3B495)  // Bright sage (replaces bright blue)
+    val AquaBright = Color(0xFFA3C9A8)
+    val PurpleBright = Color(0xFFE0A1B5)
 }
 
 /**
  * Extended color palette for terminal-specific needs beyond Material3.
- * Provides access to the full Gruvbox palette for custom components.
  */
 @Immutable
 data class NovaTermColors(
-    val terminalBackground: Color = Gruvbox.Bg0Hard,
-    val terminalForeground: Color = Gruvbox.Fg1,
-    val tabBarBackground: Color = Gruvbox.Bg0,
-    val destructive: Color = Gruvbox.RedBright,
-    val accent: Color = Gruvbox.OrangeBright,
+    val terminalBackground: Color = Ember.Bg0Hard,
+    val terminalForeground: Color = Ember.Fg1,
+    val tabBarBackground: Color = Ember.Bg0,
+    val destructive: Color = Ember.Red,
+    val accent: Color = Ember.Orange,
+    val cursor: Color = Ember.Orange,
+    val selection: Color = Color(0xFF45403D),
 )
 
 val LocalNovaTermColors = staticCompositionLocalOf { NovaTermColors() }
 
 // ── Material3 color schemes ────────────────────────────────
 
-private val GruvboxDark = darkColorScheme(
-    primary = Gruvbox.OrangeBright,
-    onPrimary = Gruvbox.Bg0Hard,
-    primaryContainer = Gruvbox.Bg1,
-    onPrimaryContainer = Gruvbox.Fg1,
-    secondary = Gruvbox.AquaBright,
-    onSecondary = Gruvbox.Bg0Hard,
-    secondaryContainer = Gruvbox.Bg2,
-    onSecondaryContainer = Gruvbox.Fg1,
-    tertiary = Gruvbox.BlueBright,
-    onTertiary = Gruvbox.Bg0Hard,
-    tertiaryContainer = Gruvbox.Bg2,
-    onTertiaryContainer = Gruvbox.Fg1,
-    background = Gruvbox.Bg0Hard,
-    onBackground = Gruvbox.Fg1,
-    surface = Gruvbox.Bg0,
-    onSurface = Gruvbox.Fg1,
-    surfaceVariant = Gruvbox.Bg1,
-    onSurfaceVariant = Gruvbox.Fg4,
-    surfaceContainerHighest = Gruvbox.Bg2,
-    outline = Gruvbox.Bg4,
-    outlineVariant = Gruvbox.Bg3,
-    error = Gruvbox.RedBright,
-    onError = Gruvbox.Bg0Hard,
-    errorContainer = Gruvbox.Red,
-    onErrorContainer = Gruvbox.Fg1,
-    inverseSurface = Gruvbox.Fg1,
-    inverseOnSurface = Gruvbox.Bg0,
-    inversePrimary = Gruvbox.Orange,
+private val EmberDark = darkColorScheme(
+    primary = Ember.Orange,
+    onPrimary = Ember.Bg0Hard,
+    primaryContainer = Ember.Bg1,
+    onPrimaryContainer = Ember.Fg1,
+    secondary = Ember.Aqua,
+    onSecondary = Ember.Bg0Hard,
+    secondaryContainer = Ember.Bg2,
+    onSecondaryContainer = Ember.Fg1,
+    tertiary = Ember.Sage,           // Was blue — now warm sage
+    onTertiary = Ember.Bg0Hard,
+    tertiaryContainer = Ember.Bg2,
+    onTertiaryContainer = Ember.Fg1,
+    background = Ember.Bg0Hard,
+    onBackground = Ember.Fg1,
+    surface = Ember.Bg0,
+    onSurface = Ember.Fg1,
+    surfaceVariant = Ember.Bg1,
+    onSurfaceVariant = Ember.Fg4,
+    surfaceContainerHighest = Ember.Bg2,
+    outline = Ember.Bg4,
+    outlineVariant = Ember.Bg3,
+    error = Ember.Red,
+    onError = Ember.Bg0Hard,
+    errorContainer = Color(0xFF442726),
+    onErrorContainer = Ember.RedBright,
+    inverseSurface = Ember.Fg1,
+    inverseOnSurface = Ember.Bg0,
+    inversePrimary = Color(0xFFAF5D0E),
     scrim = Color.Black,
 )
 
-private val GruvboxLight = lightColorScheme(
-    primary = Gruvbox.Orange,
-    onPrimary = Gruvbox.LightBg0,
-    primaryContainer = Gruvbox.LightBg1,
-    onPrimaryContainer = Gruvbox.LightFg1,
-    secondary = Gruvbox.Aqua,
-    onSecondary = Gruvbox.LightBg0,
-    secondaryContainer = Gruvbox.LightBg2,
-    onSecondaryContainer = Gruvbox.LightFg1,
-    tertiary = Gruvbox.Blue,
-    onTertiary = Gruvbox.LightBg0,
-    tertiaryContainer = Gruvbox.LightBg2,
-    onTertiaryContainer = Gruvbox.LightFg1,
-    background = Gruvbox.LightBg0,
-    onBackground = Gruvbox.LightFg1,
-    surface = Gruvbox.LightBg0Hard,
-    onSurface = Gruvbox.LightFg1,
-    surfaceVariant = Gruvbox.LightBg1,
-    onSurfaceVariant = Gruvbox.LightFg4,
-    outline = Gruvbox.LightFg4,
-    outlineVariant = Gruvbox.LightBg2,
-    error = Gruvbox.Red,
-    onError = Gruvbox.LightBg0,
+private val EmberLight = lightColorScheme(
+    primary = Color(0xFFAF5D0E),
+    onPrimary = Color(0xFFFBF1C7),
+    primaryContainer = Color(0xFFEBDBB2),
+    onPrimaryContainer = Color(0xFF3C3836),
+    secondary = Color(0xFF427B58),
+    onSecondary = Color(0xFFFBF1C7),
+    secondaryContainer = Color(0xFFD5C4A1),
+    onSecondaryContainer = Color(0xFF3C3836),
+    tertiary = Color(0xFF5B7A52),     // Warm sage for light
+    onTertiary = Color(0xFFFBF1C7),
+    tertiaryContainer = Color(0xFFD5C4A1),
+    onTertiaryContainer = Color(0xFF3C3836),
+    background = Color(0xFFFBF1C7),
+    onBackground = Color(0xFF3C3836),
+    surface = Color(0xFFF9F5D7),
+    onSurface = Color(0xFF3C3836),
+    surfaceVariant = Color(0xFFEBDBB2),
+    onSurfaceVariant = Color(0xFF7C6F64),
+    outline = Color(0xFF7C6F64),
+    outlineVariant = Color(0xFFD5C4A1),
+    error = Color(0xFFCC241D),
+    onError = Color(0xFFFBF1C7),
     errorContainer = Color(0xFFFCDCD7),
-    onErrorContainer = Gruvbox.Red,
-    inverseSurface = Gruvbox.LightFg1,
-    inverseOnSurface = Gruvbox.LightBg0,
-    inversePrimary = Gruvbox.OrangeBright,
+    onErrorContainer = Color(0xFFCC241D),
+    inverseSurface = Color(0xFF3C3836),
+    inverseOnSurface = Color(0xFFFBF1C7),
+    inversePrimary = Ember.OrangeBright,
     scrim = Color.Black,
 )
 
@@ -142,7 +140,7 @@ private val GruvboxLight = lightColorScheme(
 @Composable
 fun NovaTermTheme(
     darkTheme: Boolean = true, // Terminal apps default to dark
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = false, // Ember palette by default
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -150,19 +148,21 @@ fun NovaTermTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> GruvboxDark
-        else -> GruvboxLight
+        darkTheme -> EmberDark
+        else -> EmberLight
     }
 
     val novaTermColors = if (darkTheme) {
         NovaTermColors()
     } else {
         NovaTermColors(
-            terminalBackground = Gruvbox.LightBg0Hard,
-            terminalForeground = Gruvbox.LightFg1,
-            tabBarBackground = Gruvbox.LightBg0,
-            destructive = Gruvbox.Red,
-            accent = Gruvbox.Orange,
+            terminalBackground = Color(0xFFF9F5D7),
+            terminalForeground = Color(0xFF3C3836),
+            tabBarBackground = Color(0xFFFBF1C7),
+            destructive = Color(0xFFCC241D),
+            accent = Color(0xFFAF5D0E),
+            cursor = Color(0xFFAF5D0E),
+            selection = Color(0xFFD5C4A1),
         )
     }
 

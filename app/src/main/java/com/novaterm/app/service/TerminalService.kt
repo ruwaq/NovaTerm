@@ -277,9 +277,57 @@ class TerminalService : Service() {
         val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
         val home = File("$base/home")
         val tmpdir = File("$base/usr/tmp")
-        if (!home.isDirectory) home.mkdirs()
+        val firstRun = !home.isDirectory
+        if (firstRun) home.mkdirs()
         if (!tmpdir.isDirectory) tmpdir.mkdirs()
+
+        if (firstRun) {
+            setupFirstRun(home)
+        }
+
         return home.absolutePath
+    }
+
+    private fun setupFirstRun(home: File) {
+        // Create a short PS1 prompt (the full path is too long on Android)
+        val profile = File(home, ".profile")
+        if (!profile.exists()) {
+            profile.writeText(buildString {
+                appendLine("# NovaTerm - short prompt")
+                appendLine("export PS1='\\[\\e[38;5;208m\\]>\\[\\e[0m\\] '")
+                appendLine()
+            })
+        }
+
+        // Create MOTD welcome message
+        val motd = File(home, ".motd")
+        if (!motd.exists()) {
+            motd.writeText(buildString {
+                appendLine()
+                appendLine("\u001b[38;5;208m  ╭─────────────────────────────╮\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0            \u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  Next-gen Android Terminal   \u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  ╰─────────────────────────────╯\u001b[0m")
+                appendLine()
+                appendLine("\u001b[38;5;246m  Tips:\u001b[0m")
+                appendLine("\u001b[38;5;246m  • Pinch to zoom text\u001b[0m")
+                appendLine("\u001b[38;5;246m  • Long-press extra keys for popups\u001b[0m")
+                appendLine("\u001b[38;5;246m  • Swipe from left edge for drawer\u001b[0m")
+                appendLine("\u001b[38;5;246m  • + button to add sessions\u001b[0m")
+                appendLine()
+            })
+        }
+
+        // Create .shrc that shows MOTD and sources .profile
+        val shrc = File(home, ".shrc")
+        if (!shrc.exists()) {
+            shrc.writeText(buildString {
+                appendLine("# NovaTerm shell init")
+                appendLine("[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"")
+                appendLine("[ -f \"\$HOME/.motd\" ] && cat \"\$HOME/.motd\"")
+                appendLine()
+            })
+        }
     }
 
     private fun findShell(): String {
@@ -308,6 +356,7 @@ class TerminalService : Service() {
             "PATH=$prefix/bin:$prefix/bin/applets:/system/bin",
             "TMPDIR=$prefix/tmp",
             "LD_LIBRARY_PATH=$prefix/lib",
+            "ENV=$home/.shrc",  // Loaded by sh on startup
             "ANDROID_DATA=${System.getenv("ANDROID_DATA") ?: "/data"}",
             "ANDROID_ROOT=${System.getenv("ANDROID_ROOT") ?: "/system"}",
         )
