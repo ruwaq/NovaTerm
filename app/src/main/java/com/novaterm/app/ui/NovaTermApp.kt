@@ -61,6 +61,7 @@ fun NovaTermApp(
     val novaColors = LocalNovaTermColors.current
 
     if (showSettings) {
+        androidx.activity.compose.BackHandler { viewModel.hideSettings() }
         SettingsScreen(
             preferences = preferences,
             onPreferencesChanged = viewModel::updatePreferences,
@@ -101,8 +102,8 @@ fun NovaTermApp(
     ) {
         Scaffold(
             topBar = {
-                if (sessions.size > 1) {
-                    Column {
+                Column {
+                    if (sessions.isNotEmpty()) {
                         TopAppBar(
                             title = {
                                 Text(stringResource(R.string.app_name))
@@ -207,10 +208,20 @@ fun NovaTermApp(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = stringResource(R.string.status_starting),
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
+                        androidx.compose.foundation.layout.Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.status_starting),
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            androidx.compose.material3.Button(
+                                onClick = { viewModel.createSession() },
+                            ) {
+                                Text("New Session")
+                            }
+                        }
                     }
                 }
             }
