@@ -39,8 +39,8 @@ import kotlinx.coroutines.flow.update
 /**
  * Foreground service managing terminal sessions.
  *
- * Thin facade that delegates to [TermuxSessionManager] for session lifecycle,
- * [AndroidShellProvider] for shell discovery and environment setup.
+ * Manages terminal sessions with [AndroidShellProvider] for shell discovery,
+ * [BlockStore] for structured persistence, and [SessionStore] for metadata.
  * Exposes session list as [StateFlow] so the UI layer can observe reactively.
  */
 class TerminalService : Service() {

@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -35,6 +37,7 @@ fun BootstrapScreen(
     onComplete: () -> Unit,
 ) {
     val state by installer.state.collectAsState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         if (installer.installIfNeeded()) {
@@ -118,7 +121,11 @@ fun BootstrapScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(24.dp))
-                Button(onClick = { /* TODO: retry */ }) {
+                Button(onClick = {
+                    scope.launch {
+                        if (installer.install()) onComplete()
+                    }
+                }) {
                     Text("Retry")
                 }
             }
