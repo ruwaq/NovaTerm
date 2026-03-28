@@ -50,6 +50,9 @@ class TerminalService : Service() {
 
     val sessionCount: Int get() = _sessions.value.size
 
+    /** Called by the UI to register a screen update callback (TerminalView.onScreenUpdated). */
+    var onScreenUpdated: (() -> Unit)? = null
+
     // ── Locks ──────────────────────────────────────────────
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -68,12 +71,13 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Trigger recomposition by emitting same list as new reference
-            _sessions.update { it.toList() }
+            // Invalidate the TerminalView canvas so it redraws with new content
+            onScreenUpdated?.invoke()
         }
 
         override fun onTitleChanged(changedSession: TerminalSession) {
             _sessions.update { it.toList() }
+            onScreenUpdated?.invoke()
         }
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
@@ -182,6 +186,8 @@ class TerminalService : Service() {
         val env = buildEnvironment()
         val cwd = resolveHomeDir()
 
+        Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
+
         val session = TerminalSession(
             shell,
             cwd,
@@ -190,6 +196,8 @@ class TerminalService : Service() {
             TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
             sessionClient,
         )
+
+        Log.i(TAG, "Session created: pid=${session.pid} running=${session.isRunning}")
 
         _sessions.update { it + session }
         updateNotification()
