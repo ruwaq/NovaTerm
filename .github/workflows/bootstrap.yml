@@ -1,0 +1,100 @@
+name: Build Bootstrap
+
+# Builds a custom bootstrap archive for NovaTerm (com.novaterm.app)
+# using termux-packages build system with our package name.
+#
+# The bootstrap contains: bash, coreutils, apt, termux-exec, and core tools.
+# Output: bootstrap-aarch64.zip (~30MB) uploaded as release artifact.
+#
+# To use: run manually via workflow_dispatch, or schedule weekly.
+# After build, download the ZIP and place in app/src/main/cpp/
+# then rebuild the APK.
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_packages:
+        description: 'Additional packages (comma-separated)'
+        required: false
+        default: 'nano,openssh,git,curl,wget'
+  schedule:
+    - cron: '0 4 * * 0'  # Sundays 4am UTC
+
+concurrency:
+  group: bootstrap
+  cancel-in-progress: true
+
+env:
+  NOVATERM_PACKAGE: com.novaterm.app
+  ARCH: aarch64
+
+jobs:
+  build-bootstrap:
+    name: Build Bootstrap (${{ github.event.inputs.extra_packages || 'default' }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - name: Clone termux-packages
+        run: |
+          git clone --depth=1 https://github.com/termux/termux-packages.git
+          cd termux-packages
+
+      - name: Configure NovaTerm package name
+        working-directory: termux-packages
+        run: |
+          # Replace package name in properties
+          sed -i 's|TERMUX_APP__PACKAGE_NAME="com.termux"|TERMUX_APP__PACKAGE_NAME="${{ env.NOVATERM_PACKAGE }}"|g' scripts/properties.sh
+
+          # Verify the change
+          grep "NOVATERM_PACKAGE\|TERMUX_APP__PACKAGE_NAME" scripts/properties.sh || true
+          echo "Package name configured: ${{ env.NOVATERM_PACKAGE }}"
+
+      - name: Build bootstrap archive
+        working-directory: termux-packages
+        run: |
+          EXTRA="${{ github.event.inputs.extra_packages }}"
+          EXTRA_FLAG=""
+          if [ -n "$EXTRA" ]; then
+            EXTRA_FLAG="--add $EXTRA"
+          fi
+
+          ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
+            --architectures ${{ env.ARCH }} \
+            $EXTRA_FLAG
+
+      - name: Calculate checksums
+        working-directory: termux-packages
+        run: |
+          sha256sum bootstrap-*.zip > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Upload bootstrap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-${{ env.ARCH }}
+          path: |
+            termux-packages/bootstrap-*.zip
+            termux-packages/checksums-sha256.txt
+          retention-days: 90
+
+      - name: Create release (on schedule)
+        if: github.event_name == 'schedule'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bootstrap-${{ github.run_number }}
+          name: Bootstrap ${{ env.ARCH }} (Build ${{ github.run_number }})
+          body: |
+            Automated bootstrap build for NovaTerm (${{ env.NOVATERM_PACKAGE }}).
+            Architecture: ${{ env.ARCH }}
+            Extra packages: ${{ github.event.inputs.extra_packages || 'default' }}
+          files: |
+            termux-packages/bootstrap-*.zip
+            termux-packages/checksums-sha256.txt
+          draft: false
+          prerelease: false

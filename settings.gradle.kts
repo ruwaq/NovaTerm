@@ -25,6 +25,7 @@ include(":core:common")
 include(":core:terminal-emulator")
 include(":core:terminal-view")
 include(":core:session")
+include(":core:bootstrap")
 include(":core:notification")
 include(":core:config")
 

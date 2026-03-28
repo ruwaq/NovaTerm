@@ -59,6 +59,19 @@ class AndroidShellProvider(
         env["TERM_PROGRAM"] = "novaterm"
         env["TERM_PROGRAM_VERSION"] = "0.1.0"
 
+        // W^X bypass: termux-exec intercepts exec() calls and routes them
+        // through /system/bin/linker64, which has permission to execute
+        // binaries from the app's data directory. Required on Android 10+.
+        val termuxExecLib = "$prefix/lib/libtermux-exec.so"
+        if (java.io.File(termuxExecLib).exists()) {
+            env["LD_PRELOAD"] = termuxExecLib
+        }
+
+        // Termux-exec environment (tells termux-exec where the app lives)
+        env["TERMUX__ROOTFS"] = rootDir
+        env["TERMUX__PREFIX"] = prefix
+        env["TERMUX_APP__DATA_DIR"] = context.applicationInfo.dataDir
+
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
         System.getenv("ANDROID_ROOT")?.let { env["ANDROID_ROOT"] = it }

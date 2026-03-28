@@ -50,6 +50,7 @@ dependencies {
     // Core modules
     implementation(project(":core:common"))
     implementation(project(":core:session"))
+    implementation(project(":core:bootstrap"))
     implementation(project(":core:terminal-view"))
 
     // Feature modules
