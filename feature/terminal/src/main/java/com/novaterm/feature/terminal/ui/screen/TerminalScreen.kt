@@ -101,6 +101,8 @@ fun TerminalScreen(
             TerminalView(context, null).apply {
                 isFocusable = true
                 isFocusableInTouchMode = true
+                // Hardware acceleration for smoother rendering
+                setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                 setTextSize(fontSize)
                 setTerminalViewClient(viewClient)
                 attachSession(session)
