@@ -240,6 +240,42 @@ fun NovaTermApp(
             bottomBar = {
                 Column(modifier = Modifier.navigationBarsPadding()) {
                 // Compact tab bar at bottom, above extra keys
+                // ── Status line: directory + git branch ──────
+                if (sessions.isNotEmpty()) {
+                    val currentSession = sessions.getOrNull(pagerState.currentPage)
+                    val cwd = currentSession?.cwd ?: ""
+                    val shortPath = remember(cwd) { shortenPath(cwd) }
+                    val gitBranch = remember(cwd) { readGitBranch(cwd) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 12.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = shortPath,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (gitBranch != null) {
+                            Text(
+                                text = " $gitBranch",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+
+                // ── Tab bar ──────────────────────────────────
                 if (sessions.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -569,4 +605,60 @@ private fun resolveKeyInput(code: String, ctrlActive: Boolean, altActive: Boolea
         altActive -> "\u001b$code"
         else -> code
     }
+}
+
+/**
+ * Shorten a path for the status line. Replaces home with ~,
+ * truncates intermediate segments to 2 chars (Powerlevel10k style).
+ * Example: /data/data/com.novaterm.app/home/projects/novaterm → ~/pr/novaterm
+ */
+private fun shortenPath(path: String): String {
+    if (path.isBlank()) return "~"
+    // Replace common home prefixes
+    var short = path
+        .replace(Regex("/data/data/[^/]+/home"), "~")
+        .replace(Regex("/data/data/[^/]+/files/home"), "~")
+        .replace("/storage/emulated/0", "/sdcard")
+
+    val parts = short.split("/").filter { it.isNotEmpty() }
+    if (parts.size <= 2) return short
+
+    // Keep first (~ or root) and last segment full, shorten middle
+    return buildString {
+        append(parts.first())
+        for (i in 1 until parts.size - 1) {
+            append("/")
+            append(parts[i].take(2))
+        }
+        append("/")
+        append(parts.last())
+    }
+}
+
+/**
+ * Read the current git branch from .git/HEAD.
+ * Returns null if not in a git repo.
+ */
+private fun readGitBranch(cwd: String): String? {
+    if (cwd.isBlank()) return null
+    try {
+        var dir = java.io.File(cwd)
+        // Walk up to find .git directory
+        repeat(10) {
+            val gitDir = java.io.File(dir, ".git")
+            if (gitDir.isDirectory) {
+                val head = java.io.File(gitDir, "HEAD")
+                if (head.exists()) {
+                    val content = head.readText().trim()
+                    return if (content.startsWith("ref: refs/heads/")) {
+                        content.removePrefix("ref: refs/heads/")
+                    } else {
+                        content.take(7) // detached HEAD — show short hash
+                    }
+                }
+            }
+            dir = dir.parentFile ?: return null
+        }
+    } catch (_: Exception) { }
+    return null
 }
