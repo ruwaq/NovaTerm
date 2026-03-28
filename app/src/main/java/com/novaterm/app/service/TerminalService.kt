@@ -128,6 +128,7 @@ class TerminalService : Service() {
 
         override fun onBell(session: TerminalSession) {
             if (!bellEnabled) return
+
             val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 vm?.defaultVibrator
@@ -136,6 +137,12 @@ class TerminalService : Service() {
                 getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             }
             vibrator?.vibrate(VibrationEffect.createOneShot(50L, VibrationEffect.DEFAULT_AMPLITUDE))
+
+            // Send notification when app is in background
+            val app = application as? NovaTermApp ?: return
+            if (!app.appLifecycle.isInForeground.value) {
+                sendBellNotification(session)
+            }
         }
 
         override fun onColorsChanged(session: TerminalSession) {}
@@ -294,6 +301,27 @@ class TerminalService : Service() {
 
     // ── Notifications ──────────────────────────────────────
 
+    private fun sendBellNotification(session: TerminalSession) {
+        val title = session.title?.takeIf { it.isNotBlank() } ?: "Terminal"
+        val contentIntent = PendingIntent.getActivity(
+            this, NOTIFICATION_BELL,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
+            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setContentTitle(title)
+            .setContentText(getString(R.string.notification_bell_activity))
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .build()
+
+        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        manager.notify(NOTIFICATION_BELL, notification)
+    }
+
     private fun buildNotification(): Notification {
         val contentIntent = PendingIntent.getActivity(
             this, 0,
@@ -348,6 +376,7 @@ class TerminalService : Service() {
         private const val REQ_EXIT = 1
         private const val REQ_NEW_SESSION = 2
         private const val REQ_TOGGLE_WAKELOCK = 3
+        private const val NOTIFICATION_BELL = 1338
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
         const val ACTION_EXIT = "com.novaterm.app.action.EXIT"

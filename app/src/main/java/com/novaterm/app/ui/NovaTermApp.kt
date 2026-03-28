@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +46,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -96,6 +99,28 @@ fun NovaTermApp(
         selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
     }
 
+    // Pager state for swipe between sessions
+    val pagerState = rememberPagerState(
+        initialPage = safeIndex,
+        pageCount = { sessions.size.coerceAtLeast(1) },
+    )
+
+    // Sync: pager swipe → ViewModel
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            if (page != selectedTab && page in sessions.indices) {
+                viewModel.selectSession(page)
+            }
+        }
+    }
+
+    // Sync: ViewModel (tab click, new session) → pager
+    LaunchedEffect(safeIndex) {
+        if (pagerState.currentPage != safeIndex && sessions.isNotEmpty()) {
+            pagerState.animateScrollToPage(safeIndex)
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -144,10 +169,10 @@ fun NovaTermApp(
                             )
                         }
 
-                        // Scrollable tabs (compact, takes remaining space)
+                        // Scrollable tabs synced with pager
                         ScrollableTabRow(
-                            selectedTabIndex = safeIndex,
-                            containerColor = MaterialTheme.colorScheme.background,
+                            selectedTabIndex = pagerState.currentPage.coerceIn(0, (sessions.size - 1).coerceAtLeast(0)),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                             edgePadding = 0.dp,
                             modifier = Modifier.weight(1f),
@@ -155,17 +180,36 @@ fun NovaTermApp(
                         ) {
                             sessions.forEachIndexed { index, session ->
                                 Tab(
-                                    selected = safeIndex == index,
-                                    onClick = { viewModel.selectSession(index) },
+                                    selected = pagerState.currentPage == index,
+                                    onClick = {
+                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                    },
                                     modifier = Modifier.height(40.dp),
                                 ) {
-                                    Text(
-                                        text = session.title?.takeIf { it.isNotBlank() }
-                                            ?: stringResource(R.string.tab_session, index + 1),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        // Status dot: green=running, red=finished
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(
+                                                    color = if (session.isRunning)
+                                                        novaColors.accent
+                                                    else
+                                                        novaColors.destructive,
+                                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                                )
+                                        )
+                                        Text(
+                                            text = session.title?.takeIf { it.isNotBlank() }
+                                                ?: stringResource(R.string.tab_session, index + 1),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -230,23 +274,31 @@ fun NovaTermApp(
                     .padding(padding)
                     .imePadding(), // Animate content with keyboard (adjustNothing in manifest)
             ) {
-                if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
-                    TerminalScreen(
-                        session = sessions[safeIndex],
-                        fontSize = preferences.fontSize,
-                        keepScreenOn = preferences.keepScreenOn,
-                        ctrlActive = ctrlActive,
-                        altActive = altActive,
-                        backIsEscape = preferences.backIsEscape,
-                        onModifiersConsumed = viewModel::resetModifiers,
-                        onViewReady = { terminalView ->
-                            // Connect the TerminalView's screen update to the service callback.
-                            // Re-connects on every view creation (handles rotation + tab switch).
-                            // Thread-safe: service dispatches to main thread via Handler.
-                            service?.onScreenUpdated = { terminalView.onScreenUpdated() }
-                        },
+                if (sessions.isNotEmpty()) {
+                    HorizontalPager(
+                        state = pagerState,
+                        userScrollEnabled = drawerState.isClosed && sessions.size > 1,
                         modifier = Modifier.fillMaxSize(),
-                    )
+                    ) { page ->
+                        if (page in sessions.indices) {
+                            TerminalScreen(
+                                session = sessions[page],
+                                fontSize = preferences.fontSize,
+                                colorScheme = preferences.colorScheme,
+                                keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
+                                ctrlActive = ctrlActive,
+                                altActive = altActive,
+                                backIsEscape = preferences.backIsEscape,
+                                onModifiersConsumed = viewModel::resetModifiers,
+                                onViewReady = { terminalView ->
+                                    if (page == pagerState.settledPage) {
+                                        service?.onScreenUpdated = { terminalView.onScreenUpdated() }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),

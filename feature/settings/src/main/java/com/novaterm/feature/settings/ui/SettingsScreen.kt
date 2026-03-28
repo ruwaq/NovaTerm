@@ -37,6 +37,7 @@ import com.novaterm.feature.settings.data.TerminalPreferences
 private val COLOR_SCHEMES = listOf(
     "gruvbox-dark" to "Gruvbox Dark",
     "gruvbox-light" to "Gruvbox Light",
+    "catppuccin-mocha" to "Catppuccin Mocha",
     "solarized-dark" to "Solarized Dark",
     "monokai" to "Monokai",
     "nord" to "Nord",

@@ -20,6 +20,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
+import com.novaterm.feature.terminal.color.TerminalPalettes
 import com.termux.terminal.TerminalColors
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
@@ -45,6 +46,7 @@ private const val TAG = "NovaTerm"
 fun TerminalScreen(
     session: TerminalSession,
     fontSize: Int = 14,
+    colorScheme: String = "gruvbox-dark",
     keepScreenOn: Boolean = false,
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
@@ -72,16 +74,16 @@ fun TerminalScreen(
     // Reference to the native view for imperative updates.
     val terminalViewRef = remember { mutableStateOf<TerminalView?>(null) }
 
-    // Track last applied font size to avoid recreating TerminalRenderer unnecessarily
+    // Track last applied values to avoid unnecessary work on recomposition
     var lastFontSize by remember { mutableIntStateOf(fontSize) }
+    var lastColorScheme by remember { mutableStateOf(colorScheme) }
 
     AndroidView(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 4.dp, vertical = 2.dp), // Minimal padding to maximize columns
         factory = { context ->
-            // Apply NovaTerm color scheme to the terminal engine (once)
-            applyNovaTermColors()
+            applyTerminalPalette(colorScheme)
 
             TerminalView(context, null).apply {
                 isFocusable = true
@@ -118,6 +120,14 @@ fun TerminalScreen(
                 lastFontSize = fontSize
             }
 
+            // Hot-reload color scheme when preference changes.
+            if (colorScheme != lastColorScheme) {
+                applyTerminalPalette(colorScheme)
+                session.emulator?.mColors?.reset()
+                view.invalidate()
+                lastColorScheme = colorScheme
+            }
+
             // Keep-screen-on follows preference.
             view.setKeepScreenOn(keepScreenOn)
 
@@ -139,35 +149,21 @@ fun TerminalScreen(
 }
 
 /**
- * Apply NovaTerm's color scheme to the Termux terminal engine.
- * Based on the user's optimized Termux "Gruvbox Soft Dark - Eye Comfort"
- * configuration. Warm tones, no harsh blues, AMOLED friendly.
+ * Apply a terminal color palette to the Termux engine.
+ * Updates the static default colors so new and existing sessions pick them up.
+ * Existing sessions need [TerminalColors.reset] + view invalidate for hot-reload.
  */
-private fun applyNovaTermColors() {
+private fun applyTerminalPalette(schemeId: String) {
+    val palette = TerminalPalettes.forScheme(schemeId)
     val cs = TerminalColors.COLOR_SCHEME.mDefaultColors
 
-    // 16 ANSI colors (from Termux colors.properties)
-    cs[0]  = 0xFF3C3836.toInt()  // black (background)
-    cs[1]  = 0xFFEA6962.toInt()  // red
-    cs[2]  = 0xFFA9B665.toInt()  // green
-    cs[3]  = 0xFFD8A657.toInt()  // yellow
-    cs[4]  = 0xFF7DAEA3.toInt()  // blue (warm cyan)
-    cs[5]  = 0xFFD3869B.toInt()  // magenta
-    cs[6]  = 0xFF89B482.toInt()  // cyan
-    cs[7]  = 0xFFA89984.toInt()  // white (dim)
-    cs[8]  = 0xFF928374.toInt()  // bright black (gray)
-    cs[9]  = 0xFFEA6962.toInt()  // bright red
-    cs[10] = 0xFFB8BB26.toInt()  // bright green
-    cs[11] = 0xFFFABD2F.toInt()  // bright yellow
-    cs[12] = 0xFF83A598.toInt()  // bright blue (warm teal)
-    cs[13] = 0xFFD3869B.toInt()  // bright magenta
-    cs[14] = 0xFF8EC07C.toInt()  // bright cyan
-    cs[15] = 0xFFEBDBB2.toInt()  // bright white
+    // 16 ANSI colors
+    palette.ansi.copyInto(cs, destinationOffset = 0)
 
     // Special colors
-    cs[TextStyle.COLOR_INDEX_FOREGROUND] = 0xFFEBDBB2.toInt()  // foreground
-    cs[TextStyle.COLOR_INDEX_BACKGROUND] = 0xFF3C3836.toInt()  // background
-    cs[TextStyle.COLOR_INDEX_CURSOR]     = 0xFFE78A4E.toInt()  // cursor (Ember Orange, matches theme)
+    cs[TextStyle.COLOR_INDEX_FOREGROUND] = palette.foreground
+    cs[TextStyle.COLOR_INDEX_BACKGROUND] = palette.background
+    cs[TextStyle.COLOR_INDEX_CURSOR]     = palette.cursor
 }
 
 /**
