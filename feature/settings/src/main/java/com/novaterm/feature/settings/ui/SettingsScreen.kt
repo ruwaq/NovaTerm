@@ -92,9 +92,10 @@ fun SettingsScreen(
                         )
                         Slider(
                             value = fontSize,
-                            onValueChange = { fontSize = it },
-                            onValueChangeFinished = {
-                                onPreferencesChanged(preferences.copy(fontSize = fontSize.toInt()))
+                            onValueChange = {
+                                fontSize = it
+                                // Live preview: update immediately while dragging
+                                onPreferencesChanged(preferences.copy(fontSize = it.toInt()))
                             },
                             valueRange = 8f..32f,
                             steps = 23,

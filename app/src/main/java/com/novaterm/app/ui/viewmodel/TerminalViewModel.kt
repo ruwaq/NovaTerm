@@ -50,7 +50,16 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             val svc = (binder as? TerminalService.LocalBinder)?.service ?: return
             _service.value = svc
             if (svc.sessionCount == 0) {
-                svc.createSession()
+                val saved = svc.getSavedSessions()
+                if (saved.isNotEmpty()) {
+                    // Restore sessions in their original directories
+                    saved.forEach { meta ->
+                        svc.createSessionInDir(meta.cwd)
+                    }
+                    svc.clearSavedSessions()
+                } else {
+                    svc.createSession()
+                }
             }
         }
 
@@ -112,10 +121,34 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         _currentSessionIndex.value = svc.sessionCount - 1
     }
 
-    fun removeSession(index: Int) {
+    // ── Session close confirmation ─────────────────────────
+
+    private val _sessionToClose = MutableStateFlow<Int?>(null)
+    val sessionToClose: StateFlow<Int?> = _sessionToClose.asStateFlow()
+
+    fun requestCloseSession(index: Int) {
+        val svc = _service.value ?: return
+        val sessions = svc.sessions.value
+        // If session is still running, ask confirmation
+        if (index in sessions.indices && sessions[index].isRunning) {
+            _sessionToClose.value = index
+        } else {
+            removeSession(index)
+        }
+    }
+
+    fun confirmCloseSession() {
+        _sessionToClose.value?.let { removeSession(it) }
+        _sessionToClose.value = null
+    }
+
+    fun cancelCloseSession() {
+        _sessionToClose.value = null
+    }
+
+    private fun removeSession(index: Int) {
         val svc = _service.value ?: return
         svc.removeSession(index)
-        // Adjust selected index if needed
         val newCount = svc.sessionCount
         if (_currentSessionIndex.value >= newCount) {
             _currentSessionIndex.value = (newCount - 1).coerceAtLeast(0)

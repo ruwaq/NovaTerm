@@ -226,11 +226,21 @@ class TerminalService : Service() {
 
     // ── Public API ─────────────────────────────────────────
 
+    fun createSessionInDir(cwd: String): TerminalSession? {
+        // Ensure home directory exists (initializes first-run if needed)
+        shellProvider.defaultWorkingDirectory()
+        val dir = if (java.io.File(cwd).isDirectory) cwd else shellProvider.defaultWorkingDirectory()
+        return createSessionInternal(dir)
+    }
+
     fun createSession(): TerminalSession? {
+        return createSessionInternal(shellProvider.defaultWorkingDirectory())
+    }
+
+    private fun createSessionInternal(cwd: String): TerminalSession? {
         return try {
             val shell = shellProvider.findShell()
             val env = shellProvider.buildEnvironment()
-            val cwd = shellProvider.defaultWorkingDirectory()
 
             Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
 

@@ -23,8 +23,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -133,6 +135,26 @@ fun NovaTermApp(
         }
     }
 
+    // Close confirmation dialog
+    val sessionToClose by viewModel.sessionToClose.collectAsState()
+    sessionToClose?.let { index ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelCloseSession,
+            title = { Text("Close session?") },
+            text = { Text("Session ${index + 1} is still running. Close it?") },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmCloseSession) {
+                    Text("Close", color = novaColors.destructive)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelCloseSession) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -143,7 +165,7 @@ fun NovaTermApp(
                     viewModel.selectSession(index)
                     scope.launch { drawerState.close() }
                 },
-                onCloseSession = viewModel::removeSession,
+                onCloseSession = viewModel::requestCloseSession,
                 onNewSession = {
                     viewModel.createSession()
                     scope.launch { drawerState.close() }
