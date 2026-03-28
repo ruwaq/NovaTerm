@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val preferences = viewModel.preferences.collectAsState()
-            val isDarkScheme = !preferences.value.colorScheme.contains("light")
+            val isDarkScheme = com.novaterm.core.common.model.ColorSchemes.isDark(preferences.value.colorScheme)
 
             NovaTermTheme(darkTheme = isDarkScheme) {
                 NovaTermApp(viewModel = viewModel)
