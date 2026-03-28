@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novaterm.feature.terminal.color.TerminalPalettes
+import com.novaterm.feature.terminal.url.UrlConfirmDialog
+import com.novaterm.feature.terminal.url.UrlDetector
 import com.termux.terminal.TerminalColors
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
@@ -55,12 +57,16 @@ fun TerminalScreen(
     onViewReady: ((TerminalView) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // URL detection state
+    var detectedUrl by remember { mutableStateOf<String?>(null) }
+
     val viewClient = remember {
         NovaTermViewClient(
             ctrlActive = false,
             altActive = false,
             backIsEscape = false,
             onModifiersConsumed = onModifiersConsumed,
+            onUrlDetected = { url -> detectedUrl = url },
         )
     }
 
@@ -70,6 +76,7 @@ fun TerminalScreen(
     viewClient.altActive = altActive
     viewClient.backIsEscape = backIsEscape
     viewClient.onModifiersConsumed = onModifiersConsumed
+    viewClient.onUrlDetected = { url -> detectedUrl = url }
 
     // Reference to the native view for imperative updates.
     val terminalViewRef = remember { mutableStateOf<TerminalView?>(null) }
@@ -146,6 +153,14 @@ fun TerminalScreen(
             terminalViewRef.value = null
         }
     }
+
+    // URL confirmation dialog
+    detectedUrl?.let { url ->
+        UrlConfirmDialog(
+            url = url,
+            onDismiss = { detectedUrl = null },
+        )
+    }
 }
 
 /**
@@ -181,6 +196,7 @@ private class NovaTermViewClient(
     @Volatile var altActive: Boolean,
     @Volatile var backIsEscape: Boolean,
     var onModifiersConsumed: () -> Unit,
+    var onUrlDetected: (String) -> Unit = {},
     var terminalView: TerminalView? = null,
 ) : TerminalViewClient {
 
@@ -220,6 +236,30 @@ private class NovaTermViewClient(
 
     override fun onSingleTapUp(e: MotionEvent?) {
         val view = terminalView ?: return
+
+        // Try to detect a URL under the tap position
+        try {
+            val emulator = view.currentSession?.emulator
+            if (emulator != null && e != null) {
+                // Get the word at tap position from the terminal buffer
+                val screen = emulator.screen
+                val col = view.getCursorX(e.x).coerceIn(0, emulator.mColumns - 1)
+                val row = view.getCursorY(e.y) + view.topRow
+                val rowText = screen.getSelectedText(0, row, emulator.mColumns, row)?.trim()
+
+                if (rowText != null) {
+                    val url = UrlDetector.findUrlAt(rowText, col)
+                    if (url != null) {
+                        onUrlDetected(url)
+                        return
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+            Log.w(TAG, "URL detection failed", ex)
+        }
+
+        // No URL found: show keyboard (default behavior)
         view.requestFocus()
         val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
             as? InputMethodManager
