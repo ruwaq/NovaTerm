@@ -45,12 +45,20 @@ data class ExtraKey(
     val isModifier: Boolean = false,
 )
 
-// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider)
-// Focus: natural language prompts, slash commands, file references, navigation
-// Each key has a popup (long press) for secondary action
+// Escape sequences for popup keys — centralized to avoid magic strings.
+private object Sequences {
+    const val PAGE_UP = "\u001b[5~"
+    const val PAGE_DOWN = "\u001b[6~"
+    const val HOME = "\u001b[H"
+    const val END = "\u001b[F"
+    const val CTRL_D = "\u0004"
+    const val CTRL_C = "\u0003"
+    const val CTRL_R = "\u0012"
+    const val CTRL_L = "\u000C"
+}
 
-// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider)
-// Tap = primary action, Long press = popup secondary action
+// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
+// Tap = primary action, Long press = popup secondary action.
 
 private val ROW_1 = listOf(
     ExtraKey("ESC", "\u001b", popup = "exit"),       // Rewind in Claude Code, popup: Ctrl+D exit
@@ -68,6 +76,8 @@ private val ROW_2 = listOf(
     ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor right, popup: end of line
     ExtraKey("CLR", "\u000C", popup = "|"),              // Clear screen (Ctrl+L), popup: pipe
 )
+
+private val ROWS = listOf(ROW_1, ROW_2)
 
 /**
  * Two-row bar of shortcut keys rendered above the soft keyboard.
@@ -98,11 +108,12 @@ fun ExtraKeysBar(
         modifier = modifier
             .fillMaxWidth()
             .background(barBackground)
-            .padding(horizontal = 2.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        ExtraKeyRow(ROW_1, onKey, onCtrlToggle, onAltToggle, ctrlActive, altActive, hapticEnabled, haptic)
-        ExtraKeyRow(ROW_2, onKey, onCtrlToggle, onAltToggle, ctrlActive, altActive, hapticEnabled, haptic)
+        ROWS.forEach { row ->
+            ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, ctrlActive, altActive, hapticEnabled, haptic)
+        }
     }
 }
 
@@ -126,7 +137,7 @@ private fun ExtraKeyRow(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         keys.forEach { key ->
             val isActive = when (key.label) {
@@ -155,17 +166,14 @@ private fun ExtraKeyRow(
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                         when (key.popup) {
-                            "PgUp" -> currentOnKey("\u001b[5~")
-                            "PgDn" -> currentOnKey("\u001b[6~")
-                            "Home" -> currentOnKey("\u001b[H")
-                            "End" -> currentOnKey("\u001b[F")
-                            "@" -> currentOnKey("@")
-                            "~" -> currentOnKey("~")
-                            "exit" -> currentOnKey("\u0004")  // Ctrl+D
-                            "^C" -> currentOnKey("\u0003")    // Ctrl+C (cancel AI generation)
-                            "^R" -> currentOnKey("\u0012")    // Ctrl+R (search history)
-                            "clr" -> currentOnKey("\u000C")   // Ctrl+L (clear screen)
-                            "|" -> currentOnKey("|")          // Pipe
+                            "PgUp" -> currentOnKey(Sequences.PAGE_UP)
+                            "PgDn" -> currentOnKey(Sequences.PAGE_DOWN)
+                            "Home" -> currentOnKey(Sequences.HOME)
+                            "End" -> currentOnKey(Sequences.END)
+                            "exit" -> currentOnKey(Sequences.CTRL_D)
+                            "^C" -> currentOnKey(Sequences.CTRL_C)
+                            "^R" -> currentOnKey(Sequences.CTRL_R)
+                            else -> currentOnKey(key.popup)
                         }
                     }
                 }
@@ -189,8 +197,8 @@ private fun ExtraKeyButton(
     val currentOnLongClick by rememberUpdatedState(onLongClick)
 
     // Theme-aware colors with Gruvbox fallbacks.
-    val accentColor = MaterialTheme.colorScheme.tertiary        // Gruvbox orange in our theme
-    val accentOnColor = MaterialTheme.colorScheme.onTertiary
+    val accentColor = MaterialTheme.colorScheme.primary          // Ember Orange for active modifiers
+    val accentOnColor = MaterialTheme.colorScheme.onPrimary
     val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceContainerHigh
     val pressedColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -223,9 +231,9 @@ private fun ExtraKeyButton(
 
     Box(
         modifier = Modifier
-            .height(42.dp)
-            .widthIn(min = 42.dp)
-            .clip(RoundedCornerShape(4.dp))
+            .height(46.dp)
+            .widthIn(min = 46.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(bgColor)
             .semantics(mergeDescendants = true) {
                 contentDescription = description
@@ -252,7 +260,7 @@ private fun ExtraKeyButton(
             Text(
                 text = key.label,
                 color = fgColor,
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -261,7 +269,7 @@ private fun ExtraKeyButton(
                 Text(
                     text = key.popup,
                     color = fgColor.copy(alpha = 0.4f),
-                    fontSize = 7.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     textAlign = TextAlign.Center,
                 )

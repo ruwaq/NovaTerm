@@ -1,13 +1,17 @@
 package com.novaterm.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +39,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -41,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
 import com.novaterm.app.ui.theme.LocalNovaTermColors
@@ -64,12 +71,15 @@ fun NovaTermApp(
 
     val novaColors = LocalNovaTermColors.current
 
-    // Sync preferences to service
-    val service = viewModel.service.collectAsState().value
-    service?.bellEnabled = preferences.bellEnabled
+    val service by viewModel.service.collectAsState()
+
+    // Sync preferences to service only when they change
+    LaunchedEffect(preferences.bellEnabled, service) {
+        service?.bellEnabled = preferences.bellEnabled
+    }
 
     if (showSettings) {
-        androidx.activity.compose.BackHandler { viewModel.hideSettings() }
+        BackHandler { viewModel.hideSettings() }
         SettingsScreen(
             preferences = preferences,
             onPreferencesChanged = viewModel::updatePreferences,
@@ -111,26 +121,26 @@ fun NovaTermApp(
         Scaffold(
             topBar = {},
             bottomBar = {
-                Column {
+                Column(modifier = Modifier.navigationBarsPadding()) {
                 // Compact tab bar at bottom, above extra keys
                 if (sessions.isNotEmpty()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background)
-                            .padding(horizontal = 2.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // Menu button (compact)
                         IconButton(
                             onClick = { scope.launch { drawerState.open() } },
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(44.dp),
                         ) {
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = stringResource(R.string.cd_open_drawer),
                                 tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
 
@@ -147,13 +157,14 @@ fun NovaTermApp(
                                 Tab(
                                     selected = safeIndex == index,
                                     onClick = { viewModel.selectSession(index) },
-                                    modifier = Modifier.height(32.dp),
+                                    modifier = Modifier.height(40.dp),
                                 ) {
                                     Text(
                                         text = session.title?.takeIf { it.isNotBlank() }
                                             ?: stringResource(R.string.tab_session, index + 1),
                                         style = MaterialTheme.typography.labelSmall,
                                         maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
@@ -162,26 +173,26 @@ fun NovaTermApp(
                         // Settings (compact)
                         IconButton(
                             onClick = viewModel::showSettings,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(44.dp),
                         ) {
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = stringResource(R.string.action_settings),
                                 tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
 
                         // New session (compact)
                         IconButton(
                             onClick = viewModel::createSession,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(44.dp),
                         ) {
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = stringResource(R.string.action_new_session),
                                 tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
@@ -216,7 +227,8 @@ fun NovaTermApp(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .imePadding(), // Animate content with keyboard (adjustNothing in manifest)
             ) {
                 if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
                     TerminalScreen(
@@ -240,15 +252,15 @@ fun NovaTermApp(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        androidx.compose.foundation.layout.Column(
+                        Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
                             Text(
                                 text = stringResource(R.string.status_starting),
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
-                            androidx.compose.material3.Button(
+                            Button(
                                 onClick = { viewModel.createSession() },
                             ) {
                                 Text(stringResource(R.string.action_new_session))
@@ -291,11 +303,15 @@ private fun DrawerContent(
                 selected = index == selectedIndex,
                 onClick = { onSelectSession(index) },
                 badge = {
-                    IconButton(onClick = { onCloseSession(index) }) {
+                    IconButton(
+                        onClick = { onCloseSession(index) },
+                        modifier = Modifier.size(36.dp),
+                    ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = stringResource(R.string.cd_close_session),
                             tint = novaColors.destructive,
+                            modifier = Modifier.size(16.dp),
                         )
                     }
                 },
@@ -304,7 +320,7 @@ private fun DrawerContent(
         }
 
         NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            icon = { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_new_session)) },
             label = { Text(stringResource(R.string.action_new_session)) },
             selected = false,
             onClick = onNewSession,
@@ -314,7 +330,7 @@ private fun DrawerContent(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            icon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.action_settings)) },
             label = { Text(stringResource(R.string.action_settings)) },
             selected = false,
             onClick = onSettings,

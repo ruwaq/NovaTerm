@@ -55,6 +55,7 @@ dependencies {
     // Feature modules
     implementation(project(":feature:terminal"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:oem-compat"))
 
     // Android
     implementation(libs.androidx.core.ktx)
@@ -75,6 +76,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso)
 }

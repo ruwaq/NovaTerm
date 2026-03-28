@@ -11,6 +11,7 @@ import com.novaterm.core.common.util.runCatchingOp
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
+import android.util.Log
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +40,7 @@ class TermuxSessionManager(
     private val _activeSessionIndex = MutableStateFlow(0)
     override val activeSessionIndex: StateFlow<Int> = _activeSessionIndex.asStateFlow()
 
-    private val _events = Channel<SessionEvent>(Channel.BUFFERED)
+    private val _events = Channel<SessionEvent>(Channel.UNLIMITED)
     override val events: Flow<SessionEvent> = _events.receiveAsFlow()
 
     private var client: TerminalSessionClient? = null

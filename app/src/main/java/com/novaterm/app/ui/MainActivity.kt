@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.novaterm.app.service.TerminalService
 import com.novaterm.app.ui.theme.NovaTermTheme
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
+import com.novaterm.feature.oemcompat.detection.OemDetector
 
 /**
  * Single activity hosting the terminal UI.
@@ -30,8 +32,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Request POST_NOTIFICATIONS permission (required Android 13+)
         requestNotificationPermission()
+        requestBatteryExemptionIfNeeded()
 
         // Start the foreground service (idempotent if already running)
         startForegroundService(
@@ -55,6 +57,32 @@ class MainActivity : ComponentActivity() {
         viewModel.unbindService()
     }
 
+    /**
+     * On aggressive OEMs (Xiaomi, Huawei, Samsung, etc.), request battery
+     * optimization exemption once. This is critical for coexistence
+     * with other terminal apps — without it, HyperOS/MIUI will kill background
+     * apps when NovaTerm takes the foreground.
+     *
+     * Only shows the dialog once per install. If the user already granted
+     * the exemption, [OemDetector.needsBatteryWhitelist] returns false.
+     */
+    private fun requestBatteryExemptionIfNeeded() {
+        val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("battery_exemption_asked", false)) return
+
+        val oemInfo = OemDetector.detect(this)
+        Log.i(TAG, "OEM: ${oemInfo.brand.displayName} (aggressiveness=${oemInfo.brand.aggressiveness}), optimized=${oemInfo.isBatteryOptimized}")
+
+        if (OemDetector.needsBatteryWhitelist(oemInfo)) {
+            prefs.edit().putBoolean("battery_exemption_asked", true).apply()
+            try {
+                startActivity(OemDetector.batteryOptimizationIntent(this))
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not open battery optimization dialog", e)
+            }
+        }
+    }
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
@@ -71,6 +99,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val TAG = "NovaTerm"
         private const val REQ_NOTIFICATION = 100
     }
 }

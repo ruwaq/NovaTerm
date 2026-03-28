@@ -13,7 +13,7 @@ data class TerminalPreferences(
     val bellEnabled: Boolean = true,
     val showExtraKeys: Boolean = true,
     val backIsEscape: Boolean = true,
-    val colorScheme: String = "ember-dark",
+    val colorScheme: String = "gruvbox-dark",
 )
 
 class PreferencesRepository(context: Context) {
@@ -37,7 +37,7 @@ class PreferencesRepository(context: Context) {
             bellEnabled = prefs.getBoolean("bell_enabled", true),
             showExtraKeys = prefs.getBoolean("show_extra_keys", true),
             backIsEscape = prefs.getBoolean("back_is_escape", true),
-            colorScheme = prefs.getString("color_scheme", "ember-dark") ?: "ember-dark",
+            colorScheme = prefs.getString("color_scheme", "gruvbox-dark") ?: "gruvbox-dark",
         )
     }
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="oem_title">Battery Optimization</string>
+    <string name="oem_back">Back</string>
+    <string name="oem_action_required">Action required</string>
+    <string name="oem_all_set">You\'re all set</string>
+    <string name="oem_warning_desc">%s devices aggressively kill background apps. Follow the steps below to keep NovaTerm running.</string>
+    <string name="oem_ok_desc">Battery optimization is disabled. NovaTerm will run reliably in the background.</string>
+    <string name="oem_icon_warning">Warning</string>
+    <string name="oem_icon_ok">OK</string>
+    <string name="oem_disable_optimization">Disable battery optimization</string>
+    <string name="oem_open_autostart">Open autostart settings</string>
+    <string name="oem_steps_for">Steps for %s</string>
+    <string name="oem_device_label">Device: %1$s %2$s</string>
+    <string name="oem_android_label">Android %1$s (API %2$d)</string>
+</resources>

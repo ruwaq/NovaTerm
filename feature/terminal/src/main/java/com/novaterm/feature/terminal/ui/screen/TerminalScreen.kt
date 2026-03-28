@@ -11,7 +11,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
@@ -66,12 +70,15 @@ fun TerminalScreen(
     viewClient.onModifiersConsumed = onModifiersConsumed
 
     // Reference to the native view for imperative updates.
-    val terminalViewRef = remember { androidx.compose.runtime.mutableStateOf<TerminalView?>(null) }
+    val terminalViewRef = remember { mutableStateOf<TerminalView?>(null) }
+
+    // Track last applied font size to avoid recreating TerminalRenderer unnecessarily
+    var lastFontSize by remember { mutableIntStateOf(fontSize) }
 
     AndroidView(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 8.dp, vertical = 6.dp), // Breathing room like Termux
+            .padding(horizontal = 4.dp, vertical = 2.dp), // Minimal padding to maximize columns
         factory = { context ->
             // Apply NovaTerm color scheme to the terminal engine (once)
             applyNovaTermColors()
@@ -105,8 +112,11 @@ fun TerminalScreen(
                 view.attachSession(session)
             }
 
-            // Apply font size changes.
-            view.setTextSize(fontSize)
+            // Apply font size changes only when actually changed (avoids recreating TerminalRenderer).
+            if (fontSize != lastFontSize) {
+                view.setTextSize(fontSize)
+                lastFontSize = fontSize
+            }
 
             // Keep-screen-on follows preference.
             view.setKeepScreenOn(keepScreenOn)
@@ -118,10 +128,11 @@ fun TerminalScreen(
         }
     )
 
-    // Clean up when the composable leaves the composition.
-    DisposableEffect(Unit) {
+    // Clean up when the session changes or the composable leaves composition.
+    DisposableEffect(session) {
         onDispose {
             terminalViewRef.value?.setKeepScreenOn(false)
+            viewClient.terminalView = null
             terminalViewRef.value = null
         }
     }
@@ -156,7 +167,7 @@ private fun applyNovaTermColors() {
     // Special colors
     cs[TextStyle.COLOR_INDEX_FOREGROUND] = 0xFFEBDBB2.toInt()  // foreground
     cs[TextStyle.COLOR_INDEX_BACKGROUND] = 0xFF3C3836.toInt()  // background
-    cs[TextStyle.COLOR_INDEX_CURSOR]     = 0xFFFABD2F.toInt()  // cursor (yellow)
+    cs[TextStyle.COLOR_INDEX_CURSOR]     = 0xFFE78A4E.toInt()  // cursor (Ember Orange, matches theme)
 }
 
 /**
