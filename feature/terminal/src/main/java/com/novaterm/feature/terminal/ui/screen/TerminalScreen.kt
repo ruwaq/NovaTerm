@@ -6,6 +6,8 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -14,7 +16,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
+import com.termux.terminal.TerminalColors
+import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
+import com.termux.terminal.TextStyle
 import com.termux.view.TerminalView
 import com.termux.view.TerminalViewClient
 
@@ -64,8 +69,13 @@ fun TerminalScreen(
     val terminalViewRef = remember { androidx.compose.runtime.mutableStateOf<TerminalView?>(null) }
 
     AndroidView(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp, vertical = 6.dp), // Breathing room like Termux
         factory = { context ->
+            // Apply NovaTerm color scheme to the terminal engine (once)
+            applyNovaTermColors()
+
             TerminalView(context, null).apply {
                 isFocusable = true
                 isFocusableInTouchMode = true
@@ -77,6 +87,7 @@ fun TerminalScreen(
                 viewClient.terminalView = this
                 terminalViewRef.value = this
                 onViewReady?.invoke(this)
+
                 // Show keyboard automatically on first display
                 post {
                     requestFocus()
@@ -114,6 +125,38 @@ fun TerminalScreen(
             terminalViewRef.value = null
         }
     }
+}
+
+/**
+ * Apply NovaTerm's color scheme to the Termux terminal engine.
+ * Based on the user's optimized Termux "Gruvbox Soft Dark - Eye Comfort"
+ * configuration. Warm tones, no harsh blues, AMOLED friendly.
+ */
+private fun applyNovaTermColors() {
+    val cs = TerminalColors.COLOR_SCHEME.mDefaultColors
+
+    // 16 ANSI colors (from Termux colors.properties)
+    cs[0]  = 0xFF3C3836.toInt()  // black (background)
+    cs[1]  = 0xFFEA6962.toInt()  // red
+    cs[2]  = 0xFFA9B665.toInt()  // green
+    cs[3]  = 0xFFD8A657.toInt()  // yellow
+    cs[4]  = 0xFF7DAEA3.toInt()  // blue (warm cyan)
+    cs[5]  = 0xFFD3869B.toInt()  // magenta
+    cs[6]  = 0xFF89B482.toInt()  // cyan
+    cs[7]  = 0xFFA89984.toInt()  // white (dim)
+    cs[8]  = 0xFF928374.toInt()  // bright black (gray)
+    cs[9]  = 0xFFEA6962.toInt()  // bright red
+    cs[10] = 0xFFB8BB26.toInt()  // bright green
+    cs[11] = 0xFFFABD2F.toInt()  // bright yellow
+    cs[12] = 0xFF83A598.toInt()  // bright blue (warm teal)
+    cs[13] = 0xFFD3869B.toInt()  // bright magenta
+    cs[14] = 0xFF8EC07C.toInt()  // bright cyan
+    cs[15] = 0xFFEBDBB2.toInt()  // bright white
+
+    // Special colors
+    cs[TextStyle.COLOR_INDEX_FOREGROUND] = 0xFFEBDBB2.toInt()  // foreground
+    cs[TextStyle.COLOR_INDEX_BACKGROUND] = 0xFF3C3836.toInt()  // background
+    cs[TextStyle.COLOR_INDEX_CURSOR]     = 0xFFFABD2F.toInt()  // cursor (yellow)
 }
 
 /**
