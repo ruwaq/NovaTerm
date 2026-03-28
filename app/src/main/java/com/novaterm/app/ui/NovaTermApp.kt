@@ -154,16 +154,16 @@ fun NovaTermApp(
     sessionToClose?.let { index ->
         AlertDialog(
             onDismissRequest = viewModel::cancelCloseSession,
-            title = { Text("Close session?") },
-            text = { Text("Session ${index + 1} is still running. Close it?") },
+            title = { Text(stringResource(R.string.dialog_close_session_title)) },
+            text = { Text(stringResource(R.string.dialog_close_session_message, index + 1)) },
             confirmButton = {
                 TextButton(onClick = viewModel::confirmCloseSession) {
-                    Text("Close", color = novaColors.destructive)
+                    Text(stringResource(R.string.dialog_close), color = novaColors.destructive)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::cancelCloseSession) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.dialog_cancel))
                 }
             },
         )
@@ -173,13 +173,13 @@ fun NovaTermApp(
     renamingTabIndex?.let { index ->
         AlertDialog(
             onDismissRequest = { renamingTabIndex = null },
-            title = { Text("Rename session") },
+            title = { Text(stringResource(R.string.dialog_rename_session_title)) },
             text = {
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
                     singleLine = true,
-                    placeholder = { Text("Session name") },
+                    placeholder = { Text(stringResource(R.string.dialog_rename_placeholder)) },
                 )
             },
             confirmButton = {
@@ -189,12 +189,12 @@ fun NovaTermApp(
                     }
                     renamingTabIndex = null
                 }) {
-                    Text("Rename")
+                    Text(stringResource(R.string.dialog_rename))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renamingTabIndex = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.dialog_cancel))
                 }
             },
         )
@@ -311,7 +311,7 @@ fun NovaTermApp(
                         ) {
                             Icon(
                                 Icons.Default.Search,
-                                contentDescription = "Search history",
+                                contentDescription = stringResource(R.string.action_search_history),
                                 tint = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier.size(20.dp),
                             )
