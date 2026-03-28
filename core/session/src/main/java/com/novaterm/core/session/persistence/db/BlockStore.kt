@@ -19,6 +19,7 @@ class BlockStore(context: Context) {
 
     private val db = BlockStoreDb(context)
     private val lock = Any()
+    @Volatile private var closed = false
 
     // ── Sessions ──────────────────────────────────────────
 
@@ -29,6 +30,7 @@ class BlockStore(context: Context) {
         shell: String,
         cwd: String,
     ) {
+        if (closed) return
         val now = System.currentTimeMillis()
         synchronized(lock) {
             val values = ContentValues().apply {
@@ -102,7 +104,8 @@ class BlockStore(context: Context) {
         exitCode: Int? = null,
         durationMs: Long? = null,
         isAiGenerated: Boolean = false,
-    ): String {
+    ): String? {
+        if (closed) return null
         val id = UUID.randomUUID().toString()
         synchronized(lock) {
             val values = ContentValues().apply {
@@ -270,8 +273,12 @@ class BlockStore(context: Context) {
         return cursor.use { if (it.moveToFirst()) it.getLong(0) else 0L }
     }
 
+    val isClosed: Boolean get() = closed
+
     fun close() {
-        db.close()
+        if (closed) return
+        closed = true
+        try { db.close() } catch (_: Exception) { }
     }
 
     companion object {

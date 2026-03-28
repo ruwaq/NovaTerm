@@ -87,9 +87,9 @@ fun TerminalScreen(
     // Reference to the native view for imperative updates.
     val terminalViewRef = remember { mutableStateOf<TerminalView?>(null) }
 
-    // Track last applied values to avoid unnecessary work on recomposition
-    var lastFontSize by remember { mutableIntStateOf(fontSize) }
-    var lastColorScheme by remember { mutableStateOf(colorScheme) }
+    // Track last applied values — keyed on session so they reset on tab switch
+    var lastFontSize by remember(session) { mutableIntStateOf(fontSize) }
+    var lastColorScheme by remember(session) { mutableStateOf(colorScheme) }
 
     AndroidView(
         modifier = modifier

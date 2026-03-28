@@ -154,6 +154,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private fun removeSession(index: Int) {
         val svc = _service.value ?: return
         svc.removeSession(index)
+        // Clean up custom name for removed session
+        _sessionNames.update { names -> names - index }
         val newCount = svc.sessionCount
         if (_currentSessionIndex.value >= newCount) {
             _currentSessionIndex.value = (newCount - 1).coerceAtLeast(0)
