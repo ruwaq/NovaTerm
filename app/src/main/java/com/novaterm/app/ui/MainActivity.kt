@@ -10,6 +10,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -45,9 +49,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             val preferences = viewModel.preferences.collectAsState()
             val isDarkScheme = com.novaterm.core.common.model.ColorSchemes.isDark(preferences.value.colorScheme)
+            val installer = remember { com.novaterm.core.bootstrap.BootstrapInstaller(applicationContext) }
+            var bootstrapped by remember { mutableStateOf(installer.isBootstrapped) }
 
             NovaTermTheme(darkTheme = isDarkScheme) {
-                NovaTermApp(viewModel = viewModel)
+                if (!bootstrapped) {
+                    BootstrapScreen(
+                        installer = installer,
+                        onComplete = { bootstrapped = true },
+                    )
+                } else {
+                    NovaTermApp(viewModel = viewModel)
+                }
             }
         }
     }
