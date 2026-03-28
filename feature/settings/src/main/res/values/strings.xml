@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+
+    <!-- Sections -->
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_behavior">Behavior</string>
+    <string name="settings_section_input">Input</string>
+
+    <!-- Font size -->
+    <string name="settings_font_size">Font size</string>
+    <string name="settings_font_size_value">%1$d sp</string>
+
+    <!-- Color scheme -->
+    <string name="settings_color_scheme">Color scheme</string>
+
+    <!-- Keep screen on -->
+    <string name="settings_keep_screen_on">Keep screen on</string>
+    <string name="settings_keep_screen_on_desc">Prevent display from sleeping while terminal is active</string>
+
+    <!-- Haptic feedback -->
+    <string name="settings_haptic_feedback">Haptic feedback</string>
+    <string name="settings_haptic_feedback_desc">Vibrate on extra key press</string>
+
+    <!-- Bell -->
+    <string name="settings_bell">Terminal bell</string>
+    <string name="settings_bell_desc">Vibrate on bell character</string>
+
+    <!-- Extra keys -->
+    <string name="settings_extra_keys">Extra keys bar</string>
+    <string name="settings_extra_keys_desc">Show shortcut keys above keyboard</string>
+
+    <!-- Back as ESC -->
+    <string name="settings_back_is_escape">Back button sends ESC</string>
+    <string name="settings_back_is_escape_desc">Map hardware back button to Escape key</string>
+</resources>

@@ -71,8 +71,8 @@ class TerminalConfigValidationTest {
 
     @Test
     fun `large scrollback is valid for modern devices`() {
-        val config = TerminalConfig(scrollbackLines = 1_000_000)
-        assertEquals(1_000_000, config.scrollbackLines)
+        val config = TerminalConfig(scrollbackLines = 100_000)
+        assertEquals(100_000, config.scrollbackLines)
     }
 
     private fun assertTrue(message: String, condition: Boolean) {

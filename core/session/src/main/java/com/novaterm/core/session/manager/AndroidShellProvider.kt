@@ -26,7 +26,10 @@ class AndroidShellProvider(
             "$prefix/bin/sh",
             "/system/bin/sh",
         )
-        return candidates.first { File(it).canExecute() }
+        return candidates.firstOrNull { File(it).canExecute() }
+            ?: throw IllegalStateException(
+                "No executable shell found. Searched: $candidates"
+            )
     }
 
     override fun buildEnvironment(extraVars: Map<String, String>): Array<String> {

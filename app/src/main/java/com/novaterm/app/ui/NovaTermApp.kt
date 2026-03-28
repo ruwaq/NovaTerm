@@ -32,141 +32,123 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novaterm.app.R
-import com.novaterm.app.service.TerminalService
+import com.novaterm.app.ui.theme.LocalNovaTermColors
+import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
-import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovaTermApp(
-    service: TerminalService?,
-    onNewSession: () -> Unit,
-    onCloseSession: (Int) -> Unit,
-    viewModel: TerminalViewModel = viewModel(),
+    viewModel: TerminalViewModel,
 ) {
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    val sessions by viewModel.sessions.collectAsState()
     val selectedTab by viewModel.currentSessionIndex.collectAsState()
     val ctrlActive by viewModel.ctrlActive.collectAsState()
     val altActive by viewModel.altActive.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val showSettings by viewModel.showSettings.collectAsState()
 
-    val sessions = service?.sessions ?: emptyList()
+    val novaColors = LocalNovaTermColors.current
 
     if (showSettings) {
         SettingsScreen(
             preferences = preferences,
-            onPreferencesChanged = { viewModel.updatePreferences(it) },
-            onBack = { viewModel.hideSettings() }
+            onPreferencesChanged = viewModel::updatePreferences,
+            onBack = viewModel::hideSettings,
         )
         return
+    }
+
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    // Clamp index to valid range
+    val safeIndex = remember(selectedTab, sessions.size) {
+        selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
     }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Text(
-                    text = "NovaTerm",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
-
-                sessions.forEachIndexed { index, _ ->
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(R.string.tab_session, index + 1)) },
-                        selected = index == selectedTab,
-                        onClick = {
-                            viewModel.selectSession(index)
-                            scope.launch { drawerState.close() }
-                        },
-                        badge = {
-                            IconButton(onClick = { onCloseSession(index) }) {
-                                Icon(Icons.Default.Close, "Close session", tint = Color(0xFFFB4934))
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-                }
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    label = { Text(stringResource(R.string.action_new_session)) },
-                    selected = false,
-                    onClick = {
-                        onNewSession()
-                        viewModel.selectSession(sessions.size)
-                        scope.launch { drawerState.close() }
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text(stringResource(R.string.action_settings)) },
-                    selected = false,
-                    onClick = {
-                        viewModel.showSettings()
-                        scope.launch { drawerState.close() }
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
-        }
+            DrawerContent(
+                sessionCount = sessions.size,
+                selectedIndex = safeIndex,
+                onSelectSession = { index ->
+                    viewModel.selectSession(index)
+                    scope.launch { drawerState.close() }
+                },
+                onCloseSession = viewModel::removeSession,
+                onNewSession = {
+                    viewModel.createSession()
+                    scope.launch { drawerState.close() }
+                },
+                onSettings = {
+                    viewModel.showSettings()
+                    scope.launch { drawerState.close() }
+                },
+            )
+        },
     ) {
         Scaffold(
             topBar = {
                 if (sessions.size > 1) {
                     Column {
                         TopAppBar(
-                            title = { Text("NovaTerm") },
+                            title = {
+                                Text(stringResource(R.string.app_name))
+                            },
                             navigationIcon = {
                                 IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    Icon(
+                                        Icons.Default.Menu,
+                                        contentDescription = stringResource(R.string.cd_open_drawer),
+                                    )
                                 }
                             },
                             actions = {
-                                IconButton(onClick = { viewModel.showSettings() }) {
-                                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.action_settings))
+                                IconButton(onClick = viewModel::showSettings) {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = stringResource(R.string.action_settings),
+                                    )
                                 }
-                                IconButton(onClick = onNewSession) {
-                                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_new_session))
+                                IconButton(onClick = viewModel::createSession) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = stringResource(R.string.action_new_session),
+                                    )
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color(0xFF1D2021),
-                                titleContentColor = Color(0xFFEBDBB2),
-                                navigationIconContentColor = Color(0xFFEBDBB2),
-                                actionIconContentColor = Color(0xFFEBDBB2),
-                            )
+                                containerColor = MaterialTheme.colorScheme.background,
+                                titleContentColor = MaterialTheme.colorScheme.onBackground,
+                                navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                                actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                            ),
                         )
                         ScrollableTabRow(
-                            selectedTabIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0)),
-                            containerColor = Color(0xFF282828),
-                            contentColor = Color(0xFFEBDBB2),
-                            edgePadding = 0.dp
+                            selectedTabIndex = safeIndex,
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            edgePadding = 0.dp,
                         ) {
                             sessions.forEachIndexed { index, _ ->
                                 Tab(
-                                    selected = selectedTab == index,
+                                    selected = safeIndex == index,
                                     onClick = { viewModel.selectSession(index) },
-                                    text = { Text(stringResource(R.string.tab_session, index + 1)) }
+                                    text = {
+                                        Text(stringResource(R.string.tab_session, index + 1))
+                                    },
                                 )
                             }
                         }
@@ -181,59 +163,133 @@ fun NovaTermApp(
                 ) {
                     ExtraKeysBar(
                         onKey = { code ->
-                            val currentIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
-                            if (currentIndex in sessions.indices) {
-                                val session = sessions[currentIndex]
-                                val bytes = if (ctrlActive && code.length == 1) {
-                                    val c = code[0]
-                                    if (c in 'a'..'z' || c in 'A'..'Z') {
-                                        val ctrl = (c.uppercaseChar() - 'A' + 1).toChar()
-                                        ctrl.toString()
-                                    } else {
-                                        code
-                                    }
-                                } else if (altActive && code.length == 1) {
-                                    "\u001b$code"
-                                } else {
-                                    code
-                                }
-                                session.write(bytes)
+                            if (safeIndex in sessions.indices) {
+                                val bytes = resolveKeyInput(code, ctrlActive, altActive)
+                                sessions[safeIndex].write(bytes)
                                 viewModel.resetModifiers()
                             }
                         },
-                        onCtrlToggle = { viewModel.toggleCtrl() },
-                        onAltToggle = { viewModel.toggleAlt() },
+                        onCtrlToggle = viewModel::toggleCtrl,
+                        onAltToggle = viewModel::toggleAlt,
                         ctrlActive = ctrlActive,
                         altActive = altActive,
-                        modifier = Modifier.fillMaxWidth()
+                        hapticEnabled = preferences.hapticFeedback,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             },
-            containerColor = Color(0xFF1D2021)
+            containerColor = MaterialTheme.colorScheme.background,
         ) { padding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(padding),
             ) {
-                if (sessions.isNotEmpty()) {
-                    val currentIndex = selectedTab.coerceIn(0, sessions.size - 1)
+                if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
                     TerminalScreen(
-                        session = sessions[currentIndex],
-                        modifier = Modifier.fillMaxSize()
+                        session = sessions[safeIndex],
+                        fontSize = preferences.fontSize,
+                        keepScreenOn = preferences.keepScreenOn,
+                        ctrlActive = ctrlActive,
+                        altActive = altActive,
+                        backIsEscape = preferences.backIsEscape,
+                        onModifiersConsumed = viewModel::resetModifiers,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "Starting terminal...",
-                            color = Color(0xFFEBDBB2)
+                            text = stringResource(R.string.status_starting),
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
                     }
                 }
             }
         }
+    }
+}
+
+// ── Extracted composables ──────────────────────────────────
+
+@Composable
+private fun DrawerContent(
+    sessionCount: Int,
+    selectedIndex: Int,
+    onSelectSession: (Int) -> Unit,
+    onCloseSession: (Int) -> Unit,
+    onNewSession: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    val novaColors = LocalNovaTermColors.current
+
+    ModalDrawerSheet {
+        Text(
+            text = stringResource(R.string.app_name),
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+
+        repeat(sessionCount) { index ->
+            NavigationDrawerItem(
+                label = {
+                    Text(stringResource(R.string.tab_session, index + 1))
+                },
+                selected = index == selectedIndex,
+                onClick = { onSelectSession(index) },
+                badge = {
+                    IconButton(onClick = { onCloseSession(index) }) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cd_close_session),
+                            tint = novaColors.destructive,
+                        )
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            label = { Text(stringResource(R.string.action_new_session)) },
+            selected = false,
+            onClick = onNewSession,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            label = { Text(stringResource(R.string.action_settings)) },
+            selected = false,
+            onClick = onSettings,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+    }
+}
+
+/**
+ * Resolves key input applying modifier keys (Ctrl/Alt).
+ */
+private fun resolveKeyInput(code: String, ctrlActive: Boolean, altActive: Boolean): String {
+    if (code.length != 1) return code
+
+    return when {
+        ctrlActive -> {
+            val c = code[0]
+            if (c in 'a'..'z' || c in 'A'..'Z') {
+                (c.uppercaseChar() - 'A' + 1).toChar().toString()
+            } else {
+                code
+            }
+        }
+        altActive -> "\u001b$code"
+        else -> code
     }
 }

@@ -12,5 +12,11 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
             sourceCompatibility = org.gradle.api.JavaVersion.VERSION_17
             targetCompatibility = org.gradle.api.JavaVersion.VERSION_17
         }
+
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java) {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            }
+        }
     }
 }

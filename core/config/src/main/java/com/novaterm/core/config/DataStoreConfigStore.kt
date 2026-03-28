@@ -12,17 +12,17 @@ import com.novaterm.core.common.contract.ConfigStore
 import com.novaterm.core.common.model.ColorScheme
 import com.novaterm.core.common.model.TerminalConfig
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "novaterm_config")
 
 class DataStoreConfigStore(
     private val context: Context,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    private val scope: CoroutineScope,
 ) : ConfigStore {
 
     private val _config = MutableStateFlow(TerminalConfig())
@@ -36,28 +36,43 @@ class DataStoreConfigStore(
         }
     }
 
-    override fun update(transform: (TerminalConfig) -> TerminalConfig) {
-        val newConfig = transform(_config.value)
-        _config.value = newConfig
-        scope.launch {
-            context.dataStore.edit { prefs ->
-                prefs[Keys.FONT_SIZE] = newConfig.fontSize
-                prefs[Keys.FONT_FAMILY] = newConfig.fontFamily
-                prefs[Keys.COLOR_SCHEME] = newConfig.colorScheme.name
-                prefs[Keys.SCROLLBACK_LINES] = newConfig.scrollbackLines
-                prefs[Keys.KEEP_SCREEN_ON] = newConfig.keepScreenOn
-                prefs[Keys.HAPTIC_FEEDBACK] = newConfig.hapticFeedback
-                prefs[Keys.BELL_ENABLED] = newConfig.bellEnabled
-                prefs[Keys.SHOW_EXTRA_KEYS] = newConfig.showExtraKeys
-                prefs[Keys.BACK_IS_ESCAPE] = newConfig.backIsEscape
-                prefs[Keys.TERMINAL_TYPE] = newConfig.terminalType
-            }
+    /**
+     * Atomically update config through DataStore.
+     *
+     * Previous version had a race condition: it read _config.value, applied the
+     * transform, wrote to DataStore in a fire-and-forget coroutine, AND eagerly
+     * set _config.value. Two rapid calls could overwrite each other.
+     *
+     * Now we use DataStore.edit (which is itself atomic) and let the collect
+     * in init{} propagate the new value to _config. This is safe because
+     * DataStore serializes edit calls internally.
+     */
+    override suspend fun update(transform: (TerminalConfig) -> TerminalConfig) {
+        context.dataStore.edit { prefs ->
+            val current = prefs.toTerminalConfig()
+            val newConfig = transform(current)
+            prefs[Keys.FONT_SIZE] = newConfig.fontSize
+            prefs[Keys.FONT_FAMILY] = newConfig.fontFamily
+            prefs[Keys.COLOR_SCHEME] = newConfig.colorScheme.name
+            prefs[Keys.SCROLLBACK_LINES] = newConfig.scrollbackLines
+            prefs[Keys.KEEP_SCREEN_ON] = newConfig.keepScreenOn
+            prefs[Keys.HAPTIC_FEEDBACK] = newConfig.hapticFeedback
+            prefs[Keys.BELL_ENABLED] = newConfig.bellEnabled
+            prefs[Keys.SHOW_EXTRA_KEYS] = newConfig.showExtraKeys
+            prefs[Keys.BACK_IS_ESCAPE] = newConfig.backIsEscape
+            prefs[Keys.TERMINAL_TYPE] = newConfig.terminalType
         }
+        // DataStore.edit suspends until persisted; the collect in init{}
+        // will update _config, but we also force a read to ensure the
+        // StateFlow is up-to-date before this function returns.
+        _config.value = context.dataStore.data.first().toTerminalConfig()
     }
 
     private fun Preferences.toTerminalConfig(): TerminalConfig {
         val fontSize = (this[Keys.FONT_SIZE] ?: 14)
             .coerceIn(TerminalConfig.FONT_SIZE_RANGE)
+        val scrollback = (this[Keys.SCROLLBACK_LINES] ?: 10_000)
+            .coerceIn(TerminalConfig.SCROLLBACK_RANGE)
         val schemeName = this[Keys.COLOR_SCHEME] ?: ColorScheme.GRUVBOX_DARK.name
         val scheme = try {
             ColorScheme.valueOf(schemeName)
@@ -69,7 +84,7 @@ class DataStoreConfigStore(
             fontSize = fontSize,
             fontFamily = this[Keys.FONT_FAMILY] ?: "monospace",
             colorScheme = scheme,
-            scrollbackLines = (this[Keys.SCROLLBACK_LINES] ?: 10_000).coerceAtLeast(0),
+            scrollbackLines = scrollback,
             keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: false,
             hapticFeedback = this[Keys.HAPTIC_FEEDBACK] ?: true,
             bellEnabled = this[Keys.BELL_ENABLED] ?: true,
