@@ -101,6 +101,9 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _showSettings = MutableStateFlow(false)
     val showSettings: StateFlow<Boolean> = _showSettings.asStateFlow()
 
+    private val _showOnboarding = MutableStateFlow(!prefsRepo.isOnboardingCompleted)
+    val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
+
     // ── Actions ────────────────────────────────────────────
 
     fun createSession() {
@@ -138,6 +141,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun updatePreferences(newPrefs: TerminalPreferences) {
         prefsRepo.update(newPrefs)
+    }
+
+    fun completeOnboarding(colorScheme: String) {
+        prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
+        prefsRepo.completeOnboarding()
+        _showOnboarding.value = false
     }
 
     fun showSettings() {

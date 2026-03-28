@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
 import com.novaterm.app.ui.theme.LocalNovaTermColors
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
+import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
 import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
@@ -71,6 +72,7 @@ fun NovaTermApp(
     val altActive by viewModel.altActive.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val showSettings by viewModel.showSettings.collectAsState()
+    val showOnboarding by viewModel.showOnboarding.collectAsState()
 
     val novaColors = LocalNovaTermColors.current
 
@@ -79,6 +81,16 @@ fun NovaTermApp(
     // Sync preferences to service only when they change
     LaunchedEffect(preferences.bellEnabled, service) {
         service?.bellEnabled = preferences.bellEnabled
+    }
+
+    // ── First launch: color scheme picker ──────────────────
+    if (showOnboarding) {
+        ColorSchemePickerScreen(
+            onSchemeSelected = { schemeId ->
+                viewModel.completeOnboarding(schemeId)
+            },
+        )
+        return
     }
 
     if (showSettings) {

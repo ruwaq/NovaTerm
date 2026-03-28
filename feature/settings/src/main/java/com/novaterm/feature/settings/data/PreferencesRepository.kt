@@ -24,6 +24,13 @@ class PreferencesRepository(context: Context) {
     private val _preferences = MutableStateFlow(load())
     val preferences: StateFlow<TerminalPreferences> = _preferences.asStateFlow()
 
+    val isOnboardingCompleted: Boolean
+        get() = prefs.getBoolean("onboarding_completed", false)
+
+    fun completeOnboarding() {
+        prefs.edit().putBoolean("onboarding_completed", true).apply()
+    }
+
     fun update(newPrefs: TerminalPreferences) {
         save(newPrefs)
         _preferences.value = newPrefs
