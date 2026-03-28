@@ -119,7 +119,10 @@ class BootstrapInstaller(private val context: Context) {
             // 6. Create symlinks (after rename, so paths resolve correctly)
             createSymlinks(symlinks, prefixDir)
 
-            // 7. Ensure tmp directory exists
+            // 7. Patch scripts: replace com.termux paths with our package paths
+            patchTermuxPaths(prefixDir)
+
+            // 8. Ensure tmp directory exists
             File(prefixDir, "tmp").mkdirs()
 
             _state.value = State.Done
@@ -191,6 +194,45 @@ class BootstrapInstaller(private val context: Context) {
     }
 
     // ── Permissions ───────────────────────────────────────
+
+    // ── Path patching ──────────────────────────────────
+
+    /**
+     * Replace hardcoded com.termux paths in shell scripts with our package paths.
+     * The bootstrap is built from Termux packages which have /data/data/com.termux
+     * hardcoded. We patch text files (scripts, configs) to use our actual paths.
+     * Binary ELF files are NOT patched — termux-exec handles those at runtime.
+     */
+    private fun patchTermuxPaths(prefix: File) {
+        val termuxPrefix = "/data/data/com.termux/files"
+        val ourPrefix = context.filesDir.absolutePath
+
+        // Patch shell scripts in bin/ and etc/
+        val dirsToPath = listOf("bin", "etc", "etc/profile.d", "etc/apt")
+        var patched = 0
+
+        for (dir in dirsToPath) {
+            val d = File(prefix, dir)
+            if (!d.isDirectory) continue
+            d.listFiles()?.forEach { file ->
+                if (file.isFile && file.length() < 100_000) { // Only small files (scripts)
+                    try {
+                        val content = file.readText()
+                        if (content.contains(termuxPrefix)) {
+                            file.writeText(content.replace(termuxPrefix, ourPrefix))
+                            patched++
+                        }
+                    } catch (_: Exception) {
+                        // Skip binary files that throw on readText
+                    }
+                }
+            }
+        }
+
+        Log.i(TAG, "Patched $patched files: $termuxPrefix → $ourPrefix")
+    }
+
+    // ── Permissions ───────────────────────────────────
 
     private fun setExecutePermissions(prefix: File) {
         // Directories that contain executable files
