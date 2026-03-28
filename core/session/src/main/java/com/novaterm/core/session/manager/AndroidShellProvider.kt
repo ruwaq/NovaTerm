@@ -24,17 +24,41 @@ class AndroidShellProvider(
     private val prefix: String get() = "$rootDir/usr"
     private val homeDir: String get() = "$rootDir/home"
 
+    // The system linker executes binaries from /data/ on Android 10+
+    // where W^X (Write XOR Execute) blocks direct execution.
+    private val systemLinker: String = if (File("/system/bin/linker64").exists()) {
+        "/system/bin/linker64"
+    } else {
+        "/system/bin/linker"
+    }
+
     override fun findShell(): String {
+        // Check if shell binary EXISTS (not canExecute — W^X blocks that)
         val candidates = listOf(
-            "$prefix/bin/zsh",
             "$prefix/bin/bash",
             "$prefix/bin/sh",
-            "/system/bin/sh",
+            "$prefix/bin/zsh",
         )
-        return candidates.firstOrNull { File(it).canExecute() }
-            ?: throw IllegalStateException(
-                "No executable shell found. Searched: $candidates"
-            )
+        val shell = candidates.firstOrNull { File(it).exists() }
+        if (shell != null) return shell
+
+        // Fallback to system shell (no linker needed)
+        return "/system/bin/sh"
+    }
+
+    /**
+     * Returns the executable and arguments to launch the shell.
+     * On Android 10+, routes through the system linker to bypass W^X.
+     */
+    fun shellCommand(): Array<String> {
+        val shell = findShell()
+        return if (shell.startsWith("/system/")) {
+            // System binary — execute directly
+            arrayOf(shell)
+        } else {
+            // App binary — route through system linker (W^X bypass)
+            arrayOf(systemLinker, shell, "--login")
+        }
     }
 
     override fun buildEnvironment(extraVars: Map<String, String>): Array<String> {
@@ -63,9 +87,15 @@ class AndroidShellProvider(
         // W^X bypass: termux-exec intercepts exec() calls and routes them
         // through /system/bin/linker64, which has permission to execute
         // binaries from the app's data directory. Required on Android 10+.
-        val termuxExecLib = "$prefix/lib/libtermux-exec.so"
-        if (java.io.File(termuxExecLib).exists()) {
-            env["LD_PRELOAD"] = termuxExecLib
+        // termux-exec LD_PRELOAD for W^X bypass: intercepts exec() calls
+        // and routes through system linker. Linker variant for Android 10+.
+        val ldPreloadCandidates = listOf(
+            "$prefix/lib/libtermux-exec-linker-ld-preload.so",
+            "$prefix/lib/libtermux-exec-ld-preload.so",
+            "$prefix/lib/libtermux-exec.so",
+        )
+        ldPreloadCandidates.firstOrNull { File(it).exists() }?.let {
+            env["LD_PRELOAD"] = it
         }
 
         // Termux-exec environment (tells termux-exec where the app lives)
