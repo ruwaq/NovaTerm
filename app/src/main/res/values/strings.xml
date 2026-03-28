@@ -24,6 +24,7 @@
 
     <!-- Status -->
     <string name="status_starting">Starting terminal\u2026</string>
+    <string name="notification_bell_activity">Activity in terminal session</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_open_drawer">Open navigation drawer</string>
