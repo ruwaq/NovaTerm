@@ -32,7 +32,7 @@ class InMemoryConfigStoreTest {
         val store = InMemoryConfigStore()
         val config = store.config.value
 
-        assertEquals(18, config.fontSize)
+        assertEquals(32, config.fontSize)
         assertEquals("monospace", config.fontFamily)
         assertEquals(ColorScheme.GRUVBOX_DARK, config.colorScheme)
         assertEquals(10_000, config.scrollbackLines)
@@ -56,7 +56,7 @@ class InMemoryConfigStoreTest {
         val store = InMemoryConfigStore()
 
         store.config.test {
-            assertEquals(18, awaitItem().fontSize)
+            assertEquals(32, awaitItem().fontSize)
 
             store.update { it.copy(fontSize = 20) }
             assertEquals(20, awaitItem().fontSize)

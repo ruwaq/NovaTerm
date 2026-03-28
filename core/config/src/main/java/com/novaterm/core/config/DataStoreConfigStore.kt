@@ -66,7 +66,7 @@ class DataStoreConfigStore(
     }
 
     private fun Preferences.toTerminalConfig(): TerminalConfig {
-        val fontSize = (this[Keys.FONT_SIZE] ?: 18)
+        val fontSize = (this[Keys.FONT_SIZE] ?: 32)
             .coerceIn(TerminalConfig.FONT_SIZE_RANGE)
         val scrollback = (this[Keys.SCROLLBACK_LINES] ?: 10_000)
             .coerceIn(TerminalConfig.SCROLLBACK_RANGE)

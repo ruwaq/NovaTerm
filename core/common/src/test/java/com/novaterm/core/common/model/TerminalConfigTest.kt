@@ -11,7 +11,7 @@ class TerminalConfigTest {
     @Test
     fun `default config has sensible values`() {
         val config = TerminalConfig()
-        assertEquals(18, config.fontSize)
+        assertEquals(32, config.fontSize)
         assertEquals("monospace", config.fontFamily)
         assertEquals(ColorScheme.GRUVBOX_DARK, config.colorScheme)
         assertEquals(10_000, config.scrollbackLines)

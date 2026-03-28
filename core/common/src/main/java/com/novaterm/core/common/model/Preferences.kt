@@ -1,7 +1,7 @@
 package com.novaterm.core.common.model
 
 data class TerminalConfig(
-    val fontSize: Int = 18,
+    val fontSize: Int = 32,
     val fontFamily: String = "monospace",
     val colorScheme: ColorScheme = ColorScheme.GRUVBOX_DARK,
     val scrollbackLines: Int = 10_000,
