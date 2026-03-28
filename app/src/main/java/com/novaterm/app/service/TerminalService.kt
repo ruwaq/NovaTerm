@@ -196,6 +196,26 @@ class TerminalService : Service() {
         blockStore = BlockStore(this)
 
         startForeground(NOTIFICATION_ID, buildNotification())
+
+        // Periodic session save (every 30s) for crash protection
+        startPeriodicSave()
+    }
+
+    private val saveRunnable = object : Runnable {
+        override fun run() {
+            if (_sessions.value.isNotEmpty()) {
+                saveSessionMetadata()
+            }
+            mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
+        }
+    }
+
+    private fun startPeriodicSave() {
+        mainHandler.postDelayed(saveRunnable, SAVE_INTERVAL_MS)
+    }
+
+    private fun stopPeriodicSave() {
+        mainHandler.removeCallbacks(saveRunnable)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -219,8 +239,16 @@ class TerminalService : Service() {
 
     override fun onBind(intent: Intent): IBinder = binder
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // User swiped app away — save state before Android may kill us
+        saveSessionMetadata()
+        Log.i(TAG, "Task removed, session metadata saved")
+    }
+
     override fun onDestroy() {
         onScreenUpdated = null
+        stopPeriodicSave()
         saveSessionMetadata()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
@@ -420,6 +448,7 @@ class TerminalService : Service() {
         private const val REQ_NEW_SESSION = 2
         private const val REQ_TOGGLE_WAKELOCK = 3
         private const val NOTIFICATION_BELL = 1338
+        private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
         const val ACTION_EXIT = "com.novaterm.app.action.EXIT"
