@@ -1,8 +1,10 @@
 package com.novaterm.feature.terminal.ui.screen
 
+import android.content.Context
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -64,12 +66,21 @@ fun TerminalScreen(
         modifier = modifier.fillMaxSize(),
         factory = { context ->
             TerminalView(context, null).apply {
+                isFocusable = true
+                isFocusableInTouchMode = true
                 setTextSize(fontSize)
                 setTerminalViewClient(viewClient)
                 attachSession(session)
                 setKeepScreenOn(keepScreenOn)
-                // Focus is requested in the update block after the view is laid out.
+                viewClient.terminalView = this
                 terminalViewRef = this
+                // Show keyboard automatically on first display
+                post {
+                    requestFocus()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                        as? InputMethodManager
+                    imm?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                }
             }
         },
         update = { view ->
@@ -117,6 +128,7 @@ private class NovaTermViewClient(
     @Volatile var altActive: Boolean,
     @Volatile var backIsEscape: Boolean,
     var onModifiersConsumed: () -> Unit,
+    var terminalView: TerminalView? = null,
 ) : TerminalViewClient {
 
     // ── Modifier keys (THE critical fix) ───────────────────────────
@@ -153,7 +165,13 @@ private class NovaTermViewClient(
 
     override fun onScale(scale: Float): Float = scale
 
-    override fun onSingleTapUp(e: MotionEvent?) {}
+    override fun onSingleTapUp(e: MotionEvent?) {
+        val view = terminalView ?: return
+        view.requestFocus()
+        val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
+            as? InputMethodManager
+        imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+    }
 
     override fun copyModeChanged(copyMode: Boolean) {}
 

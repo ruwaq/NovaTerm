@@ -45,28 +45,24 @@ data class ExtraKey(
     val isModifier: Boolean = false,
 )
 
+// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider)
+// Focus: natural language prompts, slash commands, file references, navigation
+// Each key has a popup (long press) for secondary action
+
 private val ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b"),
-    ExtraKey("TAB", "\t"),
-    ExtraKey("/"),
-    ExtraKey("-"),
-    ExtraKey("~"),
-    ExtraKey("|"),
-    ExtraKey("UP", "\u001b[A", popup = "PgUp"),
-    ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),
-    ExtraKey("ENTER", "\r"),
+    ExtraKey("ESC", "\u001b", popup = "exit"),       // Rewind in Claude Code (Esc+Esc), popup: exit session
+    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete @file paths, popup: @ for file references
+    ExtraKey("UP", "\u001b[A", popup = "PgUp"),       // Prompt history, popup: page up
+    ExtraKey("/", popup = "~"),                        // Slash commands (/compact /clear), popup: home dir
+    ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),     // Prompt history, popup: page down
 )
 
 private val ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true),
-    ExtraKey("ALT", isModifier = true),
-    ExtraKey("LEFT", "\u001b[D", popup = "Home"),
-    ExtraKey("RIGHT", "\u001b[C", popup = "End"),
-    ExtraKey("{"),
-    ExtraKey("}"),
-    ExtraKey("["),
-    ExtraKey("]"),
-    ExtraKey("_"),
+    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier, popup: Ctrl+C (cancel AI generation)
+    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier (Alt+T thinking), popup: Ctrl+R (search history)
+    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Cursor, popup: start of line
+    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor, popup: end of line
+    ExtraKey("SCR", "\u001b[A", popup = "clr"),          // Scroll mode, popup: clear screen (Ctrl+L)
 )
 
 /**
@@ -146,6 +142,11 @@ private fun ExtraKeyRow(
                     when (key.label) {
                         "CTRL" -> currentOnCtrlToggle()
                         "ALT" -> currentOnAltToggle()
+                        "SCR" -> {
+                            // tmux scroll mode: Ctrl+A then [
+                            currentOnKey("\u0001")  // Ctrl+A (tmux prefix)
+                            currentOnKey("[")
+                        }
                         else -> currentOnKey(key.code)
                     }
                 },
@@ -159,6 +160,12 @@ private fun ExtraKeyRow(
                             "PgDn" -> currentOnKey("\u001b[6~")
                             "Home" -> currentOnKey("\u001b[H")
                             "End" -> currentOnKey("\u001b[F")
+                            "@" -> currentOnKey("@")
+                            "~" -> currentOnKey("~")
+                            "exit" -> currentOnKey("\u0004")  // Ctrl+D
+                            "^C" -> currentOnKey("\u0003")    // Ctrl+C (cancel AI generation)
+                            "^R" -> currentOnKey("\u0012")    // Ctrl+R (search history)
+                            "clr" -> currentOnKey("\u000C")   // Ctrl+L (clear screen)
                         }
                     }
                 }
