@@ -1,13 +1,16 @@
 package com.novaterm.core.session.manager
 
 import android.content.Context
+import android.os.Build
+import android.os.Environment
 import com.novaterm.core.common.contract.ShellProvider
 import java.io.File
 
 /**
  * Locates shell binaries and constructs environment for terminal sessions.
  * Searches the app's private prefix first, then falls back to system shell.
- * Handles first-run bootstrapping of home directory files (.profile, .motd, .shrc).
+ * Handles first-run bootstrapping: creates home directory structure,
+ * standard project workspace, storage symlinks, and shell config files.
  */
 class AndroidShellProvider(
     private val context: Context,
@@ -41,11 +44,14 @@ class AndroidShellProvider(
         env["HOME"] = homeDir
         env["PREFIX"] = prefix
         env["LANG"] = "en_US.UTF-8"
-        env["PATH"] = "$prefix/bin:$prefix/bin/applets:/system/bin"
+        env["PATH"] = "$homeDir/.local/bin:$prefix/bin:$prefix/bin/applets:/system/bin"
         env["TMPDIR"] = "$prefix/tmp"
         env["SHELL"] = findShell()
         env["LD_LIBRARY_PATH"] = "$prefix/lib"
         env["ENV"] = "$homeDir/.shrc"
+        env["XDG_CONFIG_HOME"] = "$homeDir/.config"
+        env["XDG_DATA_HOME"] = "$homeDir/.local/share"
+        env["XDG_CACHE_HOME"] = "$homeDir/.cache"
 
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
@@ -65,39 +71,109 @@ class AndroidShellProvider(
         if (!tmpdir.isDirectory) tmpdir.mkdirs()
 
         if (firstRun) {
-            setupFirstRun(home)
+            setupDirectoryStructure(home)
+            setupStorageLinks(home)
+            setupShellConfig(home)
         }
 
         return homeDir
     }
 
-    private fun setupFirstRun(home: File) {
-        // PS1 with real ESC characters — works in any POSIX shell (sh/mksh/bash/zsh).
-        // Bash-only \[...\] and \e escapes are NOT portable.
+    // ── First-run: directory structure ─────────────────────
+
+    private fun setupDirectoryStructure(home: File) {
+        // Standard workspace
+        File(home, "projects").mkdirs()
+
+        // XDG directories
+        File(home, ".config").mkdirs()
+        File(home, ".local/bin").mkdirs()
+        File(home, ".local/share").mkdirs()
+        File(home, ".cache").mkdirs()
+
+        // SSH directory with correct permissions
+        val sshDir = File(home, ".ssh")
+        sshDir.mkdirs()
+        sshDir.setReadable(false, false)
+        sshDir.setReadable(true, true)
+        sshDir.setWritable(false, false)
+        sshDir.setWritable(true, true)
+        sshDir.setExecutable(false, false)
+        sshDir.setExecutable(true, true) // 0700
+    }
+
+    // ── First-run: storage symlinks ───────────────────────
+
+    private fun setupStorageLinks(home: File) {
+        val storageDir = File(home, "storage")
+        if (storageDir.exists()) return
+        storageDir.mkdirs()
+
+        val sdcard = Environment.getExternalStorageDirectory().absolutePath
+
+        // Only create symlinks to directories that exist and are accessible
+        mapOf(
+            "shared" to sdcard,
+            "downloads" to "$sdcard/Download",
+            "documents" to "$sdcard/Documents",
+            "dcim" to "$sdcard/DCIM",
+            "pictures" to "$sdcard/Pictures",
+            "music" to "$sdcard/Music",
+        ).forEach { (name, target) ->
+            try {
+                val targetFile = File(target)
+                if (targetFile.isDirectory) {
+                    val link = File(storageDir, name)
+                    if (!link.exists()) {
+                        android.system.Os.symlink(target, link.absolutePath)
+                    }
+                }
+            } catch (_: Exception) {
+                // Storage may not be accessible yet — user can run setup-storage later
+            }
+        }
+    }
+
+    // ── First-run: shell configuration ────────────────────
+
+    private fun setupShellConfig(home: File) {
+        // PS1 with real ESC characters — works in any POSIX shell.
         val profile = File(home, ".profile")
         if (!profile.exists()) {
             profile.writeText(buildString {
-                appendLine("# NovaTerm - short prompt")
+                appendLine("# NovaTerm shell profile")
+                appendLine()
+                appendLine("# Prompt: orange > on dark background")
                 appendLine("export PS1='\u001b[38;5;208m>\u001b[0m '")
+                appendLine()
+                appendLine("# User scripts")
+                appendLine("export PATH=\"\$HOME/.local/bin:\$PATH\"")
+                appendLine()
+                appendLine("# Default editor")
+                appendLine("export EDITOR=vi")
+                appendLine()
+                appendLine("# Aliases")
+                appendLine("alias ll='ls -la'")
+                appendLine("alias p='cd ~/projects'")
                 appendLine()
             })
         }
 
-        // Welcome banner displayed via cat in .shrc
+        // Welcome banner — informative about the environment
         val motd = File(home, ".motd")
         if (!motd.exists()) {
+            val device = Build.MODEL
+            val androidVer = Build.VERSION.RELEASE
             motd.writeText(buildString {
                 appendLine()
-                appendLine("\u001b[38;5;208m  ╭─────────────────────────────╮\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0            \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  Next-gen Android Terminal   \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  ╰─────────────────────────────╯\u001b[0m")
+                appendLine("\u001b[38;5;208m  ╭───────────────────────────────╮\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0              \u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[38;5;246m$device · Android $androidVer\u001b[0m${" ".repeat((19 - device.length - androidVer.length).coerceAtLeast(0))}\u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  ╰───────────────────────────────╯\u001b[0m")
                 appendLine()
-                appendLine("\u001b[38;5;246m  Tips:\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Pinch to zoom text\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Long-press extra keys for popups\u001b[0m")
-                appendLine("\u001b[38;5;246m  • Swipe from left edge for drawer\u001b[0m")
-                appendLine("\u001b[38;5;246m  • + button to add sessions\u001b[0m")
+                appendLine("\u001b[38;5;246m  ~/projects/\u001b[0m    \u001b[38;5;242m← your workspace\u001b[0m")
+                appendLine("\u001b[38;5;246m  ~/storage/\u001b[0m     \u001b[38;5;242m← phone files\u001b[0m")
+                appendLine("\u001b[38;5;246m  ~/.config/\u001b[0m     \u001b[38;5;242m← app configs\u001b[0m")
                 appendLine()
             })
         }
