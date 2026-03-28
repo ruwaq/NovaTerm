@@ -35,30 +35,63 @@ class AndroidShellProvider(
     override fun findShell(): String {
         // Check if shell binary EXISTS (not canExecute — W^X blocks that)
         val candidates = listOf(
+            "$prefix/bin/login", // Termux login script: sets LD_PRELOAD, detects shell, exec bash
             "$prefix/bin/bash",
             "$prefix/bin/sh",
-            "$prefix/bin/zsh",
         )
         val shell = candidates.firstOrNull { File(it).exists() }
         if (shell != null) return shell
-
-        // Fallback to system shell (no linker needed)
         return "/system/bin/sh"
     }
 
     /**
      * Returns the executable and arguments to launch the shell.
      * On Android 10+, routes through the system linker to bypass W^X.
+     *
+     * The login script is critical: it sets LD_PRELOAD with termux-exec
+     * which intercepts ALL child exec() calls and routes them through
+     * linker64 too. Without this, only the initial shell works but
+     * commands like ls, apt, git all fail with "Permission denied".
      */
     fun shellCommand(): Array<String> {
         val shell = findShell()
         return if (shell.startsWith("/system/")) {
-            // System binary — execute directly
             arrayOf(shell)
+        } else if (File(shell).canRead() && isScript(shell)) {
+            // Shell script (like login): execute interpreter via linker, pass script as arg
+            val interpreter = readShebang(shell) ?: "$prefix/bin/sh"
+            arrayOf(systemLinker, interpreter, shell)
         } else {
-            // App binary — route through system linker (W^X bypass)
+            // ELF binary: execute directly via linker
             arrayOf(systemLinker, shell, "--login")
         }
+    }
+
+    private fun isScript(path: String): Boolean {
+        return try {
+            val bytes = File(path).inputStream().use { it.read(); it.read() }
+            // Check for "#!" shebang
+            File(path).inputStream().use {
+                val b1 = it.read()
+                val b2 = it.read()
+                b1 == '#'.code && b2 == '!'.code
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private fun readShebang(path: String): String? {
+        return try {
+            File(path).bufferedReader().use { reader ->
+                val line = reader.readLine() ?: return null
+                if (!line.startsWith("#!")) return null
+                // Extract interpreter path, handle "#!/usr/bin/env bash" too
+                val parts = line.removePrefix("#!").trim().split("\\s+".toRegex())
+                val interp = parts.firstOrNull() ?: return null
+                // Replace /usr/bin paths with our prefix
+                interp.replace("/usr/bin/", "$prefix/bin/")
+                      .replace("/bin/", "$prefix/bin/")
+            }
+        } catch (_: Exception) { null }
     }
 
     override fun buildEnvironment(extraVars: Map<String, String>): Array<String> {
