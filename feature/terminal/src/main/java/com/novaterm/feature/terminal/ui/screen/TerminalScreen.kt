@@ -41,6 +41,7 @@ fun TerminalScreen(
     altActive: Boolean = false,
     backIsEscape: Boolean = false,
     onModifiersConsumed: () -> Unit = {},
+    onViewReady: ((TerminalView) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val viewClient = remember {
@@ -72,8 +73,10 @@ fun TerminalScreen(
                 setTerminalViewClient(viewClient)
                 attachSession(session)
                 setKeepScreenOn(keepScreenOn)
+                setIsTerminalViewKeyLoggingEnabled(true)
                 viewClient.terminalView = this
                 terminalViewRef = this
+                onViewReady?.invoke(this)
                 // Show keyboard automatically on first display
                 post {
                     requestFocus()

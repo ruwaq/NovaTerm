@@ -194,6 +194,12 @@ fun NovaTermApp(
                         altActive = altActive,
                         backIsEscape = preferences.backIsEscape,
                         onModifiersConsumed = viewModel::resetModifiers,
+                        onViewReady = { terminalView ->
+                            // Connect the TerminalView's screen update to the service callback
+                            viewModel.service.value?.onScreenUpdated = {
+                                terminalView.onScreenUpdated()
+                            }
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
