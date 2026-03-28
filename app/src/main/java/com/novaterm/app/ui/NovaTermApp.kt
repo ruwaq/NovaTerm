@@ -324,6 +324,14 @@ fun NovaTermApp(
                                 altActive = altActive,
                                 backIsEscape = preferences.backIsEscape,
                                 onModifiersConsumed = viewModel::resetModifiers,
+                                onBlockComplete = { command, exitCode ->
+                                    service?.blockStore?.insertBlock(
+                                        sessionId = "session_$page",
+                                        command = command,
+                                        exitCode = exitCode,
+                                        cwd = sessions.getOrNull(page)?.cwd,
+                                    )
+                                },
                                 onViewReady = { terminalView ->
                                     if (page == pagerState.settledPage) {
                                         service?.onScreenUpdated = { terminalView.onScreenUpdated() }

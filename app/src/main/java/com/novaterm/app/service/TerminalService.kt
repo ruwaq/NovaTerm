@@ -25,6 +25,7 @@ import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.manager.TermuxSessionManager
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
+import com.novaterm.core.session.persistence.db.BlockStore
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -56,6 +57,8 @@ class TerminalService : Service() {
     private lateinit var shellProvider: AndroidShellProvider
     private lateinit var sessionManager: TermuxSessionManager
     private lateinit var sessionStore: SessionStore
+    lateinit var blockStore: BlockStore
+        private set
 
     // ── Session state (observable) ─────────────────────────
 
@@ -190,6 +193,7 @@ class TerminalService : Service() {
         sessionManager = TermuxSessionManager(shellProvider)
         sessionManager.setClient(sessionClient)
         sessionStore = SessionStore(this)
+        blockStore = BlockStore(this)
 
         startForeground(NOTIFICATION_ID, buildNotification())
     }
@@ -218,6 +222,7 @@ class TerminalService : Service() {
     override fun onDestroy() {
         onScreenUpdated = null
         saveSessionMetadata()
+        if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { it.finishIfRunning() }
         releaseLocks()

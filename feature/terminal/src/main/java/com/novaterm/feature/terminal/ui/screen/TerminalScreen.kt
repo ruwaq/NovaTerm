@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novaterm.feature.terminal.color.TerminalPalettes
+import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
 import com.novaterm.feature.terminal.url.UrlConfirmDialog
 import com.novaterm.feature.terminal.url.UrlDetector
 import com.termux.terminal.TerminalColors
@@ -54,11 +55,16 @@ fun TerminalScreen(
     altActive: Boolean = false,
     backIsEscape: Boolean = false,
     onModifiersConsumed: () -> Unit = {},
+    onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null,
     onViewReady: ((TerminalView) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // URL detection state
     var detectedUrl by remember { mutableStateOf<String?>(null) }
+
+    // Semantic zone tracker for OSC 133 (prompt/input/output markers)
+    val zoneTracker = remember { SemanticZoneTracker() }
+    zoneTracker.onBlockComplete = onBlockComplete
 
     val viewClient = remember {
         NovaTermViewClient(
