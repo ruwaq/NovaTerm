@@ -232,19 +232,31 @@ class TerminalService : Service() {
 
     private var isFirstLaunch = true
 
-    private fun buildWelcomeCommands(): String = buildString {
-        // Clear and show ASCII art banner
-        append("clear; echo; echo '")
-        append("  \\033[38;5;208m╭───────────────────────────────╮\\033[0m'; echo '")
-        append("  \\033[38;5;208m│\\033[0m  \\033[1;38;5;208mNovaTerm\\033[0m v0.1.0              \\033[38;5;208m│\\033[0m'; echo '")
-        append("  \\033[38;5;208m│\\033[0m  Next-gen Android Terminal    \\033[38;5;208m│\\033[0m'; echo '")
-        append("  \\033[38;5;208m│\\033[0m  by \\033[38;5;214mPrometeoDEV\\033[0m               \\033[38;5;208m│\\033[0m'; echo '")
-        append("  \\033[38;5;208m╰───────────────────────────────╯\\033[0m'; echo; echo '")
-        append("  \\033[38;5;246m• Pinch to zoom\\033[0m'; echo '")
-        append("  \\033[38;5;246m• Long-press keys for popups\\033[0m'; echo '")
-        append("  \\033[38;5;246m• + button for new sessions\\033[0m'; echo; ")
-        // Set short prompt
-        append("export PS1='\\033[38;5;208m>\\033[0m '\n")
+    private fun buildWelcomeCommands(): String {
+        // Use printf with actual escape chars (not literal \033)
+        // \u001b = ESC character that the shell interprets correctly
+        val esc = "\\x1b"
+        return buildString {
+            append("clear\n")
+            append("printf '\\n'\n")
+            append("printf '\\n'\n")
+            append("printf '\\n'\n")
+            append("printf '         ${esc}[38;5;208m╔══════════════════════════╗${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[1;38;5;208m███╗${esc}[0m ${esc}[1;38;5;214mNovaTerm${esc}[0m      ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[1;38;5;208m╚══╝${esc}[0m ${esc}[38;5;246mv0.1.0${esc}[0m        ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m   ${esc}[38;5;246mby ${esc}[38;5;214mPrometeoDEV${esc}[0m       ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m║${esc}[0m                          ${esc}[38;5;208m║${esc}[0m\\n'\n")
+            append("printf '         ${esc}[38;5;208m╚══════════════════════════╝${esc}[0m\\n'\n")
+            append("printf '\\n'\n")
+            append("printf '    ${esc}[38;5;246m• Pinch to zoom text${esc}[0m\\n'\n")
+            append("printf '    ${esc}[38;5;246m• Long-press keys for popups${esc}[0m\\n'\n")
+            append("printf '    ${esc}[38;5;246m• + button for new sessions${esc}[0m\\n'\n")
+            append("printf '\\n'\n")
+            // Set short colored prompt using printf-safe method
+            append("PS1='\$ '\n")
+        }
     }
 
     fun removeSession(index: Int) {

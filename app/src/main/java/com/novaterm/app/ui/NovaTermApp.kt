@@ -109,8 +109,10 @@ fun NovaTermApp(
         },
     ) {
         Scaffold(
-            topBar = {
-                // Compact tab bar — minimal height, no separate TopAppBar
+            topBar = {},
+            bottomBar = {
+                Column {
+                // Compact tab bar at bottom, above extra keys
                 if (sessions.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -184,8 +186,8 @@ fun NovaTermApp(
                         }
                     }
                 }
-            },
-            bottomBar = {
+
+                // Extra keys bar
                 AnimatedVisibility(
                     visible = preferences.showExtraKeys,
                     enter = slideInVertically { it },
@@ -207,6 +209,7 @@ fun NovaTermApp(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                } // end Column
             },
             containerColor = MaterialTheme.colorScheme.background,
         ) { padding ->
