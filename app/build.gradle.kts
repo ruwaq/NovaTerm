@@ -20,6 +20,30 @@ android {
         }
     }
 
+    ndkVersion = property("novaterm.ndkVersion").toString()
+
+    // Bootstrap native library: embeds bootstrap ZIP via .incbin assembly.
+    // Only enabled when building on x86_64 (CI) where cmake/ninja can run.
+    // On ARM64 (Termux), cmake is x86_64-only and can't execute.
+    // The BootstrapInstaller handles the missing library gracefully.
+    val cmakePath = file("src/main/cpp/CMakeLists.txt")
+    val cmakeBin = file("${System.getenv("ANDROID_HOME") ?: ""}/cmake/3.22.1/bin/cmake")
+    if (cmakePath.exists() && cmakeBin.exists() && cmakeBin.canExecute()) {
+        externalNativeBuild {
+            cmake {
+                path = cmakePath
+                version = "3.22.1"
+            }
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Don't compress .so files — allows mmap and efficient Play Store delta updates
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
