@@ -50,7 +50,18 @@ class MainActivity : ComponentActivity() {
             val preferences = viewModel.preferences.collectAsState()
             val isDarkScheme = com.novaterm.core.common.model.ColorSchemes.isDark(preferences.value.colorScheme)
             val installer = remember { com.novaterm.core.bootstrap.BootstrapInstaller(applicationContext) }
-            var bootstrapped by remember { mutableStateOf(installer.isBootstrapped) }
+
+            // Skip bootstrap screen if already installed OR if native library
+            // is not available (placeholder ZIP — use /system/bin/sh fallback)
+            var bootstrapped by remember {
+                val nativeAvailable = try {
+                    System.loadLibrary("novaterm-bootstrap")
+                    true
+                } catch (_: UnsatisfiedLinkError) {
+                    false
+                }
+                mutableStateOf(installer.isBootstrapped || !nativeAvailable)
+            }
 
             NovaTermTheme(darkTheme = isDarkScheme) {
                 if (!bootstrapped) {
