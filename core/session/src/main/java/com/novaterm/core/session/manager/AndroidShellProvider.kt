@@ -94,14 +94,20 @@ class AndroidShellProvider(
             "$prefix/lib/libtermux-exec-ld-preload.so",
             "$prefix/lib/libtermux-exec.so",
         )
-        ldPreloadCandidates.firstOrNull { File(it).exists() }?.let {
-            env["LD_PRELOAD"] = it
+        val ldPreloadLib = ldPreloadCandidates.firstOrNull { File(it).exists() }
+        if (ldPreloadLib != null) {
+            env["LD_PRELOAD"] = ldPreloadLib
+            android.util.Log.i("NovaTerm", "LD_PRELOAD: $ldPreloadLib")
+        } else {
+            android.util.Log.w("NovaTerm", "WARNING: No libtermux-exec found! Checked: $ldPreloadCandidates")
         }
 
         // Termux-exec environment (tells termux-exec where the app lives)
         env["TERMUX__ROOTFS"] = rootDir
         env["TERMUX__PREFIX"] = prefix
         env["TERMUX_APP__DATA_DIR"] = context.applicationInfo.dataDir
+        // Legacy data dir path (some Android versions use /data/data/, others /data/user/0/)
+        env["TERMUX_APP__LEGACY_DATA_DIR"] = "/data/data/${context.packageName}"
 
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
