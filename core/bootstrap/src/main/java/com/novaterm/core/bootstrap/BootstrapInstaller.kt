@@ -72,16 +72,19 @@ class BootstrapInstaller(private val context: Context) {
         try {
             _state.value = State.Extracting(0f, "Loading...")
 
-            // 1. Load ZIP from native library
+            // 1. Load ZIP from assets (Phase 1) or native library (Phase 2)
             val zipBytes = try {
-                NativeBootstrap.getZip()
-            } catch (e: UnsatisfiedLinkError) {
-                Log.w(TAG, "Bootstrap native library not found — bootstrap ZIP not embedded in APK yet")
-                _state.value = State.Error(
-                    "Bootstrap not available. Run the bootstrap CI workflow first, " +
-                    "then rebuild the APK with the generated ZIP."
-                )
-                return@withContext false
+                // Try assets first (simpler, no NDK required)
+                context.assets.open("bootstrap-aarch64.zip").use { it.readBytes() }
+            } catch (_: Exception) {
+                try {
+                    // Fallback to JNI native library (Phase 2, requires NDK build)
+                    NativeBootstrap.getZip()
+                } catch (_: UnsatisfiedLinkError) {
+                    Log.w(TAG, "No bootstrap found in assets or native library")
+                    _state.value = State.Error("Bootstrap not available.")
+                    return@withContext false
+                }
             }
 
             Log.i(TAG, "Bootstrap ZIP loaded: ${zipBytes.size} bytes (${zipBytes.size / 1024 / 1024} MB)")
