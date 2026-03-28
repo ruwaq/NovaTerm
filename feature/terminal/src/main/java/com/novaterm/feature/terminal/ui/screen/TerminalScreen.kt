@@ -68,9 +68,9 @@ fun TerminalScreen(
 
     val viewClient = remember {
         NovaTermViewClient(
-            ctrlActive = false,
-            altActive = false,
-            backIsEscape = false,
+            ctrlActive = ctrlActive,
+            altActive = altActive,
+            backIsEscape = backIsEscape,
             onModifiersConsumed = onModifiersConsumed,
             onUrlDetected = { url -> detectedUrl = url },
         )

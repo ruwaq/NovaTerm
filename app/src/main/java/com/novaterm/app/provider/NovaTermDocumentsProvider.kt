@@ -140,10 +140,13 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
             File(homeDir, docId)
         }
 
-        // Security: block symlinks pointing outside home
+        // Security: block symlinks pointing outside home.
+        // Use path + separator to prevent prefix matching attack
+        // (e.g., /data/home.bak matching /data/home)
         val canonical = file.canonicalFile
         val homeCanonical = homeDir.canonicalFile
-        if (!canonical.path.startsWith(homeCanonical.path)) {
+        val homePath = homeCanonical.path + File.separator
+        if (canonical != homeCanonical && !canonical.path.startsWith(homePath)) {
             throw FileNotFoundException("Access denied: $docId resolves outside home directory")
         }
 

@@ -60,6 +60,7 @@ class BlockStore(context: Context) {
     }
 
     fun getSessions(): List<SessionRecord> {
+        if (closed) return emptyList()
         val cursor = db.readableDatabase.rawQuery(
             "SELECT id, tab_index, tab_name, shell, cwd, created_at FROM sessions ORDER BY tab_index",
             null,
@@ -124,10 +125,11 @@ class BlockStore(context: Context) {
     }
 
     fun getRecentBlocks(sessionId: String, limit: Int = 50): List<BlockRecord> {
+        if (closed) return emptyList()
         val cursor = db.readableDatabase.rawQuery(
             "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
-            "FROM blocks WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
-            arrayOf(sessionId, limit.toString()),
+            "FROM blocks WHERE session_id = ? ORDER BY timestamp DESC LIMIT $limit",
+            arrayOf(sessionId),
         )
         val result = mutableListOf<BlockRecord>()
         cursor.use {
