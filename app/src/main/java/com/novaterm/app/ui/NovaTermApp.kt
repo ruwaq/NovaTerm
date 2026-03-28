@@ -3,11 +3,15 @@ package com.novaterm.app.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -106,56 +110,77 @@ fun NovaTermApp(
     ) {
         Scaffold(
             topBar = {
-                Column {
-                    if (sessions.isNotEmpty()) {
-                        TopAppBar(
-                            title = {
-                                Text(stringResource(R.string.app_name))
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(
-                                        Icons.Default.Menu,
-                                        contentDescription = stringResource(R.string.cd_open_drawer),
-                                    )
-                                }
-                            },
-                            actions = {
-                                IconButton(onClick = viewModel::showSettings) {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = stringResource(R.string.action_settings),
-                                    )
-                                }
-                                IconButton(onClick = viewModel::createSession) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.action_new_session),
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.background,
-                                titleContentColor = MaterialTheme.colorScheme.onBackground,
-                                navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                                actionIconContentColor = MaterialTheme.colorScheme.onBackground,
-                            ),
-                        )
+                // Compact tab bar — minimal height, no separate TopAppBar
+                if (sessions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Menu button (compact)
+                        IconButton(
+                            onClick = { scope.launch { drawerState.open() } },
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = stringResource(R.string.cd_open_drawer),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        // Scrollable tabs (compact, takes remaining space)
                         ScrollableTabRow(
                             selectedTabIndex = safeIndex,
-                            containerColor = MaterialTheme.colorScheme.surface,
+                            containerColor = MaterialTheme.colorScheme.background,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                             edgePadding = 0.dp,
+                            modifier = Modifier.weight(1f),
+                            divider = {},
                         ) {
-                            sessions.forEachIndexed { index, _ ->
+                            sessions.forEachIndexed { index, session ->
                                 Tab(
                                     selected = safeIndex == index,
                                     onClick = { viewModel.selectSession(index) },
-                                    text = {
-                                        Text(stringResource(R.string.tab_session, index + 1))
-                                    },
-                                )
+                                    modifier = Modifier.height(32.dp),
+                                ) {
+                                    Text(
+                                        text = session.title?.takeIf { it.isNotBlank() }
+                                            ?: stringResource(R.string.tab_session, index + 1),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
+                                    )
+                                }
                             }
+                        }
+
+                        // Settings (compact)
+                        IconButton(
+                            onClick = viewModel::showSettings,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.action_settings),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        // New session (compact)
+                        IconButton(
+                            onClick = viewModel::createSession,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = stringResource(R.string.action_new_session),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(18.dp),
+                            )
                         }
                     }
                 }

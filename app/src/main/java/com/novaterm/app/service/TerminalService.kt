@@ -218,7 +218,33 @@ class TerminalService : Service() {
 
         _sessions.update { it + session }
         updateNotification()
+
+        // Write welcome banner + short prompt on first session
+        if (_sessions.value.size == 1 && isFirstLaunch) {
+            isFirstLaunch = false
+            mainHandler.postDelayed({
+                session.write(buildWelcomeCommands())
+            }, 300) // Small delay to let shell initialize
+        }
+
         return session
+    }
+
+    private var isFirstLaunch = true
+
+    private fun buildWelcomeCommands(): String = buildString {
+        // Clear and show ASCII art banner
+        append("clear; echo; echo '")
+        append("  \\033[38;5;208m╭───────────────────────────────╮\\033[0m'; echo '")
+        append("  \\033[38;5;208m│\\033[0m  \\033[1;38;5;208mNovaTerm\\033[0m v0.1.0              \\033[38;5;208m│\\033[0m'; echo '")
+        append("  \\033[38;5;208m│\\033[0m  Next-gen Android Terminal    \\033[38;5;208m│\\033[0m'; echo '")
+        append("  \\033[38;5;208m│\\033[0m  by \\033[38;5;214mPrometeoDEV\\033[0m               \\033[38;5;208m│\\033[0m'; echo '")
+        append("  \\033[38;5;208m╰───────────────────────────────╯\\033[0m'; echo; echo '")
+        append("  \\033[38;5;246m• Pinch to zoom\\033[0m'; echo '")
+        append("  \\033[38;5;246m• Long-press keys for popups\\033[0m'; echo '")
+        append("  \\033[38;5;246m• + button for new sessions\\033[0m'; echo; ")
+        // Set short prompt
+        append("export PS1='\\033[38;5;208m>\\033[0m '\n")
     }
 
     fun removeSession(index: Int) {
