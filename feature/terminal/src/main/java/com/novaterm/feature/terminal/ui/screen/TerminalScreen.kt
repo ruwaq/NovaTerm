@@ -73,7 +73,7 @@ fun TerminalScreen(
                 setTerminalViewClient(viewClient)
                 attachSession(session)
                 setKeepScreenOn(keepScreenOn)
-                setIsTerminalViewKeyLoggingEnabled(true)
+                setIsTerminalViewKeyLoggingEnabled(false)
                 viewClient.terminalView = this
                 terminalViewRef.value = this
                 onViewReady?.invoke(this)

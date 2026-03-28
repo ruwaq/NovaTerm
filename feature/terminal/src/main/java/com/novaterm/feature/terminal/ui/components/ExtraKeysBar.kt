@@ -49,20 +49,24 @@ data class ExtraKey(
 // Focus: natural language prompts, slash commands, file references, navigation
 // Each key has a popup (long press) for secondary action
 
+// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider)
+// Tap = primary action, Long press = popup secondary action
+
 private val ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit"),       // Rewind in Claude Code (Esc+Esc), popup: exit session
-    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete @file paths, popup: @ for file references
+    ExtraKey("ESC", "\u001b", popup = "exit"),       // Rewind in Claude Code, popup: Ctrl+D exit
+    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete @file paths, popup: @
     ExtraKey("UP", "\u001b[A", popup = "PgUp"),       // Prompt history, popup: page up
-    ExtraKey("/", popup = "~"),                        // Slash commands (/compact /clear), popup: home dir
+    ExtraKey("/", popup = "~"),                        // Slash commands, popup: home dir ~
     ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),     // Prompt history, popup: page down
+    ExtraKey("ENT", "\r"),                             // Send prompt / execute command
 )
 
 private val ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier, popup: Ctrl+C (cancel AI generation)
-    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier (Alt+T thinking), popup: Ctrl+R (search history)
-    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Cursor, popup: start of line
-    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor, popup: end of line
-    ExtraKey("CLR", "\u000C", popup = "~"),               // Clear screen (Ctrl+L), popup: home dir
+    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier, popup: Ctrl+C cancel
+    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier, popup: Ctrl+R search history
+    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Cursor left, popup: start of line
+    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor right, popup: end of line
+    ExtraKey("CLR", "\u000C", popup = "|"),              // Clear screen (Ctrl+L), popup: pipe
 )
 
 /**
@@ -161,6 +165,7 @@ private fun ExtraKeyRow(
                             "^C" -> currentOnKey("\u0003")    // Ctrl+C (cancel AI generation)
                             "^R" -> currentOnKey("\u0012")    // Ctrl+R (search history)
                             "clr" -> currentOnKey("\u000C")   // Ctrl+L (clear screen)
+                            "|" -> currentOnKey("|")          // Pipe
                         }
                     }
                 }
