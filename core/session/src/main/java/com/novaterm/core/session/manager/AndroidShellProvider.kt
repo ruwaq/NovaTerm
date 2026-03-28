@@ -53,45 +53,36 @@ class AndroidShellProvider(
      * linker64 too. Without this, only the initial shell works but
      * commands like ls, apt, git all fail with "Permission denied".
      */
+    /**
+     * Returns the executable and arguments to launch the shell.
+     *
+     * Execution chain for W^X bypass:
+     *   linker64 → dash (our sh) → login script → sets LD_PRELOAD → exec bash
+     *
+     * The login script is critical because it configures termux-exec
+     * which intercepts ALL child exec() calls and routes them through
+     * linker64. Without this, only the shell itself works but ls, apt,
+     * git etc. all fail with "Permission denied".
+     */
     fun shellCommand(): Array<String> {
         val shell = findShell()
-        return if (shell.startsWith("/system/")) {
-            arrayOf(shell)
-        } else if (File(shell).canRead() && isScript(shell)) {
-            // Shell script (like login): execute interpreter via linker, pass script as arg
-            val interpreter = readShebang(shell) ?: "$prefix/bin/sh"
-            arrayOf(systemLinker, interpreter, shell)
-        } else {
-            // ELF binary: execute directly via linker
-            arrayOf(systemLinker, shell, "--login")
+        if (shell.startsWith("/system/")) {
+            return arrayOf(shell)
         }
-    }
 
-    private fun isScript(path: String): Boolean {
-        return try {
-            val bytes = File(path).inputStream().use { it.read(); it.read() }
-            // Check for "#!" shebang
-            File(path).inputStream().use {
-                val b1 = it.read()
-                val b2 = it.read()
-                b1 == '#'.code && b2 == '!'.code
-            }
-        } catch (_: Exception) { false }
-    }
+        val loginScript = "$prefix/bin/login"
+        val sh = "$prefix/bin/sh" // dash — can interpret the login script
 
-    private fun readShebang(path: String): String? {
-        return try {
-            File(path).bufferedReader().use { reader ->
-                val line = reader.readLine() ?: return null
-                if (!line.startsWith("#!")) return null
-                // Extract interpreter path, handle "#!/usr/bin/env bash" too
-                val parts = line.removePrefix("#!").trim().split("\\s+".toRegex())
-                val interp = parts.firstOrNull() ?: return null
-                // Replace /usr/bin paths with our prefix
-                interp.replace("/usr/bin/", "$prefix/bin/")
-                      .replace("/bin/", "$prefix/bin/")
-            }
-        } catch (_: Exception) { null }
+        return if (File(loginScript).exists() && File(sh).exists()) {
+            // Best path: linker64 runs dash, dash interprets login script,
+            // login sets LD_PRELOAD and exec's bash
+            arrayOf(systemLinker, sh, loginScript)
+        } else if (File(shell).exists()) {
+            // Fallback: run shell directly via linker (no LD_PRELOAD for children)
+            arrayOf(systemLinker, shell, "--login")
+        } else {
+            arrayOf("/system/bin/sh")
+        }
     }
 
     override fun buildEnvironment(extraVars: Map<String, String>): Array<String> {
