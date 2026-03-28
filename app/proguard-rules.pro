@@ -35,6 +35,17 @@
 -keep class com.novaterm.feature.oemcompat.detection.OemInfo { *; }
 -keep class com.novaterm.feature.settings.data.TerminalPreferences { *; }
 
+# === Bootstrap (JNI + sealed state class) ===
+-keep class com.novaterm.core.bootstrap.NativeBootstrap { *; }
+-keep class com.novaterm.core.bootstrap.BootstrapInstaller$State { *; }
+-keep class com.novaterm.core.bootstrap.BootstrapInstaller$State$* { *; }
+
+# === BlockStore (SQLite persistence) ===
+-keep class com.novaterm.core.session.persistence.db.BlockStore { *; }
+-keep class com.novaterm.core.session.persistence.db.BlockStoreDb { *; }
+-keep class com.novaterm.core.session.persistence.db.*Record { *; }
+-keep class com.novaterm.core.session.persistence.db.StoreStats { *; }
+
 # === Compose ===
 # Compose compiler handles most of this, but keep @Composable metadata
 -keep class androidx.compose.runtime.** { *; }
