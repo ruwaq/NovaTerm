@@ -274,7 +274,14 @@ private class NovaTermViewClient(
 
     override fun copyModeChanged(copyMode: Boolean) {}
 
-    override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean = false
+    override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean {
+        // Shift+Enter → send newline without submit (critical for Claude Code multiline)
+        if (keyCode == KeyEvent.KEYCODE_ENTER && e?.isShiftPressed == true) {
+            session?.write("\n")
+            return true
+        }
+        return false
+    }
 
     override fun onKeyUp(keyCode: Int, e: KeyEvent?): Boolean = false
 
