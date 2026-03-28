@@ -271,15 +271,16 @@ class TerminalService : Service() {
 
     private fun createSessionInternal(cwd: String): TerminalSession? {
         return try {
-            val shell = shellProvider.findShell()
+            val shellCmd = shellProvider.shellCommand()
+            val shell = shellCmd[0] // executable (linker64 or shell)
             val env = shellProvider.buildEnvironment()
 
-            Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
+            Log.i(TAG, "Creating session: cmd=${shellCmd.toList()} cwd=$cwd")
 
             val session = TerminalSession(
                 shell,
                 cwd,
-                arrayOf(shell),
+                shellCmd,
                 env,
                 TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
                 sessionClient,
