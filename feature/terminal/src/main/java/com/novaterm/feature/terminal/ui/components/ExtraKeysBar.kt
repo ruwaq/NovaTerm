@@ -55,26 +55,29 @@ private object Sequences {
     const val CTRL_C = "\u0003"
     const val CTRL_R = "\u0012"
     const val CTRL_L = "\u000C"
+    const val CTRL_Z = "\u001a"
 }
 
 // Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
 // Tap = primary action, Long press = popup secondary action.
 
 private val ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit"),       // Rewind in Claude Code, popup: Ctrl+D exit
-    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete @file paths, popup: @
-    ExtraKey("UP", "\u001b[A", popup = "PgUp"),       // Prompt history, popup: page up
-    ExtraKey("/", popup = "~"),                        // Slash commands, popup: home dir ~
-    ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),     // Prompt history, popup: page down
-    ExtraKey("ENT", "\r"),                             // Send prompt / execute command
+    ExtraKey("ESC", "\u001b", popup = "exit"),       // Escape / popup: Ctrl+D exit
+    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete / popup: @
+    ExtraKey("UP", "\u001b[A", popup = "PgUp"),       // History up / popup: page up
+    ExtraKey("/", popup = "\\"),                       // Slash / popup: backslash
+    ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),     // History down / popup: page down
+    ExtraKey("|", popup = "~"),                        // Pipe / popup: home dir ~
+    ExtraKey("ENT", "\r"),                             // Execute
 )
 
 private val ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier, popup: Ctrl+C cancel
-    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier, popup: Ctrl+R search history
-    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Cursor left, popup: start of line
-    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor right, popup: end of line
-    ExtraKey("CLR", "\u000C", popup = "|"),              // Clear screen (Ctrl+L), popup: pipe
+    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier / popup: Ctrl+C
+    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier / popup: Ctrl+R history
+    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Left / popup: start of line
+    ExtraKey("-", popup = "_"),                          // Dash / popup: underscore
+    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Right / popup: end of line
+    ExtraKey("CLR", "\u000C", popup = "^Z"),             // Clear (Ctrl+L) / popup: Ctrl+Z bg
 )
 
 private val ROWS = listOf(ROW_1, ROW_2)
@@ -173,6 +176,7 @@ private fun ExtraKeyRow(
                             "exit" -> currentOnKey(Sequences.CTRL_D)
                             "^C" -> currentOnKey(Sequences.CTRL_C)
                             "^R" -> currentOnKey(Sequences.CTRL_R)
+                            "^Z" -> currentOnKey(Sequences.CTRL_Z)
                             else -> currentOnKey(key.popup)
                         }
                     }
