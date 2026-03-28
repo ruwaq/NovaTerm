@@ -49,9 +49,10 @@ class BootstrapInstaller(private val context: Context) {
     val prefixDir: File get() = File(filesDir, "usr")
 
     /** Whether the bootstrap has been installed (bash or sh exists). */
+    // Use exists() NOT canExecute() — W^X makes canExecute() return false
     val isBootstrapped: Boolean
-        get() = File(prefixDir, "bin/bash").canExecute() ||
-                File(prefixDir, "bin/sh").canExecute()
+        get() = File(prefixDir, "bin/bash").exists() ||
+                File(prefixDir, "bin/sh").exists()
 
     /**
      * Install the bootstrap if not already present. Safe to call multiple times.
