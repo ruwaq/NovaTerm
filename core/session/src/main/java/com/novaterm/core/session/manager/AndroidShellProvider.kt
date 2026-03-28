@@ -51,7 +51,9 @@ class AndroidShellProvider(
         env["ENV"] = "$homeDir/.shrc"
         env["XDG_CONFIG_HOME"] = "$homeDir/.config"
         env["XDG_DATA_HOME"] = "$homeDir/.local/share"
+        env["XDG_STATE_HOME"] = "$homeDir/.local/state"
         env["XDG_CACHE_HOME"] = "$homeDir/.cache"
+        env["XDG_RUNTIME_DIR"] = "$prefix/tmp"
 
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
@@ -85,10 +87,11 @@ class AndroidShellProvider(
         // Standard workspace
         File(home, "projects").mkdirs()
 
-        // XDG directories
+        // XDG directories (freedesktop.org Base Directory Specification)
         File(home, ".config").mkdirs()
         File(home, ".local/bin").mkdirs()
         File(home, ".local/share").mkdirs()
+        File(home, ".local/state").mkdirs()
         File(home, ".cache").mkdirs()
 
         // SSH directory with correct permissions
@@ -143,18 +146,22 @@ class AndroidShellProvider(
             profile.writeText(buildString {
                 appendLine("# NovaTerm shell profile")
                 appendLine()
-                appendLine("# Prompt: orange > on dark background")
+                appendLine("# Prompt")
                 appendLine("export PS1='\u001b[38;5;208m>\u001b[0m '")
                 appendLine()
-                appendLine("# User scripts")
-                appendLine("export PATH=\"\$HOME/.local/bin:\$PATH\"")
+                appendLine("# History")
+                appendLine("export HISTSIZE=10000")
+                appendLine("export HISTFILESIZE=10000")
+                appendLine("export HISTCONTROL=erasedups:ignoredups:ignorespace")
                 appendLine()
-                appendLine("# Default editor")
+                appendLine("# Editor")
                 appendLine("export EDITOR=vi")
                 appendLine()
                 appendLine("# Aliases")
                 appendLine("alias ll='ls -la'")
+                appendLine("alias la='ls -A'")
                 appendLine("alias p='cd ~/projects'")
+                appendLine("alias s='cd ~/storage/shared'")
                 appendLine()
             })
         }
