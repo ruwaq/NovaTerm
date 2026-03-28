@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         requestNotificationPermission()
+        requestStoragePermission()
         requestBatteryExemptionIfNeeded()
 
         // Start the foreground service (idempotent if already running)
@@ -41,7 +43,10 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            NovaTermTheme {
+            val preferences = viewModel.preferences.collectAsState()
+            val isDarkScheme = !preferences.value.colorScheme.contains("light")
+
+            NovaTermTheme(darkTheme = isDarkScheme) {
                 NovaTermApp(viewModel = viewModel)
             }
         }
@@ -83,6 +88,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun requestStoragePermission() {
+        // For Android 10-12, request legacy storage permission for ~/storage/ symlinks.
+        // Android 13+ uses granular media permissions which we don't need (we access via SAF).
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.READ_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    REQ_STORAGE,
+                )
+            }
+        }
+    }
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
@@ -101,5 +123,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "NovaTerm"
         private const val REQ_NOTIFICATION = 100
+        private const val REQ_STORAGE = 101
     }
 }
