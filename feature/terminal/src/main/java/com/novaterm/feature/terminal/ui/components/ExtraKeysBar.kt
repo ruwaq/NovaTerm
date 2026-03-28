@@ -62,7 +62,7 @@ private val ROW_2 = listOf(
     ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier (Alt+T thinking), popup: Ctrl+R (search history)
     ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Cursor, popup: start of line
     ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Cursor, popup: end of line
-    ExtraKey("SCR", "\u001b[A", popup = "clr"),          // Scroll mode, popup: clear screen (Ctrl+L)
+    ExtraKey("CLR", "\u000C", popup = "~"),               // Clear screen (Ctrl+L), popup: home dir
 )
 
 /**
@@ -142,11 +142,6 @@ private fun ExtraKeyRow(
                     when (key.label) {
                         "CTRL" -> currentOnCtrlToggle()
                         "ALT" -> currentOnAltToggle()
-                        "SCR" -> {
-                            // tmux scroll mode: Ctrl+A then [
-                            currentOnKey("\u0001")  // Ctrl+A (tmux prefix)
-                            currentOnKey("[")
-                        }
                         else -> currentOnKey(key.code)
                     }
                 },

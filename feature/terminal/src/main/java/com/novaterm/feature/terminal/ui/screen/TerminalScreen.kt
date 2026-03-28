@@ -61,7 +61,7 @@ fun TerminalScreen(
     viewClient.onModifiersConsumed = onModifiersConsumed
 
     // Reference to the native view for imperative updates.
-    var terminalViewRef: TerminalView? = remember { null }
+    val terminalViewRef = remember { androidx.compose.runtime.mutableStateOf<TerminalView?>(null) }
 
     AndroidView(
         modifier = modifier.fillMaxSize(),
@@ -75,7 +75,7 @@ fun TerminalScreen(
                 setKeepScreenOn(keepScreenOn)
                 setIsTerminalViewKeyLoggingEnabled(true)
                 viewClient.terminalView = this
-                terminalViewRef = this
+                terminalViewRef.value = this
                 onViewReady?.invoke(this)
                 // Show keyboard automatically on first display
                 post {
@@ -87,7 +87,7 @@ fun TerminalScreen(
             }
         },
         update = { view ->
-            terminalViewRef = view
+            terminalViewRef.value = view
 
             // Attach new session when tab switches.
             if (view.currentSession != session) {
@@ -110,8 +110,8 @@ fun TerminalScreen(
     // Clean up when the composable leaves the composition.
     DisposableEffect(Unit) {
         onDispose {
-            terminalViewRef?.setKeepScreenOn(false)
-            terminalViewRef = null
+            terminalViewRef.value?.setKeepScreenOn(false)
+            terminalViewRef.value = null
         }
     }
 }

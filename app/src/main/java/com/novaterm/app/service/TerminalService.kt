@@ -259,8 +259,12 @@ class TerminalService : Service() {
 
     private fun resolveHomeDir(): String {
         val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
-        val home = "$base/home"
-        return if (File(home).isDirectory) home else base
+        val home = File("$base/home")
+        val tmpdir = File("$base/usr/tmp")
+        // Ensure HOME and TMPDIR exist
+        if (!home.isDirectory) home.mkdirs()
+        if (!tmpdir.isDirectory) tmpdir.mkdirs()
+        return home.absolutePath
     }
 
     private fun findShell(): String {
