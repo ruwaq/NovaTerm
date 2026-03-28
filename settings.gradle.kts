@@ -26,7 +26,7 @@ include(":core:terminal-emulator")
 include(":core:terminal-view")
 include(":core:session")
 include(":core:bootstrap")
-include(":core:notification")
+// core:notification — reserved for Phase 2 (not used in Phase 1)
 include(":core:config")
 
 // Feature modules - UI + ViewModel per feature
