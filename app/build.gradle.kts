@@ -44,6 +44,11 @@ android {
         }
     }
 
+    // Don't double-compress the bootstrap ZIP inside the APK
+    androidResources {
+        noCompress += "zip"
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
