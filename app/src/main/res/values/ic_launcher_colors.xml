@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Gruvbox dark background -->
+    <color name="ic_launcher_background">#282828</color>
+    <!-- Gruvbox orange foreground (terminal prompt icon) -->
+    <color name="ic_launcher_foreground">#FE8019</color>
+</resources>
