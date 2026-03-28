@@ -30,19 +30,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.novaterm.core.common.model.ColorSchemes
 import com.novaterm.feature.settings.R
 import com.novaterm.feature.settings.data.TerminalPreferences
-
-/** Available color scheme options with display labels. */
-private val COLOR_SCHEMES = listOf(
-    "gruvbox-dark" to "Gruvbox Dark",
-    "gruvbox-light" to "Gruvbox Light",
-    "catppuccin-mocha" to "Catppuccin Mocha",
-    "solarized-dark" to "Solarized Dark",
-    "monokai" to "Monokai",
-    "nord" to "Nord",
-    "dracula" to "Dracula",
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,9 +96,7 @@ fun SettingsScreen(
 
             // Color scheme
             var schemeMenuExpanded by remember { mutableStateOf(false) }
-            val currentSchemeLabel = COLOR_SCHEMES
-                .firstOrNull { it.first == preferences.colorScheme }
-                ?.second ?: preferences.colorScheme
+            val currentSchemeLabel = ColorSchemes.displayName(preferences.colorScheme)
 
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_color_scheme)) },
@@ -119,11 +107,11 @@ fun SettingsScreen(
                 expanded = schemeMenuExpanded,
                 onDismissRequest = { schemeMenuExpanded = false }
             ) {
-                COLOR_SCHEMES.forEach { (id, label) ->
+                ColorSchemes.ALL.forEach { scheme ->
                     DropdownMenuItem(
-                        text = { Text(label) },
+                        text = { Text(scheme.displayName) },
                         onClick = {
-                            onPreferencesChanged(preferences.copy(colorScheme = id))
+                            onPreferencesChanged(preferences.copy(colorScheme = scheme.id))
                             schemeMenuExpanded = false
                         }
                     )
