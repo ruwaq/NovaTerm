@@ -21,6 +21,9 @@ import androidx.core.app.NotificationCompat
 import com.novaterm.app.NovaTermApp
 import com.novaterm.app.R
 import com.novaterm.app.ui.MainActivity
+import android.content.ComponentName
+import android.content.pm.PackageManager
+import com.novaterm.app.receiver.BootReceiver
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.manager.TermuxSessionManager
 import com.novaterm.core.session.persistence.SessionMetadata
@@ -290,6 +293,7 @@ class TerminalService : Service() {
 
             _sessions.update { it + session }
             updateNotification()
+            updateBootReceiverState()
 
             session
         } catch (e: Exception) {
@@ -305,6 +309,7 @@ class TerminalService : Service() {
             list.filterIndexed { i, _ -> i != index }
         }
         updateNotification()
+        updateBootReceiverState()
         if (_sessions.value.isEmpty()) stopSelf()
     }
 
@@ -315,6 +320,21 @@ class TerminalService : Service() {
             acquireLocks()
         }
         updateNotification()
+    }
+
+    // ── Boot receiver management ────────────────────────────
+
+    private fun updateBootReceiverState() {
+        val hasActiveSessions = _sessions.value.isNotEmpty()
+        val component = ComponentName(this, BootReceiver::class.java)
+        val newState = if (hasActiveSessions) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
+        packageManager.setComponentEnabledSetting(
+            component, newState, PackageManager.DONT_KILL_APP,
+        )
     }
 
     // ── Session persistence ──────────────────────────────────
