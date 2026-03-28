@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.novaterm.app.service.TerminalService
 import com.novaterm.core.session.persistence.SessionStore
 
 /**
@@ -19,13 +20,16 @@ class BootReceiver : BroadcastReceiver() {
 
         val sessionStore = SessionStore(context)
         if (sessionStore.hasSavedSessions()) {
-            Log.i("NovaTerm", "Boot: restoring ${sessionStore.load().size} saved session(s)")
+            Log.i(TAG, "Boot: restoring ${sessionStore.load().size} saved session(s)")
             try {
-                val serviceIntent = Intent(context, Class.forName("com.novaterm.app.service.TerminalService"))
-                context.startForegroundService(serviceIntent)
+                context.startForegroundService(Intent(context, TerminalService::class.java))
             } catch (e: Exception) {
-                Log.e("NovaTerm", "Failed to start service on boot", e)
+                Log.e(TAG, "Failed to start service on boot", e)
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "NovaTerm"
     }
 }
