@@ -25,7 +25,6 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import com.novaterm.app.receiver.BootReceiver
 import com.novaterm.core.session.manager.AndroidShellProvider
-import com.novaterm.core.session.manager.TermuxSessionManager
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
 import com.novaterm.core.session.persistence.db.BlockStore
@@ -58,7 +57,6 @@ class TerminalService : Service() {
     // ── Core delegates ────────────────────────────────────
 
     private lateinit var shellProvider: AndroidShellProvider
-    private lateinit var sessionManager: TermuxSessionManager
     private lateinit var sessionStore: SessionStore
     lateinit var blockStore: BlockStore
         private set
@@ -193,8 +191,6 @@ class TerminalService : Service() {
         super.onCreate()
 
         shellProvider = AndroidShellProvider(this)
-        sessionManager = TermuxSessionManager(shellProvider)
-        sessionManager.setClient(sessionClient)
         sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
 
@@ -339,6 +335,7 @@ class TerminalService : Service() {
 
     // ── Session persistence ──────────────────────────────────
 
+    @Synchronized
     private fun saveSessionMetadata() {
         val metadata = _sessions.value.mapIndexed { index, session ->
             SessionMetadata(
