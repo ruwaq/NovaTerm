@@ -137,7 +137,7 @@ class TerminalService : Service() {
         }
 
         override fun getTerminalCursorStyle(): Int =
-            TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK
+            TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR
 
         override fun logError(tag: String?, message: String?) {
             Log.e(tag ?: TAG, message ?: "")

@@ -19,10 +19,10 @@ import androidx.compose.ui.platform.LocalContext
 // All foreground colors pass WCAG AA (4.5:1+) against background.
 
 object Ember {
-    // Backgrounds (warm dark — R > G > B, no blue tint)
-    val Bg0Hard = Color(0xFF1A1816)  // AMOLED-friendly, no halation
-    val Bg0 = Color(0xFF22201E)      // Surface
-    val Bg1 = Color(0xFF3C3836)      // Surface variant
+    // Backgrounds (warm dark — matches Termux Gruvbox Soft Dark)
+    val Bg0Hard = Color(0xFF32302F)  // Terminal background area
+    val Bg0 = Color(0xFF3C3836)      // Main background (matches terminal bg)
+    val Bg1 = Color(0xFF3C3836)      // Surface variant (same as bg for seamless look)
     val Bg2 = Color(0xFF504945)      // Elevated surface
     val Bg3 = Color(0xFF665C54)      // Borders
     val Bg4 = Color(0xFF7C6F64)      // Muted elements
