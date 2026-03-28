@@ -61,23 +61,25 @@ private object Sequences {
 // Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
 // Tap = primary action, Long press = popup secondary action.
 
+// Minimalist layout with Unicode arrow symbols.
+// Compact, space-efficient, touch-friendly.
+
 private val ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit"),       // Escape / popup: Ctrl+D exit
-    ExtraKey("TAB", "\t", popup = "@"),               // Autocomplete / popup: @
-    ExtraKey("UP", "\u001b[A", popup = "PgUp"),       // History up / popup: page up
-    ExtraKey("/", popup = "\\"),                       // Slash / popup: backslash
-    ExtraKey("DOWN", "\u001b[B", popup = "PgDn"),     // History down / popup: page down
-    ExtraKey("|", popup = "~"),                        // Pipe / popup: home dir ~
-    ExtraKey("ENT", "\r"),                             // Execute
+    ExtraKey("ESC", "\u001b", popup = "exit"),       // Escape
+    ExtraKey("TAB", "\t", popup = "@"),               // Tab
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),        // Up arrow
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),        // Down arrow
+    ExtraKey("◀", "\u001b[D", popup = "Home"),        // Left arrow
+    ExtraKey("▶", "\u001b[C", popup = "End"),         // Right arrow
+    ExtraKey("/", popup = "\\"),                       // Slash / backslash
+    ExtraKey("|", popup = "~"),                        // Pipe / home
 )
 
 private val ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier / popup: Ctrl+C
-    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier / popup: Ctrl+R history
-    ExtraKey("LEFT", "\u001b[D", popup = "Home"),       // Left / popup: start of line
-    ExtraKey("-", popup = "_"),                          // Dash / popup: underscore
-    ExtraKey("RIGHT", "\u001b[C", popup = "End"),       // Right / popup: end of line
-    ExtraKey("CLR", "\u000C", popup = "^Z"),             // Clear (Ctrl+L) / popup: Ctrl+Z bg
+    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Ctrl
+    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Alt
+    ExtraKey("-", popup = "_"),                          // Dash / underscore
+    ExtraKey("⏎", "\r", popup = "^Z"),                  // Enter / Ctrl+Z
 )
 
 private val ROWS = listOf(ROW_1, ROW_2)
@@ -235,9 +237,9 @@ private fun ExtraKeyButton(
 
     Box(
         modifier = Modifier
-            .height(46.dp)
-            .widthIn(min = 46.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .height(38.dp)
+            .widthIn(min = 38.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .semantics(mergeDescendants = true) {
                 contentDescription = description
