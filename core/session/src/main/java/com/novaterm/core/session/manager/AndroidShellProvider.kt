@@ -55,6 +55,10 @@ class AndroidShellProvider(
         env["XDG_CACHE_HOME"] = "$homeDir/.cache"
         env["XDG_RUNTIME_DIR"] = "$prefix/tmp"
 
+        // Terminal identification (AI tools check these)
+        env["TERM_PROGRAM"] = "novaterm"
+        env["TERM_PROGRAM_VERSION"] = "0.1.0"
+
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
         System.getenv("ANDROID_ROOT")?.let { env["ANDROID_ROOT"] = it }
@@ -149,10 +153,13 @@ class AndroidShellProvider(
                 appendLine("# Prompt")
                 appendLine("export PS1='\u001b[38;5;208m>\u001b[0m '")
                 appendLine()
-                appendLine("# History")
+                appendLine("# History — saved immediately so it survives crashes")
                 appendLine("export HISTSIZE=10000")
                 appendLine("export HISTFILESIZE=10000")
                 appendLine("export HISTCONTROL=erasedups:ignoredups:ignorespace")
+                appendLine("export HISTFILE=\"\$HOME/.local/state/bash_history\"")
+                appendLine("PROMPT_COMMAND=\"history -a;\$PROMPT_COMMAND\"")
+                appendLine("shopt -s histappend 2>/dev/null")
                 appendLine()
                 appendLine("# Editor")
                 appendLine("export EDITOR=vi")

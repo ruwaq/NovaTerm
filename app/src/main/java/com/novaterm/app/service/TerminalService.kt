@@ -23,6 +23,8 @@ import com.novaterm.app.R
 import com.novaterm.app.ui.MainActivity
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.manager.TermuxSessionManager
+import com.novaterm.core.session.persistence.SessionMetadata
+import com.novaterm.core.session.persistence.SessionStore
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -53,6 +55,7 @@ class TerminalService : Service() {
 
     private lateinit var shellProvider: AndroidShellProvider
     private lateinit var sessionManager: TermuxSessionManager
+    private lateinit var sessionStore: SessionStore
 
     // ── Session state (observable) ─────────────────────────
 
@@ -186,6 +189,7 @@ class TerminalService : Service() {
         shellProvider = AndroidShellProvider(this)
         sessionManager = TermuxSessionManager(shellProvider)
         sessionManager.setClient(sessionClient)
+        sessionStore = SessionStore(this)
 
         startForeground(NOTIFICATION_ID, buildNotification())
     }
@@ -213,6 +217,7 @@ class TerminalService : Service() {
 
     override fun onDestroy() {
         onScreenUpdated = null
+        saveSessionMetadata()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { it.finishIfRunning() }
         releaseLocks()
@@ -268,6 +273,29 @@ class TerminalService : Service() {
         }
         updateNotification()
     }
+
+    // ── Session persistence ──────────────────────────────────
+
+    private fun saveSessionMetadata() {
+        val metadata = _sessions.value.mapIndexed { index, session ->
+            SessionMetadata(
+                id = index,
+                shell = shellProvider.findShell(),
+                cwd = session.cwd ?: shellProvider.defaultWorkingDirectory(),
+                title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
+            )
+        }
+        sessionStore.save(metadata)
+        Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
+    }
+
+    /**
+     * Checks if there are saved sessions from a previous run.
+     * Called by ViewModel to decide whether to offer session restore.
+     */
+    fun getSavedSessions(): List<SessionMetadata> = sessionStore.load()
+
+    fun clearSavedSessions() = sessionStore.clear()
 
     // ── Lock management ────────────────────────────────────
 
