@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -46,7 +47,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -59,6 +62,8 @@ import com.novaterm.app.ui.theme.LocalNovaTermColors
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
 import com.novaterm.feature.settings.ui.SettingsScreen
+import com.novaterm.feature.terminal.ui.components.HistoryEntry
+import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
 import kotlinx.coroutines.launch
@@ -104,6 +109,9 @@ fun NovaTermApp(
         )
         return
     }
+
+    // History search state
+    var showHistory by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -248,6 +256,19 @@ fun NovaTermApp(
                             }
                         }
 
+                        // History search
+                        IconButton(
+                            onClick = { showHistory = true },
+                            modifier = Modifier.size(44.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search history",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+
                         // Settings (compact)
                         IconButton(
                             onClick = viewModel::showSettings,
@@ -364,6 +385,33 @@ fun NovaTermApp(
                 }
             }
         }
+    }
+
+    // History search bottom sheet
+    if (showHistory) {
+        val blocks = remember(service) {
+            service?.blockStore?.getRecentBlocks("session_${pagerState.currentPage}")
+                ?.map { block ->
+                    HistoryEntry(
+                        command = block.command,
+                        cwd = block.cwd,
+                        exitCode = block.exitCode,
+                        timestamp = block.timestamp,
+                        isAiGenerated = block.isAiGenerated,
+                    )
+                } ?: emptyList()
+        }
+
+        HistorySearchSheet(
+            entries = blocks,
+            onSelect = { command ->
+                val idx = pagerState.currentPage
+                if (idx in sessions.indices) {
+                    sessions[idx].write(command)
+                }
+            },
+            onDismiss = { showHistory = false },
+        )
     }
 }
 
