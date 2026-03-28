@@ -16,9 +16,10 @@ class AndroidShellProvider(
     private val context: Context,
 ) : ShellProvider {
 
+    // rootDir = context.filesDir = /data/data/com.novaterm.app/files
+    // This matches Termux layout: /data/data/com.termux/files/{usr,home}
     private val rootDir: String
-        get() = context.filesDir.parentFile?.absolutePath
-            ?: context.filesDir.absolutePath
+        get() = context.filesDir.absolutePath
 
     private val prefix: String get() = "$rootDir/usr"
     private val homeDir: String get() = "$rootDir/home"
@@ -204,12 +205,14 @@ class AndroidShellProvider(
                 appendLine("# Source profile if not already loaded")
                 appendLine("[ -z \"\$HISTFILE\" ] && . \"\$HOME/.profile\"")
                 appendLine()
-                appendLine("# ── Shell options ──────────────────────────")
-                appendLine("shopt -s checkwinsize   # Update LINES/COLUMNS after each command")
-                appendLine("shopt -s histappend     # Append to history, don't overwrite")
-                appendLine("shopt -s cmdhist        # Save multi-line commands as one entry")
-                appendLine("shopt -s globstar 2>/dev/null  # ** recursive glob (bash 4+)")
-                appendLine("shopt -s nocaseglob     # Case-insensitive globbing")
+                appendLine("# ── Shell options (bash only) ──────────────")
+                appendLine("if [ -n \"\$BASH_VERSION\" ]; then")
+                appendLine("  shopt -s checkwinsize   # Update LINES/COLUMNS after each command")
+                appendLine("  shopt -s histappend     # Append to history, don't overwrite")
+                appendLine("  shopt -s cmdhist        # Save multi-line commands as one entry")
+                appendLine("  shopt -s globstar 2>/dev/null  # ** recursive glob (bash 4+)")
+                appendLine("  shopt -s nocaseglob     # Case-insensitive globbing")
+                appendLine("fi")
                 appendLine()
                 appendLine("# ── Colors ─────────────────────────────────")
                 appendLine("alias ls='ls --color=auto'")

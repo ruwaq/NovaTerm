@@ -429,7 +429,9 @@ fun NovaTermApp(
                 if (sessions.isNotEmpty()) {
                     HorizontalPager(
                         state = pagerState,
-                        userScrollEnabled = drawerState.isClosed && sessions.size > 1,
+                        // Disabled: horizontal swipe conflicts with terminal scroll on phone
+                        // Tab switching via tab bar instead
+                        userScrollEnabled = false,
                         modifier = Modifier.fillMaxSize(),
                     ) { page ->
                         if (page in sessions.indices) {
