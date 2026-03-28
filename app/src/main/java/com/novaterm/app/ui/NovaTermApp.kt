@@ -60,6 +60,10 @@ fun NovaTermApp(
 
     val novaColors = LocalNovaTermColors.current
 
+    // Sync preferences to service
+    val service = viewModel.service.collectAsState().value
+    service?.bellEnabled = preferences.bellEnabled
+
     if (showSettings) {
         androidx.activity.compose.BackHandler { viewModel.hideSettings() }
         SettingsScreen(
@@ -196,10 +200,10 @@ fun NovaTermApp(
                         backIsEscape = preferences.backIsEscape,
                         onModifiersConsumed = viewModel::resetModifiers,
                         onViewReady = { terminalView ->
-                            // Connect the TerminalView's screen update to the service callback
-                            viewModel.service.value?.onScreenUpdated = {
-                                terminalView.onScreenUpdated()
-                            }
+                            // Connect the TerminalView's screen update to the service callback.
+                            // Re-connects on every view creation (handles rotation + tab switch).
+                            // Thread-safe: service dispatches to main thread via Handler.
+                            service?.onScreenUpdated = { terminalView.onScreenUpdated() }
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -219,7 +223,7 @@ fun NovaTermApp(
                             androidx.compose.material3.Button(
                                 onClick = { viewModel.createSession() },
                             ) {
-                                Text("New Session")
+                                Text(stringResource(R.string.action_new_session))
                             }
                         }
                     }

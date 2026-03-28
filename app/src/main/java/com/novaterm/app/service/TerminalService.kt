@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.Binder
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.os.Vibrator
 import android.util.Log
@@ -42,6 +44,7 @@ class TerminalService : Service() {
     }
 
     private val binder = LocalBinder()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     // ── Session state (observable) ─────────────────────────
 
@@ -50,8 +53,17 @@ class TerminalService : Service() {
 
     val sessionCount: Int get() = _sessions.value.size
 
-    /** Called by the UI to register a screen update callback (TerminalView.onScreenUpdated). */
+    /**
+     * Called by the UI to register a screen update callback.
+     * The callback MUST call TerminalView.onScreenUpdated().
+     * Thread-safe: always dispatched to main thread.
+     */
     var onScreenUpdated: (() -> Unit)? = null
+
+    // ── Preferences bridge ──────────────────────────────────
+
+    /** Set by the UI layer so the service can check preferences. */
+    @Volatile var bellEnabled: Boolean = true
 
     // ── Locks ──────────────────────────────────────────────
 
@@ -60,7 +72,7 @@ class TerminalService : Service() {
 
     val isWakeLockHeld: Boolean get() = wakeLock?.isHeld == true
 
-    // ── Clipboard bridge (set by Activity) ─────────────────
+    // ── Clipboard ──────────────────────────────────────────
 
     private val clipboardManager: ClipboardManager by lazy {
         getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -71,13 +83,18 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Invalidate the TerminalView canvas so it redraws with new content
-            onScreenUpdated?.invoke()
+            // Must invalidate on main thread (TerminalView.invalidate)
+            val callback = onScreenUpdated ?: return
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                callback()
+            } else {
+                mainHandler.post(callback)
+            }
         }
 
         override fun onTitleChanged(changedSession: TerminalSession) {
             _sessions.update { it.toList() }
-            onScreenUpdated?.invoke()
+            onTextChanged(changedSession) // also refresh screen
         }
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
@@ -85,13 +102,14 @@ class TerminalService : Service() {
                 current.filter { it !== finishedSession }
             }
             updateNotification()
-            if (_sessions.value.isEmpty()) stopSelf()
+            // Don't stopSelf here — let removeSession handle it
+            // to avoid double-stop race condition
         }
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
             if (!text.isNullOrEmpty()) {
                 clipboardManager.setPrimaryClip(
-                    ClipData.newPlainText("NovaTerm", text)
+                    ClipData.newPlainText(getString(R.string.app_name), text)
                 )
             }
         }
@@ -105,18 +123,14 @@ class TerminalService : Service() {
         }
 
         override fun onBell(session: TerminalSession) {
+            if (!bellEnabled) return
             @Suppress("DEPRECATION")
             val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             vibrator?.vibrate(50L)
         }
 
-        override fun onColorsChanged(session: TerminalSession) {
-            // Reserved for future theme-sync support
-        }
-
-        override fun onTerminalCursorStateChange(state: Boolean) {
-            // Reserved for cursor blink toggling
-        }
+        override fun onColorsChanged(session: TerminalSession) {}
+        override fun onTerminalCursorStateChange(state: Boolean) {}
 
         override fun setTerminalShellPid(session: TerminalSession, pid: Int) {
             Log.d(TAG, "Shell PID set: $pid")
@@ -128,27 +142,21 @@ class TerminalService : Service() {
         override fun logError(tag: String?, message: String?) {
             Log.e(tag ?: TAG, message ?: "")
         }
-
         override fun logWarn(tag: String?, message: String?) {
             Log.w(tag ?: TAG, message ?: "")
         }
-
         override fun logInfo(tag: String?, message: String?) {
             Log.i(tag ?: TAG, message ?: "")
         }
-
         override fun logDebug(tag: String?, message: String?) {
             Log.d(tag ?: TAG, message ?: "")
         }
-
         override fun logVerbose(tag: String?, message: String?) {
             Log.v(tag ?: TAG, message ?: "")
         }
-
         override fun logStackTraceWithMessage(tag: String?, message: String?, e: Exception?) {
             Log.e(tag ?: TAG, message, e)
         }
-
         override fun logStackTrace(tag: String?, e: Exception?) {
             Log.e(tag ?: TAG, "Error", e)
         }
@@ -165,7 +173,15 @@ class TerminalService : Service() {
         when (intent?.action) {
             ACTION_EXIT -> {
                 _sessions.value.forEach { it.finishIfRunning() }
+                _sessions.value = emptyList()
+                releaseLocks()
                 stopSelf()
+            }
+            ACTION_NEW_SESSION -> {
+                createSession()
+            }
+            ACTION_TOGGLE_WAKELOCK -> {
+                toggleWakeLock()
             }
         }
         return START_STICKY
@@ -174,6 +190,7 @@ class TerminalService : Service() {
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onDestroy() {
+        onScreenUpdated = null // prevent memory leak
         _sessions.value.forEach { it.finishIfRunning() }
         releaseLocks()
         super.onDestroy()
@@ -183,7 +200,7 @@ class TerminalService : Service() {
 
     fun createSession(): TerminalSession {
         val shell = findShell()
-        val env = buildEnvironment()
+        val env = buildEnvironment(shell)
         val cwd = resolveHomeDir()
 
         Log.i(TAG, "Creating session: shell=$shell cwd=$cwd")
@@ -205,11 +222,9 @@ class TerminalService : Service() {
     }
 
     fun removeSession(index: Int) {
-        val current = _sessions.value
-        if (index !in current.indices) return
-
-        current[index].finishIfRunning()
         _sessions.update { list ->
+            if (index !in list.indices) return@update list
+            list[index].finishIfRunning()
             list.filterIndexed { i, _ -> i != index }
         }
         updateNotification()
@@ -235,11 +250,12 @@ class TerminalService : Service() {
                 "novaterm:service-wakelock",
             )
         }
-        @Suppress("WakelockTimeout")
-        wakeLock?.acquire()
+        // 4 hour timeout as safety net (auto-release if app crashes)
+        wakeLock?.acquire(4 * 60 * 60 * 1000L)
 
         if (wifiLock == null) {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
             wifiLock = wm.createWifiLock(
                 WifiManager.WIFI_MODE_FULL_HIGH_PERF,
                 "novaterm:service-wifilock",
@@ -261,7 +277,6 @@ class TerminalService : Service() {
         val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
         val home = File("$base/home")
         val tmpdir = File("$base/usr/tmp")
-        // Ensure HOME and TMPDIR exist
         if (!home.isDirectory) home.mkdirs()
         if (!tmpdir.isDirectory) tmpdir.mkdirs()
         return home.absolutePath
@@ -278,7 +293,7 @@ class TerminalService : Service() {
             ?: "/system/bin/sh"
     }
 
-    private fun buildEnvironment(): Array<String> {
+    private fun buildEnvironment(shell: String): Array<String> {
         val base = filesDir.parentFile?.absolutePath ?: filesDir.absolutePath
         val prefix = "$base/usr"
         val home = "$base/home"
@@ -288,6 +303,7 @@ class TerminalService : Service() {
             "COLORTERM=truecolor",
             "HOME=$home",
             "PREFIX=$prefix",
+            "SHELL=$shell",
             "LANG=en_US.UTF-8",
             "PATH=$prefix/bin:$prefix/bin/applets:/system/bin",
             "TMPDIR=$prefix/tmp",
@@ -301,34 +317,42 @@ class TerminalService : Service() {
 
     private fun buildNotification(): Notification {
         val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
+            this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+        val newSessionIntent = PendingIntent.getService(
+            this, REQ_NEW_SESSION,
+            Intent(this, TerminalService::class.java).setAction(ACTION_NEW_SESSION),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val wakeLockIntent = PendingIntent.getService(
+            this, REQ_TOGGLE_WAKELOCK,
+            Intent(this, TerminalService::class.java).setAction(ACTION_TOGGLE_WAKELOCK),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+
         val exitIntent = PendingIntent.getService(
-            this,
-            REQ_EXIT,
+            this, REQ_EXIT,
             Intent(this, TerminalService::class.java).setAction(ACTION_EXIT),
             PendingIntent.FLAG_IMMUTABLE,
         )
 
         val count = _sessions.value.size
-        val lockIcon = if (wakeLock?.isHeld == true) " \uD83D\uDD12" else ""
+        val lockLabel = if (isWakeLockHeld) "WL: ON" else "WL: OFF"
 
         return NotificationCompat.Builder(this, NovaTermApp.CHANNEL_SERVICE)
             .setContentTitle(getString(R.string.notification_title_running))
-            .setContentText(getString(R.string.notification_sessions, count) + lockIcon)
+            .setContentText(getString(R.string.notification_sessions, count))
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setShowWhen(false)
-            .addAction(
-                android.R.drawable.ic_delete,
-                getString(R.string.action_exit),
-                exitIntent,
-            )
+            .addAction(android.R.drawable.ic_input_add, getString(R.string.action_new_session), newSessionIntent)
+            .addAction(android.R.drawable.ic_lock_lock, lockLabel, wakeLockIntent)
+            .addAction(android.R.drawable.ic_delete, getString(R.string.action_exit), exitIntent)
             .build()
     }
 
@@ -341,7 +365,11 @@ class TerminalService : Service() {
         private const val TAG = "NovaTerm"
         private const val NOTIFICATION_ID = 1337
         private const val REQ_EXIT = 1
+        private const val REQ_NEW_SESSION = 2
+        private const val REQ_TOGGLE_WAKELOCK = 3
 
         const val ACTION_EXIT = "com.novaterm.app.action.EXIT"
+        const val ACTION_NEW_SESSION = "com.novaterm.app.action.NEW_SESSION"
+        const val ACTION_TOGGLE_WAKELOCK = "com.novaterm.app.action.TOGGLE_WAKELOCK"
     }
 }
