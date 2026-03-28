@@ -58,6 +58,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- Documents provider: exposes ~/home to Android file managers -->
+        <provider
+            android:name=".provider.NovaTermDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
         <!-- Samsung DeX support -->
         <meta-data
             android:name="com.samsung.android.multidisplay.keep_process_alive"
