@@ -1,0 +1,19 @@
+[package]
+name = "novaterm-renderer"
+description = "GPU-accelerated terminal renderer for NovaTerm (Phase 2b)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["software"]
+software = []       # CPU Canvas fallback (current, via JNI grid transfer)
+vulkan = ["wgpu"]   # Vulkan compute shader renderer (Phase 2b target)
+
+[dependencies]
+novaterm-vt = { path = "../novaterm-vt" }
+log = { workspace = true }
+
+# GPU rendering (Phase 2b — behind feature flag)
+wgpu = { version = "29", optional = true }

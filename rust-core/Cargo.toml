@@ -3,6 +3,7 @@ members = [
     "novaterm-vt",
     "novaterm-bridge",
     "novaterm-pty",
+    "novaterm-renderer",
 ]
 resolver = "2"
 
