@@ -34,4 +34,11 @@
     <!-- Back as ESC -->
     <string name="settings_back_is_escape">Back button sends ESC</string>
     <string name="settings_back_is_escape_desc">Map hardware back button to Escape key</string>
+
+    <!-- Experimental -->
+    <string name="settings_section_experimental">Experimental</string>
+
+    <!-- Rust backend -->
+    <string name="settings_rust_backend">Rust VT backend</string>
+    <string name="settings_rust_backend_desc">Use alacritty_terminal (Rust) for VT parsing. Runs in parallel with Java for validation.</string>
 </resources>

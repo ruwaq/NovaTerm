@@ -177,6 +177,21 @@ fun SettingsScreen(
                     onPreferencesChanged(preferences.copy(backIsEscape = it))
                 },
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── Experimental ──────────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_experimental))
+
+            // Rust VT backend
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_rust_backend),
+                subtitle = stringResource(R.string.settings_rust_backend_desc),
+                checked = preferences.useRustBackend,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(useRustBackend = it))
+                },
+            )
         }
     }
 }
