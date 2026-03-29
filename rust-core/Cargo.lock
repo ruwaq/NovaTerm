@@ -273,6 +273,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "novaterm-pty"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "log",
+ "rustix",
+]
+
+[[package]]
 name = "novaterm-vt"
 version = "0.1.0"
 dependencies = [

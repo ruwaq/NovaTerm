@@ -1,0 +1,12 @@
+[package]
+name = "novaterm-pty"
+description = "PTY management for NovaTerm — replaces termux.c JNI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rustix = { version = "1", features = ["pty", "termios", "process", "fs"] }
+log = { workspace = true }
+libc = { workspace = true }
