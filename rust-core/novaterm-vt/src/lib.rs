@@ -5,7 +5,7 @@
 // no Android deps. The bridge crate handles FFI.
 
 mod backend;
-mod grid_snapshot;
+pub mod grid_snapshot;
 mod event;
 
 pub use backend::{AlacrittyBackend, TerminalBackend};
