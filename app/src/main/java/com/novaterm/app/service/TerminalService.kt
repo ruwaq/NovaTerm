@@ -109,6 +109,11 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
+            // Phase 2 validation: log Rust engine state on every screen update
+            if (useRustBackend) {
+                validateRustEngine(changedSession)
+            }
+
             val callback = onScreenUpdated ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 callback()
@@ -373,6 +378,37 @@ class TerminalService : Service() {
         packageManager.setComponentEnabledSetting(
             component, newState, PackageManager.DONT_KILL_APP,
         )
+    }
+
+    // ── Phase 2 validation ────────────────────────────────────
+
+    private var validationCount = 0L
+
+    /**
+     * Compare Java emulator cursor with Rust engine cursor.
+     * Logs mismatches to help validate Rust parser correctness.
+     * Only runs when useRustBackend is enabled.
+     */
+    private fun validateRustEngine(session: TerminalSession) {
+        val engine = rustEngines[session.mHandle] ?: return
+        val emulator = session.emulator ?: return
+
+        // Throttle: only validate every 100th update to avoid log spam
+        if (++validationCount % 100 != 0L) return
+
+        val javaCursorRow = emulator.cursorRow
+        val javaCursorCol = emulator.cursorCol
+        val rustCursor = engine.getCursor()
+
+        if (javaCursorRow != rustCursor.row || javaCursorCol != rustCursor.column) {
+            Log.w(TAG, "Rust/Java cursor mismatch: " +
+                "Java=($javaCursorRow,$javaCursorCol) " +
+                "Rust=(${rustCursor.row},${rustCursor.column}) " +
+                "[update #$validationCount]")
+        } else if (validationCount % 1000 == 0L) {
+            Log.d(TAG, "Rust/Java cursor match OK at ($javaCursorRow,$javaCursorCol) " +
+                "[update #$validationCount]")
+        }
     }
 
     // ── Session persistence ──────────────────────────────────
