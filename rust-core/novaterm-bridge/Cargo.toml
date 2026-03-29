@@ -12,7 +12,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 novaterm-vt = { path = "../novaterm-vt" }
+novaterm-pty = { path = "../novaterm-pty" }
 jni = "0.22"
+libc = { workspace = true }
 log = { workspace = true }
 android_logger = "0.14"
 parking_lot = { workspace = true }

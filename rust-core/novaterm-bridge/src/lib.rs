@@ -1,15 +1,17 @@
-// NovaTerm JNI Bridge — connects Rust VT core to Android/Kotlin.
+// NovaTerm JNI Bridge — connects Rust core to Android/Kotlin.
 //
-// This is the cdylib that produces libnovaterm.so. It exposes JNI
-// functions that the Kotlin TerminalViewModel calls to manage
-// terminal sessions backed by the Rust VT parser.
-//
-// Architecture:
-//   Kotlin TerminalViewModel → JNI → this bridge → novaterm-vt
-//   PTY I/O stays in Java/C (termux.c) for Phase 2a.
-//   Bridge only handles VT parsing and grid state.
+// Two APIs:
+// 1. NativeTerminal: standalone VT parser (Phase 2a, dual-run mode)
+// 2. NativeSession: unified PTY + VT + I/O threads (Phase 2c, full Rust)
 
+// Phase 2a: standalone VT parser
 mod handle_map;
 mod jni_bridge;
 
+// Phase 2c: unified session (PTY + VT + I/O)
+mod session;
+mod session_map;
+mod session_jni;
+
 pub use jni_bridge::*;
+pub use session_jni::*;
