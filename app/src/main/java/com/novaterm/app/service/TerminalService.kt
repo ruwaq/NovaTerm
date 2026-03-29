@@ -24,6 +24,9 @@ import com.novaterm.app.ui.MainActivity
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import com.novaterm.app.receiver.BootReceiver
+import com.novaterm.core.common.contract.TerminalEngine
+import com.novaterm.core.common.model.TerminalDimensions
+import com.novaterm.core.session.engine.RustEngine
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
@@ -78,6 +81,15 @@ class TerminalService : Service() {
     // ── Preferences bridge ──────────────────────────────────
 
     @Volatile var bellEnabled: Boolean = true
+    @Volatile var useRustBackend: Boolean = false
+
+    // ── Rust engine instances (Phase 2) ────────────────────
+
+    private val rustEngines = mutableMapOf<String, TerminalEngine>()
+    private var rustEngineFactory: RustEngine.Factory? = null
+
+    /** Get the Rust engine for a session handle, if one exists. */
+    fun getRustEngine(sessionHandle: String): TerminalEngine? = rustEngines[sessionHandle]
 
     // ── Locks ──────────────────────────────────────────────
 
@@ -222,7 +234,12 @@ class TerminalService : Service() {
             ACTION_EXIT -> {
                 val snapshot = _sessions.value.toList()
                 _sessions.value = emptyList()
-                snapshot.forEach { it.finishIfRunning() }
+                snapshot.forEach { session ->
+                    rustEngines.remove(session.mHandle)?.destroy()
+                    session.setRawByteInterceptor(null)
+                    session.finishIfRunning()
+                }
+                rustEngines.clear()
                 releaseLocks()
                 stopSelf()
             }
@@ -251,7 +268,12 @@ class TerminalService : Service() {
         saveSessionMetadata()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
-        snapshot.forEach { it.finishIfRunning() }
+        snapshot.forEach { session ->
+            rustEngines.remove(session.mHandle)?.destroy()
+            session.setRawByteInterceptor(null)
+            session.finishIfRunning()
+        }
+        rustEngines.clear()
         releaseLocks()
         super.onDestroy()
     }
@@ -288,6 +310,21 @@ class TerminalService : Service() {
 
             Log.i(TAG, "Session created: pid=${session.pid} running=${session.isRunning}")
 
+            // Attach Rust VT engine if enabled (Phase 2 dual-run mode)
+            if (useRustBackend) {
+                try {
+                    val factory = rustEngineFactory ?: RustEngine.Factory().also { rustEngineFactory = it }
+                    val engine = factory.create(TerminalDimensions(rows = 24, columns = 80))
+                    session.setRawByteInterceptor { data, length ->
+                        engine.processBytes(data.copyOf(length))
+                    }
+                    rustEngines[session.mHandle] = engine
+                    Log.i(TAG, "Rust engine attached to session ${session.mHandle}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to create Rust engine, running Java-only", e)
+                }
+            }
+
             _sessions.update { it + session }
             updateNotification()
             updateBootReceiverState()
@@ -302,7 +339,11 @@ class TerminalService : Service() {
     fun removeSession(index: Int) {
         _sessions.update { list ->
             if (index !in list.indices) return@update list
-            list[index].finishIfRunning()
+            val session = list[index]
+            // Cleanup Rust engine
+            rustEngines.remove(session.mHandle)?.destroy()
+            session.setRawByteInterceptor(null)
+            session.finishIfRunning()
             list.filterIndexed { i, _ -> i != index }
         }
         updateNotification()

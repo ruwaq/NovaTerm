@@ -3,6 +3,8 @@ package com.novaterm.core.session.manager
 import com.novaterm.core.common.contract.SessionEvent
 import com.novaterm.core.common.contract.SessionManager
 import com.novaterm.core.common.contract.ShellProvider
+import com.novaterm.core.common.contract.TerminalEngine
+import com.novaterm.core.common.contract.TerminalEngineFactory
 import com.novaterm.core.common.model.SessionInfo
 import com.novaterm.core.common.model.SessionStatus
 import com.novaterm.core.common.model.TerminalDimensions
@@ -23,7 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger
 class TermuxSessionManager(
     private val shellProvider: ShellProvider,
     private val transcriptRows: Int = TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
+    private val engineFactory: TerminalEngineFactory? = null,
 ) : SessionManager {
+
+    companion object {
+        private const val TAG = "TermuxSessionManager"
+    }
 
     private val nextId = AtomicInteger(1)
 
@@ -73,10 +80,31 @@ class TermuxSessionManager(
             requireClient(),
         )
 
+        // Create Rust engine if factory is provided and wire byte interceptor
+        val engine = engineFactory?.let { factory ->
+            try {
+                val dims = TerminalDimensions(rows = 24, columns = 80)
+                val eng = factory.create(dims)
+                termuxSession.setRawByteInterceptor { data, length ->
+                    try {
+                        eng.processBytes(data.copyOf(length))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Rust engine processBytes error", e)
+                    }
+                }
+                Log.d(TAG, "Rust engine attached to session $id")
+                eng
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create Rust engine, falling back to Java-only", e)
+                null
+            }
+        }
+
         val managed = ManagedSession(
             id = id,
             termuxSession = termuxSession,
             initialCwd = resolvedCwd,
+            engine = engine,
         )
 
         val newIndex: Int
@@ -87,6 +115,7 @@ class TermuxSessionManager(
 
         publishState()
         _activeSessionIndex.value = newIndex
+        // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.Created(id))
         id
     }
@@ -100,6 +129,10 @@ class TermuxSessionManager(
         }
         managed ?: return
 
+        // Clean up Rust engine resources
+        managed.engine?.destroy()
+        managed.termuxSession.setRawByteInterceptor(null)
+
         val exitCode = if (managed.termuxSession.isRunning) {
             managed.termuxSession.finishIfRunning()
             null
@@ -108,6 +141,7 @@ class TermuxSessionManager(
         }
 
         publishState()
+        // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.Destroyed(sessionId, exitCode))
 
         val currentIndex = _activeSessionIndex.value
@@ -139,9 +173,9 @@ class TermuxSessionManager(
     }
 
     override fun resizeSession(sessionId: Int, dimensions: TerminalDimensions) {
-        getManaged(sessionId)?.termuxSession?.updateSize(
-            dimensions.columns, dimensions.rows, 0, 0,
-        )
+        val managed = getManaged(sessionId) ?: return
+        managed.termuxSession.updateSize(dimensions.columns, dimensions.rows, 0, 0)
+        managed.engine?.resize(dimensions)
     }
 
     override fun sendSignal(sessionId: Int, signal: Int) {
@@ -160,6 +194,10 @@ class TermuxSessionManager(
 
     fun sessionCount(): Int = synchronized(lock) { sessionMap.size }
 
+    /** Get the Rust terminal engine for a session, if one is attached. */
+    fun getEngine(sessionId: Int): TerminalEngine? =
+        getManaged(sessionId)?.engine
+
     fun destroyAll() {
         val sessions: List<ManagedSession>
         synchronized(lock) {
@@ -167,12 +205,15 @@ class TermuxSessionManager(
             sessionMap.clear()
         }
         sessions.forEach { managed ->
+            managed.engine?.destroy()
+            managed.termuxSession.setRawByteInterceptor(null)
             val exitCode = if (managed.termuxSession.isRunning) {
                 managed.termuxSession.finishIfRunning()
                 null
             } else {
                 managed.termuxSession.exitStatus
             }
+            // Channel.UNLIMITED never returns failure, safe to ignore result
             _events.trySend(SessionEvent.Destroyed(managed.id, exitCode))
         }
         publishState()
@@ -180,6 +221,7 @@ class TermuxSessionManager(
 
     /** Notify that a session title changed (called from TerminalSessionClient). */
     fun notifyTitleChanged(sessionId: Int, title: String) {
+        // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.TitleChanged(sessionId, title))
         publishState()
     }
@@ -208,4 +250,5 @@ private data class ManagedSession(
     val id: Int,
     val termuxSession: TerminalSession,
     val initialCwd: String,
+    val engine: TerminalEngine? = null,
 )

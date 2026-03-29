@@ -60,6 +60,7 @@ class DataStoreConfigStore(
             prefs[Keys.SHOW_EXTRA_KEYS] = newConfig.showExtraKeys
             prefs[Keys.BACK_IS_ESCAPE] = newConfig.backIsEscape
             prefs[Keys.TERMINAL_TYPE] = newConfig.terminalType
+            prefs[Keys.USE_RUST_BACKEND] = newConfig.useRustBackend
         }
         // The collect{} in init propagates new values to _config automatically.
         // No need for a second read — DataStore.edit already suspends until persisted.
@@ -88,6 +89,7 @@ class DataStoreConfigStore(
             showExtraKeys = this[Keys.SHOW_EXTRA_KEYS] ?: true,
             backIsEscape = this[Keys.BACK_IS_ESCAPE] ?: true,
             terminalType = this[Keys.TERMINAL_TYPE] ?: "xterm-256color",
+            useRustBackend = this[Keys.USE_RUST_BACKEND] ?: false,
         )
     }
 
@@ -102,5 +104,6 @@ class DataStoreConfigStore(
         val SHOW_EXTRA_KEYS = booleanPreferencesKey("show_extra_keys")
         val BACK_IS_ESCAPE = booleanPreferencesKey("back_is_escape")
         val TERMINAL_TYPE = stringPreferencesKey("terminal_type")
+        val USE_RUST_BACKEND = booleanPreferencesKey("use_rust_backend")
     }
 }
