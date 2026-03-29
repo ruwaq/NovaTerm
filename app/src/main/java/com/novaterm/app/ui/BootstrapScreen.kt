@@ -1,35 +1,43 @@
 package com.novaterm.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.novaterm.core.bootstrap.BootstrapInstaller
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * Full-screen setup shown on first launch while the bootstrap
- * environment is being extracted (~1-2 seconds on modern hardware).
+ * Terminal-style boot sequence screen shown during first-launch bootstrap.
+ * Simulates a system boot with real progress interleaved with feature tips.
+ * The entire screen uses monospace font on the terminal background color
+ * to feel like part of the terminal experience, not a generic loading screen.
  */
 @Composable
 fun BootstrapScreen(
@@ -39,96 +47,168 @@ fun BootstrapScreen(
     val state by installer.state.collectAsState()
     val scope = rememberCoroutineScope()
 
+    // Boot log lines that appear sequentially
+    val bootLines = remember { mutableStateListOf<BootLine>() }
+    val tipIndex = remember { mutableIntStateOf(0) }
+
     LaunchedEffect(Unit) {
-        if (installer.installIfNeeded()) {
+        // Start with branding
+        bootLines.add(BootLine("NovaTerm v0.1.0", LineType.HEADER))
+        delay(200)
+        bootLines.add(BootLine("Next-gen Android terminal", LineType.DIM))
+        delay(300)
+        bootLines.add(BootLine("", LineType.BLANK))
+
+        // Boot sequence
+        bootLines.add(BootLine("[ok] Terminal core loaded", LineType.OK))
+        delay(200)
+        bootLines.add(BootLine("[ok] Gruvbox Ember theme applied", LineType.OK))
+        delay(150)
+        bootLines.add(BootLine("[ok] 7 color schemes available", LineType.OK))
+        delay(200)
+
+        // First tip
+        bootLines.add(BootLine("", LineType.BLANK))
+        bootLines.add(BootLine("  tip: swipe tabs to switch sessions", LineType.TIP))
+        delay(400)
+        bootLines.add(BootLine("", LineType.BLANK))
+
+        // Start the actual install
+        val success = installer.installIfNeeded()
+
+        if (success) {
+            bootLines.add(BootLine("[ok] Packages extracted", LineType.OK))
+            delay(150)
+            bootLines.add(BootLine("[ok] bash, apt, coreutils ready", LineType.OK))
+            delay(200)
+
+            // Second tip
+            bootLines.add(BootLine("", LineType.BLANK))
+            bootLines.add(BootLine("  tip: long-press extra keys for popups", LineType.TIP))
+            delay(300)
+            bootLines.add(BootLine("", LineType.BLANK))
+
+            bootLines.add(BootLine("[ok] Shell environment configured", LineType.OK))
+            delay(150)
+            bootLines.add(BootLine("[ok] Session persistence active", LineType.OK))
+            delay(200)
+
+            // Features showcase
+            bootLines.add(BootLine("", LineType.BLANK))
+            bootLines.add(BootLine("  ✓ Clickable URLs in output", LineType.FEATURE))
+            bootLines.add(BootLine("  ✓ Smart notifications", LineType.FEATURE))
+            bootLines.add(BootLine("  ✓ Command history search", LineType.FEATURE))
+            bootLines.add(BootLine("  ✓ Crash-safe session restore", LineType.FEATURE))
+            delay(400)
+
+            bootLines.add(BootLine("", LineType.BLANK))
+            bootLines.add(BootLine("[ok] Ready.", LineType.ACCENT))
+            delay(500)
+
             onComplete()
         }
     }
 
+    // Update boot lines from installer state
+    LaunchedEffect(state) {
+        when (val s = state) {
+            is BootstrapInstaller.State.Extracting -> {
+                val pct = (s.progress * 100).toInt()
+                // Update or add extraction progress line
+                val existingIdx = bootLines.indexOfLast { it.type == LineType.PROGRESS }
+                val line = BootLine("[>>] Extracting packages... $pct%", LineType.PROGRESS)
+                if (existingIdx >= 0) {
+                    bootLines[existingIdx] = line
+                } else {
+                    bootLines.add(line)
+                }
+            }
+            is BootstrapInstaller.State.Finalizing -> {
+                bootLines.add(BootLine("[>>] Finalizing...", LineType.PROGRESS))
+            }
+            is BootstrapInstaller.State.Error -> {
+                bootLines.add(BootLine("", LineType.BLANK))
+                bootLines.add(BootLine("[!!] ${s.message}", LineType.ERROR))
+            }
+            else -> {}
+        }
+    }
+
+    // Terminal-style full screen
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 16.dp, vertical = 32.dp)
+            .verticalScroll(rememberScrollState()),
     ) {
-        Text(
-            text = "NovaTerm",
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = "v0.1.0",
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        when (val s = state) {
-            is BootstrapInstaller.State.Idle -> {
-                CircularProgressIndicator(modifier = Modifier.size(48.dp))
+        bootLines.forEach { line ->
+            AnimatedVisibility(visible = true, enter = fadeIn()) {
+                BootLineText(line)
             }
+        }
 
-            is BootstrapInstaller.State.Extracting -> {
-                LinearProgressIndicator(
-                    progress = { s.progress },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Setting up environment...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = s.currentFile,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "${(s.progress * 100).toInt()}%",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            is BootstrapInstaller.State.Finalizing -> {
-                CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                Spacer(Modifier.height(16.dp))
-                Text("Finalizing...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            is BootstrapInstaller.State.Done -> { /* navigating away */ }
-
-            is BootstrapInstaller.State.Error -> {
-                Text(
-                    text = "Setup failed",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = s.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(24.dp))
-                Button(onClick = {
-                    scope.launch {
-                        if (installer.install()) onComplete()
-                    }
-                }) {
-                    Text("Retry")
+        // Error retry button
+        if (state is BootstrapInstaller.State.Error) {
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = {
+                bootLines.clear()
+                scope.launch {
+                    if (installer.install()) onComplete()
                 }
+            }) {
+                Text("Retry")
             }
         }
     }
+}
+
+// ── Boot line types ──────────────────────────────────
+
+private enum class LineType {
+    HEADER, DIM, BLANK, OK, PROGRESS, TIP, FEATURE, ACCENT, ERROR,
+}
+
+private data class BootLine(val text: String, val type: LineType)
+
+@Composable
+private fun BootLineText(line: BootLine) {
+    if (line.type == LineType.BLANK) {
+        Spacer(Modifier.height(6.dp))
+        return
+    }
+
+    val color = when (line.type) {
+        LineType.HEADER -> MaterialTheme.colorScheme.primary
+        LineType.DIM -> MaterialTheme.colorScheme.onSurfaceVariant
+        LineType.OK -> MaterialTheme.colorScheme.tertiary
+        LineType.PROGRESS -> MaterialTheme.colorScheme.primary
+        LineType.TIP -> MaterialTheme.colorScheme.onSurfaceVariant
+        LineType.FEATURE -> MaterialTheme.colorScheme.secondary
+        LineType.ACCENT -> MaterialTheme.colorScheme.primary
+        LineType.ERROR -> MaterialTheme.colorScheme.error
+        LineType.BLANK -> MaterialTheme.colorScheme.onSurface
+    }
+
+    val weight = when (line.type) {
+        LineType.HEADER -> FontWeight.Bold
+        LineType.ACCENT -> FontWeight.Bold
+        else -> FontWeight.Normal
+    }
+
+    val size = when (line.type) {
+        LineType.HEADER -> 20.sp
+        LineType.TIP -> 12.sp
+        LineType.FEATURE -> 13.sp
+        else -> 14.sp
+    }
+
+    Text(
+        text = line.text,
+        fontFamily = FontFamily.Monospace,
+        fontSize = size,
+        fontWeight = weight,
+        color = color,
+        modifier = Modifier.padding(vertical = 1.dp),
+    )
 }
