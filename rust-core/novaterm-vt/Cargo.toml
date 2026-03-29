@@ -1,0 +1,15 @@
+[package]
+name = "novaterm-vt"
+description = "VT parser and terminal grid for NovaTerm, wrapping alacritty_terminal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alacritty_terminal = { workspace = true }
+parking_lot = { workspace = true }
+log = { workspace = true }
+bitflags = { workspace = true }
+
+[dev-dependencies]
