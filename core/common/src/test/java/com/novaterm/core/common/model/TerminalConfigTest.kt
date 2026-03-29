@@ -11,7 +11,7 @@ class TerminalConfigTest {
     @Test
     fun `default config has sensible values`() {
         val config = TerminalConfig()
-        assertEquals(32, config.fontSize)
+        assertEquals(12, config.fontSize)
         assertEquals("monospace", config.fontFamily)
         assertEquals(ColorScheme.GRUVBOX_DARK, config.colorScheme)
         assertEquals(10_000, config.scrollbackLines)
@@ -25,27 +25,27 @@ class TerminalConfigTest {
 
     @Test
     fun `font size at lower bound is valid`() {
-        val config = TerminalConfig(fontSize = 8)
-        assertEquals(8, config.fontSize)
+        val config = TerminalConfig(fontSize = 6)
+        assertEquals(6, config.fontSize)
     }
 
     @Test
     fun `font size at upper bound is valid`() {
-        val config = TerminalConfig(fontSize = 32)
-        assertEquals(32, config.fontSize)
+        val config = TerminalConfig(fontSize = 24)
+        assertEquals(24, config.fontSize)
     }
 
     @Test
     fun `font size below range throws`() {
         assertThrows(IllegalArgumentException::class.java) {
-            TerminalConfig(fontSize = 7)
+            TerminalConfig(fontSize = 5)
         }
     }
 
     @Test
     fun `font size above range throws`() {
         assertThrows(IllegalArgumentException::class.java) {
-            TerminalConfig(fontSize = 33)
+            TerminalConfig(fontSize = 25)
         }
     }
 
@@ -85,7 +85,7 @@ class TerminalConfigTest {
 
     @Test
     fun `font size range is correctly defined`() {
-        assertEquals(8, TerminalConfig.FONT_SIZE_RANGE.first)
-        assertEquals(32, TerminalConfig.FONT_SIZE_RANGE.last)
+        assertEquals(6, TerminalConfig.FONT_SIZE_RANGE.first)
+        assertEquals(24, TerminalConfig.FONT_SIZE_RANGE.last)
     }
 }

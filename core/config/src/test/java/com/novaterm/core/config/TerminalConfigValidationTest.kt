@@ -65,8 +65,8 @@ class TerminalConfigValidationTest {
     fun `boundary font sizes are accepted`() {
         val minConfig = TerminalConfig(fontSize = TerminalConfig.FONT_SIZE_RANGE.first)
         val maxConfig = TerminalConfig(fontSize = TerminalConfig.FONT_SIZE_RANGE.last)
-        assertEquals(8, minConfig.fontSize)
-        assertEquals(32, maxConfig.fontSize)
+        assertEquals(6, minConfig.fontSize)
+        assertEquals(24, maxConfig.fontSize)
     }
 
     @Test
