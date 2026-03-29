@@ -649,7 +649,9 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "jni",
+ "libc",
  "log",
+ "novaterm-pty",
  "novaterm-vt",
  "parking_lot",
 ]
