@@ -113,17 +113,38 @@ class AndroidShellProvider(
         // binaries from the app's data directory. Required on Android 10+.
         // termux-exec LD_PRELOAD for W^X bypass: intercepts exec() calls
         // and routes through system linker. Linker variant for Android 10+.
-        val ldPreloadCandidates = listOf(
-            "$prefix/lib/libtermux-exec-linker-ld-preload.so",
-            "$prefix/lib/libtermux-exec-ld-preload.so",
-            "$prefix/lib/libtermux-exec.so",
+        // W^X bypass: LD_PRELOAD with termux-exec.
+        // We check multiple paths because context.filesDir may resolve as
+        // /data/data/ or /data/user/0/ depending on Android version.
+        // The bootstrap always extracts to context.filesDir/usr/lib/.
+        val ldPreloadNames = listOf(
+            "libtermux-exec-linker-ld-preload.so",
+            "libtermux-exec-ld-preload.so",
+            "libtermux-exec.so",
         )
-        val ldPreloadLib = ldPreloadCandidates.firstOrNull { File(it).exists() }
+        // Build candidate paths using BOTH possible base directories
+        val dataDir = context.applicationInfo.dataDir  // /data/user/0/com.novaterm.app
+        val legacyDir = "/data/data/${context.packageName}"  // /data/data/com.novaterm.app
+        val candidatePaths = ldPreloadNames.flatMap { name ->
+            listOf(
+                "$prefix/lib/$name",
+                "$dataDir/files/usr/lib/$name",
+                "$legacyDir/files/usr/lib/$name",
+            )
+        }
+
+        val ldPreloadLib = candidatePaths.firstOrNull { path ->
+            try { File(path).exists() } catch (_: Exception) { false }
+        }
         if (ldPreloadLib != null) {
             env["LD_PRELOAD"] = ldPreloadLib
             android.util.Log.i("NovaTerm", "LD_PRELOAD: $ldPreloadLib")
         } else {
-            android.util.Log.w("NovaTerm", "WARNING: No libtermux-exec found! Checked: $ldPreloadCandidates")
+            // Last resort: set it anyway using the canonical path — if the file
+            // is there, the dynamic linker will find it even if Java can't stat it
+            val fallback = "$prefix/lib/libtermux-exec-linker-ld-preload.so"
+            env["LD_PRELOAD"] = fallback
+            android.util.Log.w("NovaTerm", "LD_PRELOAD forced (File.exists failed): $fallback")
         }
 
         // Termux-exec environment (tells termux-exec where the app lives)
@@ -360,9 +381,14 @@ class AndroidShellProvider(
         if (!shrc.exists()) {
             shrc.writeText(buildString {
                 appendLine("# NovaTerm shell init (sourced via ENV variable)")
+                appendLine("# NOTE: Only use shell builtins here — external commands")
+                appendLine("# may not work before LD_PRELOAD/termux-exec is active.")
                 appendLine("[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"")
                 appendLine("[ -f \"\$HOME/.bashrc\" ] && . \"\$HOME/.bashrc\"")
-                appendLine("[ -f \"\$HOME/.motd\" ] && cat \"\$HOME/.motd\"")
+                appendLine("# Display MOTD using read loop (no cat — W^X safe)")
+                appendLine("if [ -f \"\$HOME/.motd\" ]; then")
+                appendLine("  while IFS= read -r line; do echo \"\$line\"; done < \"\$HOME/.motd\"")
+                appendLine("fi")
                 appendLine()
             })
         }
