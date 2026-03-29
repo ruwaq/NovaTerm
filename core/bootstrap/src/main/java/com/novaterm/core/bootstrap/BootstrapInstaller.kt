@@ -127,6 +127,17 @@ class BootstrapInstaller(private val context: Context) {
 
             _state.value = State.Done
             Log.i(TAG, "Bootstrap installation complete: ${prefixDir.absolutePath}")
+            // Diagnostic: verify critical files exist
+            val criticalFiles = listOf(
+                "bin/bash", "bin/sh", "bin/login",
+                "lib/libtermux-exec-linker-ld-preload.so",
+                "lib/libtermux-exec-ld-preload.so",
+                "lib/libtermux-exec.so",
+            )
+            for (f in criticalFiles) {
+                val file = File(prefixDir, f)
+                Log.i(TAG, "  $f: exists=${file.exists()} size=${if (file.exists()) file.length() else -1}")
+            }
             true
         } catch (e: Exception) {
             Log.e(TAG, "Bootstrap installation failed", e)
