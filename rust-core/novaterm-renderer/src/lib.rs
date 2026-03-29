@@ -9,6 +9,7 @@
 // Current state: trait definitions only. Implementations come in Phase 2b.
 
 mod traits;
+pub mod atlas;
 
 #[cfg(feature = "software")]
 mod software;
@@ -17,6 +18,7 @@ mod software;
 mod vulkan;
 
 pub use traits::{Renderer, RenderConfig, Surface};
+pub use atlas::GlyphAtlas;
 
 #[cfg(feature = "software")]
 pub use software::SoftwareRenderer;

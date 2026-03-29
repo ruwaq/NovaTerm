@@ -15,5 +15,9 @@ vulkan = ["wgpu"]   # Vulkan compute shader renderer (Phase 2b target)
 novaterm-vt = { path = "../novaterm-vt" }
 log = { workspace = true }
 
+# Glyph atlas (always on — no GPU needed)
+cosmic-text = "0.18"
+etagere = "0.3"
+
 # GPU rendering (Phase 2b — behind feature flag)
 wgpu = { version = "29", optional = true }
