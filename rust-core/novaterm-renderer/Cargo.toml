@@ -8,16 +8,19 @@ rust-version.workspace = true
 
 [features]
 default = ["software"]
-software = []       # CPU Canvas fallback (current, via JNI grid transfer)
-vulkan = ["wgpu"]   # Vulkan compute shader renderer (Phase 2b target)
+software = []
+vulkan = ["wgpu", "raw-window-handle", "pollster", "bytemuck"]
 
 [dependencies]
 novaterm-vt = { path = "../novaterm-vt" }
 log = { workspace = true }
 
-# Glyph atlas (always on — no GPU needed)
+# Glyph atlas (always on)
 cosmic-text = "0.18"
 etagere = "0.3"
 
-# GPU rendering (Phase 2b — behind feature flag)
+# GPU rendering (behind vulkan feature flag)
 wgpu = { version = "29", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+pollster = { version = "0.4", optional = true }
+bytemuck = { version = "1", features = ["derive"], optional = true }

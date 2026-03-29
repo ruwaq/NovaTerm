@@ -15,6 +15,9 @@ pub mod atlas;
 mod software;
 
 #[cfg(feature = "vulkan")]
+pub mod gpu;
+
+#[cfg(feature = "vulkan")]
 mod vulkan;
 
 pub use traits::{Renderer, RenderConfig, Surface};
