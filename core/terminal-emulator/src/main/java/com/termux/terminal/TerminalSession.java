@@ -41,6 +41,9 @@ public final class TerminalSession extends TerminalOutput {
     /** Optional interceptor for raw PTY output bytes (Phase 2 Rust backend). */
     private volatile RawByteInterceptor mRawByteInterceptor;
 
+    /** Optional listener for terminal resize events (Phase 2 Rust backend). */
+    private volatile ResizeListener mResizeListener;
+
     // ── I/O queues ──────────────────────────────────────────
 
     /** PTY output → main thread (64KB buffer). */
@@ -86,6 +89,11 @@ public final class TerminalSession extends TerminalOutput {
         void onRawBytes(byte[] data, int length);
     }
 
+    /** Functional interface for terminal resize notification (Phase 2). */
+    public interface ResizeListener {
+        void onResize(int rows, int columns);
+    }
+
     public TerminalSession(String shellPath, String cwd, String[] args, String[] env,
                            Integer transcriptRows, TerminalSessionClient client) {
         this.mShellPath = shellPath;
@@ -102,6 +110,11 @@ public final class TerminalSession extends TerminalOutput {
         mRawByteInterceptor = interceptor;
     }
 
+    /** Set a listener for terminal resize events. Pass null to remove. */
+    public void setResizeListener(ResizeListener listener) {
+        mResizeListener = listener;
+    }
+
     public void updateTerminalSessionClient(TerminalSessionClient client) {
         mClient = client;
         if (mEmulator != null) mEmulator.updateTerminalSessionClient(client);
@@ -114,6 +127,11 @@ public final class TerminalSession extends TerminalOutput {
         } else {
             JNI.setPtyWindowSize(mTerminalFileDescriptor, rows, columns, cellWidthPixels, cellHeightPixels);
             mEmulator.resize(columns, rows, cellWidthPixels, cellHeightPixels);
+        }
+        // Notify Rust engine of resize (Phase 2)
+        ResizeListener listener = mResizeListener;
+        if (listener != null) {
+            listener.onResize(rows, columns);
         }
     }
 
