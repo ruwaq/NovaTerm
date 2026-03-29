@@ -10,3 +10,5 @@ pub mod buffers;
 pub mod pipeline;
 pub mod atlas_texture;
 pub mod frame;
+pub mod cursor;
+pub mod selection;
