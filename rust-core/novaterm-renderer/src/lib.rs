@@ -25,3 +25,6 @@ pub use atlas::GlyphAtlas;
 
 #[cfg(feature = "software")]
 pub use software::SoftwareRenderer;
+
+#[cfg(feature = "vulkan")]
+pub use vulkan::VulkanRenderer;

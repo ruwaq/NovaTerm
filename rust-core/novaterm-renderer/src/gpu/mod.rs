@@ -9,3 +9,4 @@ pub mod surface;
 pub mod buffers;
 pub mod pipeline;
 pub mod atlas_texture;
+pub mod frame;
