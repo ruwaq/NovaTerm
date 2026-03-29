@@ -77,6 +77,13 @@ internal object NativeTerminal {
     /** Check if there are pending events. */
     external fun nativeHasEvents(handle: Long): Boolean
 
+    /**
+     * Drain bytes that need to be written back to the PTY.
+     * These are responses to DA, DSR, and other terminal queries.
+     * @return byte[] or null if no bytes pending.
+     */
+    external fun nativeDrainPtyWrites(handle: Long): ByteArray?
+
     /** Get count of active backends (for debugging). */
     external fun nativeActiveCount(): Int
 }
