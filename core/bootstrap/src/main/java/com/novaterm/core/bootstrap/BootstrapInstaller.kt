@@ -218,29 +218,56 @@ class BootstrapInstaller(private val context: Context) {
         val termuxPrefix = "/data/data/com.termux/files"
         val ourPrefix = context.filesDir.absolutePath
 
-        // Patch shell scripts in bin/ and etc/
+        // Patch ONLY text files (scripts, configs). Skip ELF binaries.
+        // readText()/writeText() on ELF files corrupts them by replacing
+        // invalid UTF-8 bytes with U+FFFD (3 bytes), inflating the file
+        // and destroying the ELF header (e_version becomes garbage).
         val dirsToPath = listOf("bin", "etc", "etc/profile.d", "etc/apt")
         var patched = 0
+        var skippedElf = 0
 
         for (dir in dirsToPath) {
             val d = File(prefix, dir)
             if (!d.isDirectory) continue
             d.listFiles()?.forEach { file ->
-                if (file.isFile && file.length() < 100_000) { // Only small files (scripts)
+                if (file.isFile && file.length() < 100_000) {
                     try {
+                        // Skip ELF binaries — detect by magic bytes \x7fELF
+                        val header = file.inputStream().use { stream ->
+                            val buf = ByteArray(4)
+                            stream.read(buf)
+                            buf
+                        }
+                        if (header.size >= 4 &&
+                            header[0] == 0x7F.toByte() &&
+                            header[1] == 0x45.toByte() && // 'E'
+                            header[2] == 0x4C.toByte() && // 'L'
+                            header[3] == 0x46.toByte()     // 'F'
+                        ) {
+                            skippedElf++
+                            return@forEach
+                        }
+
+                        // Also skip .so shared libraries
+                        if (file.name.endsWith(".so") || file.name.contains(".so.")) {
+                            skippedElf++
+                            return@forEach
+                        }
+
+                        // Safe to read as text — it's a script or config
                         val content = file.readText()
                         if (content.contains(termuxPrefix)) {
                             file.writeText(content.replace(termuxPrefix, ourPrefix))
                             patched++
                         }
                     } catch (_: Exception) {
-                        // Skip binary files that throw on readText
+                        // Skip files that fail to read
                     }
                 }
             }
         }
 
-        Log.i(TAG, "Patched $patched files: $termuxPrefix → $ourPrefix")
+        Log.i(TAG, "Patched $patched text files, skipped $skippedElf binaries")
     }
 
     // ── Permissions ───────────────────────────────────
