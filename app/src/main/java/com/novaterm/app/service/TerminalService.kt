@@ -242,6 +242,7 @@ class TerminalService : Service() {
                 snapshot.forEach { session ->
                     rustEngines.remove(session.mHandle)?.destroy()
                     session.setRawByteInterceptor(null)
+                    session.setResizeListener(null)
                     session.finishIfRunning()
                 }
                 rustEngines.clear()
@@ -321,7 +322,24 @@ class TerminalService : Service() {
                     val factory = rustEngineFactory ?: RustEngine.Factory().also { rustEngineFactory = it }
                     val engine = factory.create(TerminalDimensions(rows = 24, columns = 80))
                     session.setRawByteInterceptor { data, length ->
-                        engine.processBytes(data.copyOf(length))
+                        try {
+                            engine.processBytes(data.copyOf(length))
+                            // Write back terminal responses (DA, DSR) to PTY
+                            val ptyResponse = engine.drainPtyWrites()
+                            if (ptyResponse != null) {
+                                session.write(ptyResponse, 0, ptyResponse.size)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Rust engine processBytes error", e)
+                        }
+                    }
+                    session.setResizeListener { rows, cols ->
+                        try {
+                            engine.resize(TerminalDimensions(rows = rows, columns = cols))
+                            Log.d(TAG, "Rust engine resized: ${rows}x${cols}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Rust engine resize error", e)
+                        }
                     }
                     rustEngines[session.mHandle] = engine
                     Log.i(TAG, "Rust engine attached to session ${session.mHandle}")
