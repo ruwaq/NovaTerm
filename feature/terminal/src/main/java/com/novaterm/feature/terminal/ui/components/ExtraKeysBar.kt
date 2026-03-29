@@ -239,8 +239,8 @@ private fun ExtraKeyButton(
 
     Box(
         modifier = Modifier
-            .height(38.dp)
-            .widthIn(min = 38.dp)
+            .height(44.dp)
+            .widthIn(min = 44.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .semantics(mergeDescendants = true) {
