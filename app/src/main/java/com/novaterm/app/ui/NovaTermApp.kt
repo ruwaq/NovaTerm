@@ -89,8 +89,9 @@ fun NovaTermApp(
     val service by viewModel.service.collectAsState()
 
     // Sync preferences to service only when they change
-    LaunchedEffect(preferences.bellEnabled, service) {
+    LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, service) {
         service?.bellEnabled = preferences.bellEnabled
+        service?.useRustBackend = preferences.useRustBackend
     }
 
     // ── First launch: color scheme picker ──────────────────
