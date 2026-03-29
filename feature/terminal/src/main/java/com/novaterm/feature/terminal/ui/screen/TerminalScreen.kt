@@ -103,7 +103,9 @@ fun TerminalScreen(
                 isFocusableInTouchMode = true
                 // Hardware acceleration for smoother rendering
                 setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                setTextSize(fontSize)
+                // Convert sp to px for consistent sizing across densities
+                val fontSizePx = (fontSize * context.resources.displayMetrics.scaledDensity).toInt()
+                setTextSize(fontSizePx)
                 setTerminalViewClient(viewClient)
                 attachSession(session)
                 setKeepScreenOn(keepScreenOn)
@@ -131,7 +133,8 @@ fun TerminalScreen(
 
             // Apply font size changes only when actually changed (avoids recreating TerminalRenderer).
             if (fontSize != lastFontSize) {
-                view.setTextSize(fontSize)
+                val fontSizePx = (fontSize * view.context.resources.displayMetrics.scaledDensity).toInt()
+                view.setTextSize(fontSizePx)
                 lastFontSize = fontSize
             }
 
