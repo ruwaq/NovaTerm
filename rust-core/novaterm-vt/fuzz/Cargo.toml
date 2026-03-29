@@ -1,0 +1,26 @@
+[package]
+name = "novaterm-vt-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Fuzz crate is standalone, not part of the parent workspace.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+novaterm-vt = { path = ".." }
+alacritty_terminal = "0.25.1"
+
+[[bin]]
+name = "vt_parser"
+path = "fuzz_targets/vt_parser.rs"
+doc = false
+
+[[bin]]
+name = "grid_snapshot"
+path = "fuzz_targets/grid_snapshot.rs"
+doc = false
