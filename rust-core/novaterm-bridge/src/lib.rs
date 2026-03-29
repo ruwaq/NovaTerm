@@ -13,5 +13,11 @@ mod session;
 mod session_map;
 mod session_jni;
 
+// Phase 2b: GPU renderer
+#[cfg(feature = "gpu")]
+mod renderer_jni;
+#[cfg(feature = "gpu")]
+mod renderer_map;
+
 pub use jni_bridge::*;
 pub use session_jni::*;

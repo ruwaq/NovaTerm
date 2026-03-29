@@ -10,9 +10,14 @@ rust-version.workspace = true
 name = "novaterm"
 crate-type = ["cdylib"]
 
+[features]
+default = []
+gpu = ["novaterm-renderer"]
+
 [dependencies]
 novaterm-vt = { path = "../novaterm-vt" }
 novaterm-pty = { path = "../novaterm-pty" }
+novaterm-renderer = { path = "../novaterm-renderer", features = ["vulkan"], optional = true }
 jni = "0.22"
 libc = { workspace = true }
 log = { workspace = true }
