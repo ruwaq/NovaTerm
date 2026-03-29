@@ -14,6 +14,7 @@ data class TerminalPreferences(
     val showExtraKeys: Boolean = true,
     val backIsEscape: Boolean = true,
     val colorScheme: String = "gruvbox-dark",
+    val useRustBackend: Boolean = false,
 )
 
 class PreferencesRepository(context: Context) {
@@ -45,6 +46,7 @@ class PreferencesRepository(context: Context) {
             showExtraKeys = prefs.getBoolean("show_extra_keys", true),
             backIsEscape = prefs.getBoolean("back_is_escape", true),
             colorScheme = prefs.getString("color_scheme", "gruvbox-dark") ?: "gruvbox-dark",
+            useRustBackend = prefs.getBoolean("use_rust_backend", false),
         )
     }
 
@@ -57,6 +59,7 @@ class PreferencesRepository(context: Context) {
             .putBoolean("show_extra_keys", p.showExtraKeys)
             .putBoolean("back_is_escape", p.backIsEscape)
             .putString("color_scheme", p.colorScheme)
+            .putBoolean("use_rust_backend", p.useRustBackend)
             .apply()
     }
 }
