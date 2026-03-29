@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "novaterm-vt",
+    "novaterm-bridge",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.80.0"
+
+[workspace.dependencies]
+alacritty_terminal = "0.25.1"
+parking_lot = "0.12"
+log = "0.4"
+bitflags = "2.4"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = "s"       # Optimize for size (mobile)
+strip = "symbols"
+panic = "abort"       # Smaller binary, no unwinding across FFI

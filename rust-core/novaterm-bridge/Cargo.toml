@@ -1,0 +1,18 @@
+[package]
+name = "novaterm-bridge"
+description = "JNI bridge for NovaTerm Rust core to Android/Kotlin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "novaterm"
+crate-type = ["cdylib"]
+
+[dependencies]
+novaterm-vt = { path = "../novaterm-vt" }
+jni = "0.22"
+log = { workspace = true }
+android_logger = "0.14"
+parking_lot = { workspace = true }
