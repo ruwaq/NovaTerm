@@ -61,25 +61,27 @@ private object Sequences {
 // Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
 // Tap = primary action, Long press = popup secondary action.
 
-// Minimalist layout with Unicode arrow symbols.
-// Compact, space-efficient, touch-friendly.
+// Layout organized by function zones:
+// Row 1: [modifiers] [up] [action] [symbols]
+// Row 2: [ESC] [left] [down] [right] [enter] [symbols]
+// Arrows form a natural cross pattern across both rows.
 
 private val ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit"),       // Escape
-    ExtraKey("TAB", "\t", popup = "@"),               // Tab
-    ExtraKey("▲", "\u001b[A", popup = "PgUp"),        // Up arrow
-    ExtraKey("▼", "\u001b[B", popup = "PgDn"),        // Down arrow
-    ExtraKey("◀", "\u001b[D", popup = "Home"),        // Left arrow
-    ExtraKey("▶", "\u001b[C", popup = "End"),         // Right arrow
-    ExtraKey("/", popup = "\\"),                       // Slash / backslash
-    ExtraKey("|", popup = "~"),                        // Pipe / home
+    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Modifier
+    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Modifier
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),          // Up (center of cross)
+    ExtraKey("TAB", "\t", popup = "@"),                  // Tab / @
+    ExtraKey("/", popup = "\\"),                         // Slash / backslash
+    ExtraKey("|", popup = "~"),                          // Pipe / home
+    ExtraKey("-", popup = "_"),                          // Dash / underscore
 )
 
 private val ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C"),  // Ctrl
-    ExtraKey("ALT", isModifier = true, popup = "^R"),   // Alt
-    ExtraKey("-", popup = "_"),                          // Dash / underscore
-    ExtraKey("⏎", "\r", popup = "^Z"),                  // Enter / Ctrl+Z
+    ExtraKey("ESC", "\u001b", popup = "exit"),          // Escape
+    ExtraKey("◀", "\u001b[D", popup = "Home"),          // Left
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),          // Down (completes cross)
+    ExtraKey("▶", "\u001b[C", popup = "End"),           // Right
+    ExtraKey("⏎", "\r", popup = "^Z"),                  // Enter
 )
 
 private val ROWS = listOf(ROW_1, ROW_2)

@@ -41,10 +41,12 @@ class MainActivity : ComponentActivity() {
         requestStoragePermission()
         requestBatteryExemptionIfNeeded()
 
-        // Start the foreground service (idempotent if already running)
-        startForegroundService(
-            Intent(this, TerminalService::class.java)
-        )
+        // Service starts AFTER bootstrap completes (in BootstrapScreen.onComplete)
+        // or immediately if already bootstrapped
+        val installer = com.novaterm.core.bootstrap.BootstrapInstaller(applicationContext)
+        if (installer.isBootstrapped) {
+            startForegroundService(Intent(this, TerminalService::class.java))
+        }
 
         setContent {
             val preferences = viewModel.preferences.collectAsState()
@@ -57,7 +59,13 @@ class MainActivity : ComponentActivity() {
                 if (!bootstrapped) {
                     BootstrapScreen(
                         installer = installer,
-                        onComplete = { bootstrapped = true },
+                        onComplete = {
+                            bootstrapped = true
+                            // Start service AFTER bootstrap — ensures shell finds bash
+                            startForegroundService(
+                                Intent(this@MainActivity, TerminalService::class.java)
+                            )
+                        },
                     )
                 } else {
                     NovaTermApp(viewModel = viewModel)
