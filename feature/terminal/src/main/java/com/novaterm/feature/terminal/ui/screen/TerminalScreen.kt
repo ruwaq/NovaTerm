@@ -94,7 +94,7 @@ fun TerminalScreen(
     AndroidView(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 4.dp, vertical = 2.dp), // Minimal padding to maximize columns
+            .padding(horizontal = 6.dp, vertical = 4.dp), // Balanced: readable without wasting columns
         factory = { context ->
             applyTerminalPalette(colorScheme)
 
