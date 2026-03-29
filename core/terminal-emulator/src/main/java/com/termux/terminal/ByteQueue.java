@@ -1,6 +1,9 @@
 package com.termux.terminal;
 
-/** A circular byte buffer allowing one producer and one consumer thread. */
+/**
+ * A circular byte buffer for single-producer / single-consumer thread communication.
+ * Uses notifyAll() to prevent thread starvation when multiple threads may be waiting.
+ */
 final class ByteQueue {
 
     private final byte[] mBuffer;
@@ -14,7 +17,7 @@ final class ByteQueue {
 
     public synchronized void close() {
         mOpen = false;
-        notify();
+        notifyAll();
     }
 
     public synchronized int read(byte[] buffer, boolean block) {
@@ -47,7 +50,7 @@ final class ByteQueue {
             offset += bytesToCopy;
             totalRead += bytesToCopy;
         }
-        if (wasFull) notify();
+        if (wasFull) notifyAll();
         return totalRead;
     }
 
@@ -100,7 +103,7 @@ final class ByteQueue {
                     bytesToWriteBeforeWaiting -= bytesToCopy;
                     mStoredBytes += bytesToCopy;
                 }
-                if (wasEmpty) notify();
+                if (wasEmpty) notifyAll();
             }
         }
         return true;
