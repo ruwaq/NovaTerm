@@ -39,6 +39,12 @@ class RustSessionEngine private constructor(
     }
 
     /**
+     * Expose the raw native handle for the GPU renderer.
+     * Package-internal: only [GpuRenderer] should call this.
+     */
+    internal fun nativeHandle(): Long = validHandle()
+
+    /**
      * Process pending PTY output through the VT parser.
      * Call this before reading grid/cursor to get latest state.
      * Returns the number of bytes processed.

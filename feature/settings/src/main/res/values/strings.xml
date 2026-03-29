@@ -41,4 +41,8 @@
     <!-- Rust backend -->
     <string name="settings_rust_backend">Rust VT backend</string>
     <string name="settings_rust_backend_desc">Use alacritty_terminal (Rust) for VT parsing. Runs in parallel with Java for validation.</string>
+
+    <!-- GPU renderer -->
+    <string name="settings_gpu_renderer">GPU renderer</string>
+    <string name="settings_gpu_renderer_desc">Use Vulkan compute shaders for rendering. Requires restart of new sessions.</string>
 </resources>
