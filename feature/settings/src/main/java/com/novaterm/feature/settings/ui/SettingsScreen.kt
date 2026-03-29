@@ -192,6 +192,16 @@ fun SettingsScreen(
                     onPreferencesChanged(preferences.copy(useRustBackend = it))
                 },
             )
+
+            // GPU renderer
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_gpu_renderer),
+                subtitle = stringResource(R.string.settings_gpu_renderer_desc),
+                checked = preferences.useGpuRenderer,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(useGpuRenderer = it))
+                },
+            )
         }
     }
 }

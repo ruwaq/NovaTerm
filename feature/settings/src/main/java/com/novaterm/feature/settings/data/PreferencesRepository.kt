@@ -15,6 +15,7 @@ data class TerminalPreferences(
     val backIsEscape: Boolean = true,
     val colorScheme: String = "gruvbox-dark",
     val useRustBackend: Boolean = false,
+    val useGpuRenderer: Boolean = false,
 )
 
 class PreferencesRepository(context: Context) {
@@ -47,6 +48,7 @@ class PreferencesRepository(context: Context) {
             backIsEscape = prefs.getBoolean("back_is_escape", true),
             colorScheme = prefs.getString("color_scheme", "gruvbox-dark") ?: "gruvbox-dark",
             useRustBackend = prefs.getBoolean("use_rust_backend", false),
+            useGpuRenderer = prefs.getBoolean("use_gpu_renderer", false),
         )
     }
 
@@ -60,6 +62,7 @@ class PreferencesRepository(context: Context) {
             .putBoolean("back_is_escape", p.backIsEscape)
             .putString("color_scheme", p.colorScheme)
             .putBoolean("use_rust_backend", p.useRustBackend)
+            .putBoolean("use_gpu_renderer", p.useGpuRenderer)
             .apply()
     }
 }
