@@ -455,7 +455,28 @@ fun NovaTermApp(
                                 },
                                 onViewReady = { terminalView ->
                                     if (page == pagerState.settledPage) {
-                                        service?.onScreenUpdated = { terminalView.onScreenUpdated() }
+                                        service?.onScreenUpdated = {
+                                            // If Rust engine is active, feed its grid to the view
+                                            val session = sessions.getOrNull(page)
+                                            if (session != null && service?.useRustBackend == true) {
+                                                val engine = service?.getRustEngine(session.mHandle)
+                                                if (engine != null) {
+                                                    val grid = engine.getGrid()
+                                                    val cursor = engine.getCursor()
+                                                    if (grid != null) {
+                                                        val dims = engine.getDimensions()
+                                                        terminalView.setRustGrid(
+                                                            grid, dims.rows, dims.columns,
+                                                            cursor.row, cursor.column,
+                                                            2, true // Beam cursor, visible
+                                                        )
+                                                    }
+                                                }
+                                            } else {
+                                                terminalView.clearRustGrid()
+                                            }
+                                            terminalView.onScreenUpdated()
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize(),

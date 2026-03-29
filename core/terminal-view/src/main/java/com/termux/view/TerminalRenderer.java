@@ -241,92 +241,186 @@ public final class TerminalRenderer {
 
     /**
      * Render from a flat grid array produced by the Rust backend.
+     *
+     * Uses text-run batching (same pattern as the legacy render method):
+     * consecutive cells with identical fg+bg+flags are grouped into a single
+     * drawTextRun() call. This reduces draw calls from ~2295 (cell-by-cell)
+     * to ~50-200 per frame.
+     *
      * Grid layout: [char_codepoint, fg_argb, bg_argb, flags] per cell, row-major.
-     * Flag bits: 0=bold, 1=italic, 2=underline, 3=strikethrough, 4=inverse, 5=hidden, 6=dim.
+     * Flag bits: 0=bold, 1=italic, 2=underline, 3=strikethrough, 4=inverse,
+     *            5=hidden, 6=dim, 7=double_underline, 8=undercurl, 9=wide_char.
+     *
+     * @param damageLines if non-null, only these rows are redrawn (from Rust damage tracking)
      */
     public final void renderFromGrid(int[] grid, int rows, int cols,
                                      int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible,
                                      Canvas canvas, int topRow,
-                                     int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
-        final int defaultBg = 0xFF282828; // Gruvbox dark bg
-        float heightOffset = mFontLineSpacingAndAscent;
-        final char[] charBuf = new char[2]; // For surrogate pairs
+                                     int selectionY1, int selectionY2, int selectionX1, int selectionX2,
+                                     int[] damageLines) {
+        final int defaultBg = 0xFF282828;
+        final int defaultFg = 0xFFEBDBB2;
+        final int cursorColor = 0xFFEBDBB2;
 
+        // Scratch buffer for building text runs (max row width in chars, ×2 for surrogates)
+        final char[] runChars = new char[cols * 2];
+
+        float heightOffset = mFontLineSpacingAndAscent;
         for (int viewRow = 0; viewRow < rows; viewRow++) {
             heightOffset += mFontLineSpacing;
             final int gridRow = topRow + viewRow;
             if (gridRow < 0 || gridRow >= rows) continue;
 
-            for (int col = 0; col < cols; col++) {
-                final int baseIdx = (gridRow * cols + col) * 4;
-                if (baseIdx + 3 >= grid.length) continue;
+            // Damage tracking: skip undamaged rows
+            if (damageLines != null && !isRowDamaged(damageLines, gridRow)) continue;
 
-                final int codePoint = grid[baseIdx];
-                final int fg = grid[baseIdx + 1];
-                final int bg = grid[baseIdx + 2];
-                final int flags = grid[baseIdx + 3];
+            final int rowBase = gridRow * cols * 4;
+            if (rowBase + cols * 4 > grid.length) continue;
 
-                final float left = col * mFontWidth;
-                final float right = left + mFontWidth;
-                final float top = heightOffset - mFontLineSpacingAndAscent + mFontAscent;
+            // Selection range for this row
+            int selx1 = -1, selx2 = -1;
+            if (gridRow >= selectionY1 && gridRow <= selectionY2) {
+                selx1 = (gridRow == selectionY1) ? selectionX1 : 0;
+                selx2 = (gridRow == selectionY2) ? selectionX2 : cols;
+            }
 
-                // Wide char: double width
-                final boolean isWide = (flags & (1 << 9)) != 0;
-                final float cellRight = isWide ? left + mFontWidth * 2 : right;
+            // ── Text run batching ────────────────────────────
+            int runStartCol = 0;
+            int runCharCount = 0;
+            int runFg = 0, runBg = 0, runFlags = 0;
+            boolean runInsideCursor = false;
+            boolean runInsideSelection = false;
 
-                // Background (skip default to avoid overdraw)
-                int drawBg = bg;
-                if ((flags & (1 << 4)) != 0) { // Inverse
-                    drawBg = fg;
+            for (int col = 0; col <= cols; col++) {
+                // At end of row or at a new cell, check if we need to flush
+                int cellFg = defaultFg, cellBg = defaultBg, cellFlags = 0;
+                int codePoint = ' ';
+                boolean insideCursor = false;
+                boolean insideSelection = false;
+
+                if (col < cols) {
+                    final int idx = rowBase + col * 4;
+                    codePoint = grid[idx];
+                    cellFg = grid[idx + 1];
+                    cellBg = grid[idx + 2];
+                    cellFlags = grid[idx + 3];
+                    insideCursor = cursorVisible && gridRow == cursorRow && col == cursorCol;
+                    insideSelection = col >= selx1 && col <= selx2;
                 }
-                if (drawBg != defaultBg) {
-                    mTextPaint.setColor(drawBg);
-                    canvas.drawRect(left, top, cellRight, heightOffset, mTextPaint);
+
+                // Flush run if style changed or at end of row
+                boolean styleChanged = col == cols
+                    || cellFg != runFg || cellBg != runBg || cellFlags != runFlags
+                    || insideCursor != runInsideCursor || insideSelection != runInsideSelection;
+
+                if (styleChanged && col > 0 && runCharCount > 0) {
+                    drawGridRun(canvas, runChars, runCharCount, heightOffset,
+                        runStartCol, col - runStartCol, runFg, runBg, runFlags,
+                        runInsideCursor, runInsideSelection, cursorShape,
+                        cursorColor, defaultBg);
+                    runCharCount = 0;
                 }
 
-                // Cursor
-                final boolean atCursor = cursorVisible && gridRow == cursorRow && col == cursorCol;
-                if (atCursor) {
-                    mTextPaint.setColor(0xFFEBDBB2); // Gruvbox cursor
-                    float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
-                    float cursorRight = cellRight;
-                    if (cursorShape == 1) cursorHeight /= 4f; // Underline
-                    else if (cursorShape == 2) cursorRight = left + mFontWidth / 4f; // Beam
-                    canvas.drawRect(left, heightOffset - cursorHeight, cursorRight, heightOffset, mTextPaint);
-                }
-
-                // Foreground text
-                if (codePoint > 32 && (flags & (1 << 5)) == 0) { // Not space, not hidden
-                    int drawFg = (flags & (1 << 4)) != 0 ? bg : fg; // Inverse
-                    if (atCursor && cursorShape == 0) drawFg = defaultBg; // Block cursor inverts text
-
-                    // Dim
-                    if ((flags & (1 << 6)) != 0) {
-                        int r = ((drawFg >> 16) & 0xFF) * 2 / 3;
-                        int g = ((drawFg >> 8) & 0xFF) * 2 / 3;
-                        int b = (drawFg & 0xFF) * 2 / 3;
-                        drawFg = 0xFF000000 | (r << 16) | (g << 8) | b;
+                if (col < cols) {
+                    if (styleChanged) {
+                        runStartCol = col;
+                        runFg = cellFg;
+                        runBg = cellBg;
+                        runFlags = cellFlags;
+                        runInsideCursor = insideCursor;
+                        runInsideSelection = insideSelection;
                     }
 
-                    mTextPaint.setColor(drawFg);
-                    mTextPaint.setFakeBoldText((flags & (1 << 0)) != 0); // Bold
-                    mTextPaint.setTextSkewX((flags & (1 << 1)) != 0 ? -0.35f : 0f); // Italic
-                    mTextPaint.setUnderlineText((flags & (1 << 2)) != 0); // Underline
-                    mTextPaint.setStrikeThruText((flags & (1 << 3)) != 0); // Strikethrough
+                    // Append character to run buffer
+                    if (codePoint > 0xFFFF) {
+                        // Supplementary plane: encode as surrogate pair
+                        runChars[runCharCount++] = Character.highSurrogate(codePoint);
+                        runChars[runCharCount++] = Character.lowSurrogate(codePoint);
+                    } else {
+                        runChars[runCharCount++] = (char) codePoint;
+                    }
 
-                    final int charCount = Character.toChars(codePoint, charBuf, 0);
-                    canvas.drawText(charBuf, 0, charCount, left, heightOffset - mFontLineSpacingAndAscent, mTextPaint);
-
-                    // Reset paint state
-                    mTextPaint.setFakeBoldText(false);
-                    mTextPaint.setTextSkewX(0f);
-                    mTextPaint.setUnderlineText(false);
-                    mTextPaint.setStrikeThruText(false);
+                    // Wide char: skip next column
+                    if ((cellFlags & (1 << 9)) != 0) col++;
                 }
-
-                // Skip next column for wide chars
-                if (isWide) col++;
             }
+        }
+    }
+
+    /** Overload without damage tracking — redraws everything. */
+    public final void renderFromGrid(int[] grid, int rows, int cols,
+                                     int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible,
+                                     Canvas canvas, int topRow,
+                                     int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+        renderFromGrid(grid, rows, cols, cursorRow, cursorCol, cursorShape, cursorVisible,
+            canvas, topRow, selectionY1, selectionY2, selectionX1, selectionX2, null);
+    }
+
+    /** Check if a row index is in the damage list. */
+    private static boolean isRowDamaged(int[] damageLines, int row) {
+        for (int d : damageLines) {
+            if (d == row) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Draw a single text run from the Rust grid.
+     * A run is a contiguous group of cells with identical fg, bg, and flags.
+     */
+    private void drawGridRun(Canvas canvas, char[] chars, int charCount, float y,
+                             int startCol, int colWidth, int fg, int bg, int flags,
+                             boolean insideCursor, boolean insideSelection, int cursorShape,
+                             int cursorColor, int defaultBg) {
+        final boolean inverse = (flags & (1 << 4)) != 0;
+        final boolean hidden = (flags & (1 << 5)) != 0;
+        final boolean dim = (flags & (1 << 6)) != 0;
+
+        // Resolve colors with inverse
+        int drawFg = inverse ? bg : fg;
+        int drawBg = inverse ? fg : bg;
+        if (insideSelection) { int tmp = drawFg; drawFg = drawBg; drawBg = tmp; }
+
+        final float left = startCol * mFontWidth;
+        final float right = left + colWidth * mFontWidth;
+        final float top = y - mFontLineSpacingAndAscent + mFontAscent;
+
+        // Background (skip default to reduce overdraw)
+        if (drawBg != defaultBg) {
+            mTextPaint.setColor(drawBg);
+            canvas.drawRect(left, top, right, y, mTextPaint);
+        }
+
+        // Cursor
+        if (insideCursor) {
+            mTextPaint.setColor(cursorColor);
+            float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
+            float cursorRight = right;
+            if (cursorShape == 1) cursorHeight /= 4f; // Underline
+            else if (cursorShape == 2) cursorRight = left + mFontWidth / 4f; // Beam
+            canvas.drawRect(left, y - cursorHeight, cursorRight, y, mTextPaint);
+            // Block cursor: invert text color
+            if (cursorShape == 0) drawFg = defaultBg;
+        }
+
+        // Text (skip if hidden or all spaces)
+        if (!hidden) {
+            if (dim) {
+                int r = ((drawFg >> 16) & 0xFF) * 2 / 3;
+                int g = ((drawFg >> 8) & 0xFF) * 2 / 3;
+                int b = (drawFg & 0xFF) * 2 / 3;
+                drawFg = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+
+            mTextPaint.setColor(drawFg);
+            mTextPaint.setFakeBoldText((flags & (1 << 0)) != 0);
+            mTextPaint.setTextSkewX((flags & (1 << 1)) != 0 ? -0.35f : 0f);
+            mTextPaint.setUnderlineText((flags & (1 << 2)) != 0);
+            mTextPaint.setStrikeThruText((flags & (1 << 3)) != 0);
+
+            // drawTextRun is batch-optimized in Skia — much faster than per-char drawText
+            canvas.drawTextRun(chars, 0, charCount, 0, charCount,
+                left, y - mFontLineSpacingAndAscent, false, mTextPaint);
         }
     }
 
