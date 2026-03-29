@@ -239,6 +239,97 @@ public final class TerminalRenderer {
         if (savedMatrix) canvas.restore();
     }
 
+    /**
+     * Render from a flat grid array produced by the Rust backend.
+     * Grid layout: [char_codepoint, fg_argb, bg_argb, flags] per cell, row-major.
+     * Flag bits: 0=bold, 1=italic, 2=underline, 3=strikethrough, 4=inverse, 5=hidden, 6=dim.
+     */
+    public final void renderFromGrid(int[] grid, int rows, int cols,
+                                     int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible,
+                                     Canvas canvas, int topRow,
+                                     int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+        final int defaultBg = 0xFF282828; // Gruvbox dark bg
+        float heightOffset = mFontLineSpacingAndAscent;
+        final char[] charBuf = new char[2]; // For surrogate pairs
+
+        for (int viewRow = 0; viewRow < rows; viewRow++) {
+            heightOffset += mFontLineSpacing;
+            final int gridRow = topRow + viewRow;
+            if (gridRow < 0 || gridRow >= rows) continue;
+
+            for (int col = 0; col < cols; col++) {
+                final int baseIdx = (gridRow * cols + col) * 4;
+                if (baseIdx + 3 >= grid.length) continue;
+
+                final int codePoint = grid[baseIdx];
+                final int fg = grid[baseIdx + 1];
+                final int bg = grid[baseIdx + 2];
+                final int flags = grid[baseIdx + 3];
+
+                final float left = col * mFontWidth;
+                final float right = left + mFontWidth;
+                final float top = heightOffset - mFontLineSpacingAndAscent + mFontAscent;
+
+                // Wide char: double width
+                final boolean isWide = (flags & (1 << 9)) != 0;
+                final float cellRight = isWide ? left + mFontWidth * 2 : right;
+
+                // Background (skip default to avoid overdraw)
+                int drawBg = bg;
+                if ((flags & (1 << 4)) != 0) { // Inverse
+                    drawBg = fg;
+                }
+                if (drawBg != defaultBg) {
+                    mTextPaint.setColor(drawBg);
+                    canvas.drawRect(left, top, cellRight, heightOffset, mTextPaint);
+                }
+
+                // Cursor
+                final boolean atCursor = cursorVisible && gridRow == cursorRow && col == cursorCol;
+                if (atCursor) {
+                    mTextPaint.setColor(0xFFEBDBB2); // Gruvbox cursor
+                    float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
+                    float cursorRight = cellRight;
+                    if (cursorShape == 1) cursorHeight /= 4f; // Underline
+                    else if (cursorShape == 2) cursorRight = left + mFontWidth / 4f; // Beam
+                    canvas.drawRect(left, heightOffset - cursorHeight, cursorRight, heightOffset, mTextPaint);
+                }
+
+                // Foreground text
+                if (codePoint > 32 && (flags & (1 << 5)) == 0) { // Not space, not hidden
+                    int drawFg = (flags & (1 << 4)) != 0 ? bg : fg; // Inverse
+                    if (atCursor && cursorShape == 0) drawFg = defaultBg; // Block cursor inverts text
+
+                    // Dim
+                    if ((flags & (1 << 6)) != 0) {
+                        int r = ((drawFg >> 16) & 0xFF) * 2 / 3;
+                        int g = ((drawFg >> 8) & 0xFF) * 2 / 3;
+                        int b = (drawFg & 0xFF) * 2 / 3;
+                        drawFg = 0xFF000000 | (r << 16) | (g << 8) | b;
+                    }
+
+                    mTextPaint.setColor(drawFg);
+                    mTextPaint.setFakeBoldText((flags & (1 << 0)) != 0); // Bold
+                    mTextPaint.setTextSkewX((flags & (1 << 1)) != 0 ? -0.35f : 0f); // Italic
+                    mTextPaint.setUnderlineText((flags & (1 << 2)) != 0); // Underline
+                    mTextPaint.setStrikeThruText((flags & (1 << 3)) != 0); // Strikethrough
+
+                    final int charCount = Character.toChars(codePoint, charBuf, 0);
+                    canvas.drawText(charBuf, 0, charCount, left, heightOffset - mFontLineSpacingAndAscent, mTextPaint);
+
+                    // Reset paint state
+                    mTextPaint.setFakeBoldText(false);
+                    mTextPaint.setTextSkewX(0f);
+                    mTextPaint.setUnderlineText(false);
+                    mTextPaint.setStrikeThruText(false);
+                }
+
+                // Skip next column for wide chars
+                if (isWide) col++;
+            }
+        }
+    }
+
     public float getFontWidth() {
         return mFontWidth;
     }

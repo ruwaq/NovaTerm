@@ -53,6 +53,33 @@ public final class TerminalView extends View {
     /** Our terminal emulator whose session is {@link #mTermSession}. */
     public TerminalEmulator mEmulator;
 
+    // ── Rust backend (Phase 2) ──────────────────────────────
+    /** When non-null, rendering uses this grid instead of mEmulator. */
+    private volatile int[] mRustGrid;
+    private volatile int mRustGridRows;
+    private volatile int mRustGridCols;
+    private volatile int mRustCursorRow;
+    private volatile int mRustCursorCol;
+    private volatile int mRustCursorShape = 2; // Beam default
+    private volatile boolean mRustCursorVisible = true;
+
+    /** Set the Rust grid data for rendering. Call from main thread. */
+    public void setRustGrid(int[] grid, int rows, int cols,
+                            int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible) {
+        mRustGrid = grid;
+        mRustGridRows = rows;
+        mRustGridCols = cols;
+        mRustCursorRow = cursorRow;
+        mRustCursorCol = cursorCol;
+        mRustCursorShape = cursorShape;
+        mRustCursorVisible = cursorVisible;
+    }
+
+    /** Clear Rust grid — falls back to Java emulator rendering. */
+    public void clearRustGrid() {
+        mRustGrid = null;
+    }
+
     public TerminalRenderer mRenderer;
 
     public TerminalViewClient mClient;
@@ -1007,18 +1034,27 @@ public final class TerminalView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (mEmulator == null) {
-            canvas.drawColor(0XFF000000);
-        } else {
-            // render the terminal view and highlight any selected text
+        final int[] rustGrid = mRustGrid;
+        if (rustGrid != null && mRenderer != null) {
+            // Phase 2: Render from Rust backend grid
+            canvas.drawColor(0xFF282828); // Gruvbox dark bg
             int[] sel = mDefaultSelectors;
             if (mTextSelectionCursorController != null) {
                 mTextSelectionCursorController.getSelectors(sel);
             }
-
+            mRenderer.renderFromGrid(rustGrid, mRustGridRows, mRustGridCols,
+                mRustCursorRow, mRustCursorCol, mRustCursorShape, mRustCursorVisible,
+                canvas, 0, sel[0], sel[1], sel[2], sel[3]);
+            renderTextSelection();
+        } else if (mEmulator == null) {
+            canvas.drawColor(0XFF000000);
+        } else {
+            // Legacy: render from Java emulator
+            int[] sel = mDefaultSelectors;
+            if (mTextSelectionCursorController != null) {
+                mTextSelectionCursorController.getSelectors(sel);
+            }
             mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
-
-            // render the text selection handles
             renderTextSelection();
         }
     }
