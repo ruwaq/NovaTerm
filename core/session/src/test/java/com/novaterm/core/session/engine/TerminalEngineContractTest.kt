@@ -52,6 +52,8 @@ class TerminalEngineContractTest {
 
         override fun hasPendingEvents(): Boolean = false
 
+        override fun drainPtyWrites(): ByteArray? = null
+
         override fun destroy() {
             destroyed = true
         }

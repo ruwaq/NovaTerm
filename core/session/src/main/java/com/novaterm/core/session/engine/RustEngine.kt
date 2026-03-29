@@ -83,6 +83,12 @@ class RustEngine private constructor(
         return NativeTerminal.nativeHasEvents(h)
     }
 
+    override fun drainPtyWrites(): ByteArray? {
+        val h = validHandle()
+        if (h < 0) return null
+        return NativeTerminal.nativeDrainPtyWrites(h)
+    }
+
     /**
      * Atomically invalidate the handle, then destroy the native resource.
      * compareAndSet ensures only one thread performs the destroy.

@@ -45,6 +45,10 @@ pub trait TerminalBackend: Send {
 
     /// Get current grid dimensions.
     fn dimensions(&self) -> (u32, u32);
+
+    /// Drain bytes that need to be written back to the PTY.
+    /// These are responses to DA, DSR, and other query sequences.
+    fn drain_pty_writes(&self) -> Vec<u8>;
 }
 
 /// Terminal size for alacritty_terminal's Dimensions trait.
@@ -90,6 +94,7 @@ impl AlacrittyBackend {
 
         let config = TermConfig {
             scrolling_history: DEFAULT_SCROLLBACK,
+            kitty_keyboard: true, // Enable Kitty Keyboard Protocol
             ..TermConfig::default()
         };
 
@@ -174,6 +179,19 @@ impl TerminalBackend for AlacrittyBackend {
 
     fn dimensions(&self) -> (u32, u32) {
         (self.rows, self.cols)
+    }
+
+    fn drain_pty_writes(&self) -> Vec<u8> {
+        let events = self.event_collector.drain();
+        let mut bytes = Vec::new();
+        for event in events {
+            match event {
+                crate::event::BackendEvent::PtyWrite(data) => bytes.extend_from_slice(&data),
+                // Re-push non-PtyWrite events back (they're still needed)
+                other => self.event_collector.push(other),
+            }
+        }
+        bytes
     }
 }
 
@@ -476,5 +494,34 @@ mod tests {
         let input = b"hello";
         let output = backend.input_bytes(input);
         assert_eq!(output, input);
+    }
+
+    #[test]
+    fn kitty_keyboard_enabled() {
+        let mut backend = AlacrittyBackend::new(24, 80);
+        // Send CSI ? u to query keyboard protocol support
+        // alacritty_terminal should respond via PtyWrite event
+        backend.process_bytes(b"\x1b[?u");
+        let writes = backend.drain_pty_writes();
+        // Response should be CSI ? <flags> u
+        assert!(!writes.is_empty(), "Should have PtyWrite response to keyboard query");
+    }
+
+    #[test]
+    fn pty_write_drain_empty_when_no_queries() {
+        let backend = AlacrittyBackend::new(24, 80);
+        assert!(backend.drain_pty_writes().is_empty());
+    }
+
+    #[test]
+    fn device_attributes_response() {
+        let mut backend = AlacrittyBackend::new(24, 80);
+        // Send DA (Device Attributes) query
+        backend.process_bytes(b"\x1b[c");
+        let writes = backend.drain_pty_writes();
+        // Should respond with DA response
+        assert!(!writes.is_empty(), "Should respond to DA query");
+        // DA response starts with ESC [
+        assert!(writes.starts_with(b"\x1b["), "DA response should start with CSI");
     }
 }

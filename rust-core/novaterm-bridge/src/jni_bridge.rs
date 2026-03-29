@@ -235,6 +235,31 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
     if result.unwrap_or(false) { JNI_TRUE } else { JNI_FALSE }
 }
 
+/// Drain bytes that need to be written back to the PTY (DA responses, etc.)
+/// Returns null if no bytes pending or handle invalid.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nativeDrainPtyWrites<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    handle: jlong,
+) -> jni::sys::jbyteArray {
+    let result = panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let bytes = match handle_map::with_backend(handle as u64, |b| b.drain_pty_writes()) {
+            Some(b) if !b.is_empty() => b,
+            _ => return ptr::null_mut(),
+        };
+
+        let mut out: jni::sys::jbyteArray = ptr::null_mut();
+        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+            let arr = env.byte_array_from_slice(&bytes)?;
+            out = arr.into_raw();
+            Ok(())
+        });
+        out
+    }));
+    result.unwrap_or(ptr::null_mut())
+}
+
 /// Active backend count (debug).
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nativeActiveCount(

@@ -19,6 +19,8 @@ pub enum BackendEvent {
     CursorBlinkingChange(bool),
     Wakeup,
     ColorRequest(usize),
+    /// Bytes that must be written back to the PTY (DA responses, DSR, etc.)
+    PtyWrite(Vec<u8>),
 }
 
 /// Collects events from alacritty_terminal into a thread-safe buffer.
@@ -45,6 +47,11 @@ impl EventCollector {
 
     pub fn has_pending(&self) -> bool {
         !self.events.lock().is_empty()
+    }
+
+    /// Push an event back into the buffer (used when filtering PtyWrite events).
+    pub fn push(&self, event: BackendEvent) {
+        self.events.lock().push(event);
     }
 }
 
@@ -115,9 +122,8 @@ impl EventListener for EventCollector {
             Event::CursorBlinkingChange => BackendEvent::CursorBlinkingChange(true),
             Event::Wakeup => BackendEvent::Wakeup,
             Event::ColorRequest(idx, _) => BackendEvent::ColorRequest(idx),
-            // Events we don't need to forward to Kotlin:
-            // PtyWrite is handled internally, MouseCursorDirty is renderer-only,
-            // ResetTitle and TextAreaSizeRequest are handled at the bridge level
+            Event::PtyWrite(text) => BackendEvent::PtyWrite(text.into_bytes()),
+            // MouseCursorDirty is renderer-only, others handled at bridge level
             _ => return,
         };
         self.events.lock().push(backend_event);

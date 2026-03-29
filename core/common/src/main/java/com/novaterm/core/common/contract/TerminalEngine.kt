@@ -52,6 +52,14 @@ interface TerminalEngine {
     /** Check if there are pending events (bell, title, clipboard). */
     fun hasPendingEvents(): Boolean
 
+    /**
+     * Drain bytes that the terminal needs to write back to the PTY.
+     * These are responses to DA (Device Attributes), DSR (Device Status Report),
+     * and other query sequences. Must be written to the PTY fd by the caller.
+     * @return bytes to write, or null if none pending.
+     */
+    fun drainPtyWrites(): ByteArray?
+
     /** Release native resources. Must be called when the session ends. */
     fun destroy()
 }

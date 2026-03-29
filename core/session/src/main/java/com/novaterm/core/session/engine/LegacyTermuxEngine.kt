@@ -85,6 +85,8 @@ class LegacyTermuxEngine(
 
     override fun hasPendingEvents(): Boolean = false
 
+    override fun drainPtyWrites(): ByteArray? = null
+
     override fun destroy() {
         // Session lifecycle managed by TermuxSessionManager
     }
