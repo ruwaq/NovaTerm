@@ -24,4 +24,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("org.json:json:20240303") // org.json for JVM unit tests
+
+    // Property-based testing (generates 1000s of random inputs)
+    testImplementation("io.kotest:kotest-property-jvm:5.9.1")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:5.9.1")
 }
