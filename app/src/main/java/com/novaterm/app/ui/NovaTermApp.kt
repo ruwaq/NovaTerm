@@ -48,6 +48,7 @@ import com.novaterm.app.ui.components.SessionTabBar
 import com.novaterm.app.ui.components.StatusLine
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
+import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
@@ -105,10 +106,15 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
 
     if (showSettings) {
         BackHandler { viewModel.hideSettings() }
+        val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
         SettingsScreen(
             preferences = preferences,
             onPreferencesChanged = viewModel::updatePreferences,
             onBack = viewModel::hideSettings,
+            modelState = modelState,
+            onDownloadModel = { modelId -> service?.modelManager?.startDownload(modelId) },
+            onCancelDownload = { service?.modelManager?.cancelDownload() },
+            onDeleteModel = { service?.modelManager?.deleteModel() },
         )
         return
     }

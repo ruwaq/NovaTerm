@@ -35,11 +35,9 @@ import com.novaterm.core.session.engine.RustEngine
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
-import java.io.File
 import com.novaterm.core.llm.GemmaEngine
 import com.novaterm.core.llm.LlmConfig
 import com.novaterm.core.llm.LlmEngine
-import com.novaterm.core.llm.LlmState
 import com.novaterm.core.llm.ModelManager
 import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
@@ -244,7 +242,7 @@ class TerminalService : Service() {
         sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
         predictionEngine = PredictionEngine(filesDir).also { it.load() }
-        modelManager = ModelManager(File(filesDir, "models"))
+        modelManager = ModelManager(this)
 
         startForeground(NOTIFICATION_ID, buildNotification())
 
@@ -288,12 +286,13 @@ class TerminalService : Service() {
         llmEngine?.release()
         llmEngine = null
 
-        if (!llmEnabled || !modelManager.isModelAvailable()) return
+        if (!llmEnabled || !modelManager.isModelReady()) return
 
+        val modelPath = modelManager.getModelPath() ?: return
         try {
-            val config = LlmConfig(modelPath = modelManager.getModelPath())
+            val config = LlmConfig(modelPath = modelPath)
             llmEngine = GemmaEngine(config)
-            Log.i(TAG, "LLM engine created (model: ${config.modelPath})")
+            Log.i(TAG, "LLM engine created (model: $modelPath)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create LLM engine", e)
         }

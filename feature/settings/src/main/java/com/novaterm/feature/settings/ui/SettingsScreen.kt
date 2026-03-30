@@ -2,18 +2,26 @@ package com.novaterm.feature.settings.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.novaterm.core.common.model.ColorSchemes
+import com.novaterm.core.llm.ModelCatalog
+import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.R
 import com.novaterm.feature.settings.data.TerminalPreferences
 
@@ -40,6 +50,10 @@ fun SettingsScreen(
     preferences: TerminalPreferences,
     onPreferencesChanged: (TerminalPreferences) -> Unit,
     onBack: () -> Unit,
+    modelState: ModelState = ModelState.Idle,
+    onDownloadModel: (String) -> Unit = {},
+    onCancelDownload: () -> Unit = {},
+    onDeleteModel: () -> Unit = {},
 ) {
     // Local slider state that follows external preference changes.
     var fontSize by remember(preferences.fontSize) {
@@ -241,6 +255,54 @@ fun SettingsScreen(
                     onPreferencesChanged(preferences.copy(llmEnabled = it))
                 },
             )
+
+            // Model download/status — inline progress (Google Translate pattern)
+            if (preferences.llmEnabled) {
+                ModelDownloadRow(
+                    state = modelState,
+                    onDownload = onDownloadModel,
+                    onCancel = onCancelDownload,
+                    onDelete = onDeleteModel,
+                )
+
+                // Model selector (expandable list of available models)
+                if (modelState is ModelState.NotDownloaded || modelState is ModelState.Error) {
+                    var modelMenuExpanded by remember { mutableStateOf(false) }
+                    val currentModel = when (modelState) {
+                        is ModelState.NotDownloaded -> modelState.displayName
+                        else -> ModelCatalog.DEFAULT.displayName
+                    }
+
+                    ListItem(
+                        headlineContent = { Text("Model") },
+                        supportingContent = { Text(currentModel) },
+                        modifier = Modifier.clickable { modelMenuExpanded = true },
+                    )
+                    DropdownMenu(
+                        expanded = modelMenuExpanded,
+                        onDismissRequest = { modelMenuExpanded = false },
+                    ) {
+                        ModelCatalog.ALL.forEach { model ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(model.displayName)
+                                        Text(
+                                            "${model.sizeMb} MB · ${model.ramMb} MB RAM",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onDownloadModel(model.id)
+                                    modelMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -253,6 +315,99 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+/** Inline model download row — shows progress, status, and actions (Google Translate pattern). */
+@Composable
+private fun ModelDownloadRow(
+    state: ModelState,
+    onDownload: (String) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    ListItem(
+        headlineContent = {
+            Text(
+                when (state) {
+                    is ModelState.NotDownloaded -> state.displayName
+                    is ModelState.Downloading -> state.displayName
+                    is ModelState.Ready -> state.displayName
+                    is ModelState.Error -> "Download failed"
+                    else -> "AI Model"
+                }
+            )
+        },
+        supportingContent = {
+            Column {
+                when (state) {
+                    is ModelState.NotDownloaded -> {
+                        Text(
+                            "${state.sizeMb} MB download · ${state.ramMb} MB RAM",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            state.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    is ModelState.Downloading -> {
+                        Text(
+                            "${state.downloadedMb} / ${state.totalMb} MB · ${state.progressPercent}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { state.progressPercent / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    is ModelState.Ready -> {
+                        Text(
+                            "Ready · ${state.sizeMb} MB",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    is ModelState.Error -> {
+                        Text(
+                            state.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    else -> {}
+                }
+            }
+        },
+        trailingContent = {
+            when (state) {
+                is ModelState.NotDownloaded -> {
+                    IconButton(onClick = { onDownload(state.modelId) }) {
+                        Icon(Icons.Outlined.Download, contentDescription = "Download model")
+                    }
+                }
+                is ModelState.Downloading -> {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                    }
+                }
+                is ModelState.Ready -> {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete model")
+                    }
+                }
+                is ModelState.Error -> {
+                    IconButton(onClick = { onDownload(ModelCatalog.DEFAULT.id) }) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "Retry download")
+                    }
+                }
+                else -> {}
+            }
+        },
     )
 }
 
