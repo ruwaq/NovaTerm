@@ -57,6 +57,8 @@ fun TerminalScreen(
     onModifiersConsumed: () -> Unit = {},
     onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null,
     onViewReady: ((TerminalView) -> Unit)? = null,
+    /** Exposes prompt navigation to the parent. Call jumpToPrompt(delta) where delta is -1 (up) or +1 (down). */
+    onPromptNavigatorReady: ((jumpToPrompt: (Int) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // URL detection state
@@ -113,6 +115,23 @@ fun TerminalScreen(
                 viewClient.terminalView = this
                 terminalViewRef.value = this
                 onViewReady?.invoke(this)
+
+                // Expose prompt navigation to parent
+                val tv = this
+                onPromptNavigatorReady?.invoke { delta ->
+                    val prompts = zoneTracker.getPromptPositions()
+                    if (prompts.isEmpty()) return@invoke
+                    val currentTop = tv.getTopRow()
+                    val target = if (delta < 0) {
+                        // Up: find the nearest prompt ABOVE current view
+                        prompts.lastOrNull { it < currentTop } ?: prompts.first()
+                    } else {
+                        // Down: find the nearest prompt BELOW current view
+                        prompts.firstOrNull { it > currentTop } ?: prompts.last()
+                    }
+                    tv.setTopRow(target)
+                    tv.invalidate()
+                }
 
                 // Show keyboard automatically on first display
                 post {

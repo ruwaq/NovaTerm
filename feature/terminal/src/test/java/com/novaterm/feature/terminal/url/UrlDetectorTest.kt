@@ -100,4 +100,99 @@ class UrlDetectorTest {
     fun `isUrl returns false for plain text`() {
         assertTrue(!UrlDetector.isUrl("not a url"))
     }
+
+    // ── Entity detection: IP addresses ───────────────────────
+
+    @Test
+    fun `findEntityAt detects IPv4`() {
+        val text = "Server at 192.168.1.100 is running"
+        val entity = UrlDetector.findEntityAt(text, 12)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.IP_ADDRESS, entity!!.type)
+        assertEquals("192.168.1.100", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt detects IPv4 with port`() {
+        val text = "Connect to 10.0.0.1:8080 for API"
+        val entity = UrlDetector.findEntityAt(text, 14)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.IP_ADDRESS, entity!!.type)
+        assertEquals("10.0.0.1:8080", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt rejects invalid IPv4`() {
+        val text = "Version 999.999.999.999 is out"
+        val entity = UrlDetector.findEntityAt(text, 10)
+        assertNull(entity)
+    }
+
+    @Test
+    fun `findEntityAt detects localhost with port`() {
+        val text = "Running on localhost:3000"
+        val entity = UrlDetector.findEntityAt(text, 15)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.IP_ADDRESS, entity!!.type)
+        assertEquals("localhost:3000", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt detects IPv6`() {
+        val text = "Listening on [::1]:8080"
+        val entity = UrlDetector.findEntityAt(text, 16)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.IP_ADDRESS, entity!!.type)
+    }
+
+    // ── Entity detection: file paths ─────────────────────────
+
+    @Test
+    fun `findEntityAt detects absolute path`() {
+        val text = "Error in /usr/local/bin/node at line 42"
+        val entity = UrlDetector.findEntityAt(text, 12)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.FILE_PATH, entity!!.type)
+        assertEquals("/usr/local/bin/node", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt detects home path`() {
+        val text = "Config at ~/projects/novaterm/CLAUDE.md"
+        val entity = UrlDetector.findEntityAt(text, 15)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.FILE_PATH, entity!!.type)
+        assertEquals("~/projects/novaterm/CLAUDE.md", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt detects relative path`() {
+        val text = "See ./src/main/java/App.kt for details"
+        val entity = UrlDetector.findEntityAt(text, 8)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.FILE_PATH, entity!!.type)
+        assertEquals("./src/main/java/App.kt", entity.value)
+    }
+
+    @Test
+    fun `findEntityAt prioritizes URL over path`() {
+        val text = "Visit https://example.com/path/to/page"
+        val entity = UrlDetector.findEntityAt(text, 15)
+        assertNotNull(entity)
+        assertEquals(UrlDetector.Entity.Type.URL, entity!!.type)
+    }
+
+    @Test
+    fun `findEntityAt returns null for plain text`() {
+        assertNull(UrlDetector.findEntityAt("just some words", 5))
+    }
+
+    // ── findUrlAt wraps IP as http:// ────────────────────────
+
+    @Test
+    fun `findUrlAt wraps IP as http URL`() {
+        val text = "Server at 192.168.1.1:3000 running"
+        val url = UrlDetector.findUrlAt(text, 14)
+        assertEquals("http://192.168.1.1:3000", url)
+    }
 }

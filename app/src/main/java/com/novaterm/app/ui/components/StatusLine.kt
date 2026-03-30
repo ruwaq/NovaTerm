@@ -2,23 +2,39 @@ package com.novaterm.app.ui.components
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.novaterm.app.R
 import java.io.File
 
-/** Status line showing CWD (shortened) + git branch. */
+/**
+ * Status line showing CWD (shortened) + git branch + prompt navigation.
+ *
+ * The ▲/▼ buttons jump between shell prompts using OSC 133 semantic zones.
+ * They only appear when [onPromptUp]/[onPromptDown] are provided.
+ */
 @Composable
-fun StatusLine(cwd: String, modifier: Modifier = Modifier) {
+fun StatusLine(
+    cwd: String,
+    onPromptUp: (() -> Unit)? = null,
+    onPromptDown: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     val shortPath = remember(cwd) { shortenPath(cwd) }
     val gitBranch = remember(cwd) { readGitBranch(cwd) }
 
@@ -29,6 +45,33 @@ fun StatusLine(cwd: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 12.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Prompt navigation: jump up
+        if (onPromptUp != null) {
+            Text(
+                text = "▲",
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier
+                    .clickable(onClick = onPromptUp)
+                    .padding(horizontal = 6.dp),
+            )
+        }
+
+        // Prompt navigation: jump down
+        if (onPromptDown != null) {
+            Text(
+                text = "▼",
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier
+                    .clickable(onClick = onPromptDown)
+                    .padding(end = 6.dp),
+            )
+        }
+
+        // CWD
         Text(
             text = shortPath,
             style = MaterialTheme.typography.labelSmall,
@@ -38,6 +81,8 @@ fun StatusLine(cwd: String, modifier: Modifier = Modifier) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+
+        // Git branch
         if (gitBranch != null) {
             Text(
                 text = " $gitBranch",
