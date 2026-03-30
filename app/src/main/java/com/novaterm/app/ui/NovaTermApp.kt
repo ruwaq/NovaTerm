@@ -193,7 +193,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
         Scaffold(
             topBar = {},
             bottomBar = {
-                Column(modifier = Modifier.navigationBarsPadding()) {
+                Column(modifier = Modifier.imePadding()) {
                     if (sessions.isNotEmpty()) {
                         StatusLine(
                             cwd = sessions.getOrNull(pagerState.currentPage)?.cwd ?: "",
@@ -269,8 +269,10 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .imePadding(),
+                    .padding(padding),
+                // Note: do NOT use imePadding() here — Scaffold already positions
+                // bottomBar above the keyboard. Adding imePadding would double the
+                // space, pushing terminal content to the middle of the screen.
             ) {
                 if (sessions.isNotEmpty()) {
                     HorizontalPager(
