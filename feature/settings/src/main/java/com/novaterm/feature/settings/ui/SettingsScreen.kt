@@ -226,6 +226,21 @@ fun SettingsScreen(
                     },
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── AI ────────────────────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_ai))
+
+            // On-device LLM toggle
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_llm_enabled),
+                subtitle = stringResource(R.string.settings_llm_enabled_desc),
+                checked = preferences.llmEnabled,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(llmEnabled = it))
+                },
+            )
         }
     }
 }

@@ -35,6 +35,12 @@ import com.novaterm.core.session.engine.RustEngine
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
+import java.io.File
+import com.novaterm.core.llm.GemmaEngine
+import com.novaterm.core.llm.LlmConfig
+import com.novaterm.core.llm.LlmEngine
+import com.novaterm.core.llm.LlmState
+import com.novaterm.core.llm.ModelManager
 import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
 import com.termux.terminal.TerminalEmulator
@@ -90,6 +96,14 @@ class TerminalService : Service() {
     // ── MCP server ──────────────────────────────────────────
 
     private var mcpServer: McpServer? = null
+
+    // ── On-device LLM (optional) ────────────────────────────
+
+    lateinit var modelManager: ModelManager
+        private set
+    var llmEngine: LlmEngine? = null
+        private set
+    @Volatile var llmEnabled: Boolean = false
 
     // ── Preferences bridge ──────────────────────────────────
 
@@ -230,6 +244,7 @@ class TerminalService : Service() {
         sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
         predictionEngine = PredictionEngine(filesDir).also { it.load() }
+        modelManager = ModelManager(File(filesDir, "models"))
 
         startForeground(NOTIFICATION_ID, buildNotification())
 
@@ -262,6 +277,25 @@ class TerminalService : Service() {
             Log.i(TAG, "MCP server started on port $mcpPort")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start MCP server", e)
+        }
+    }
+
+    /**
+     * Initialize or release the on-device LLM based on user preference.
+     * Safe to call multiple times — releases previous engine first.
+     */
+    fun updateLlmState() {
+        llmEngine?.release()
+        llmEngine = null
+
+        if (!llmEnabled || !modelManager.isModelAvailable()) return
+
+        try {
+            val config = LlmConfig(modelPath = modelManager.getModelPath())
+            llmEngine = GemmaEngine(config)
+            Log.i(TAG, "LLM engine created (model: ${config.modelPath})")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create LLM engine", e)
         }
     }
 
@@ -325,6 +359,8 @@ class TerminalService : Service() {
         onScreenUpdated = null
         mcpServer?.stop()
         mcpServer = null
+        llmEngine?.release()
+        llmEngine = null
         stopPeriodicSave()
         saveSessionMetadata()
         if (::predictionEngine.isInitialized) predictionEngine.save()
