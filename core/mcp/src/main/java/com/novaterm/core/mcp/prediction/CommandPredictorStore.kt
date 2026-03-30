@@ -1,5 +1,6 @@
 package com.novaterm.core.mcp.prediction
 
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -45,7 +46,8 @@ object CommandPredictorStore {
             tmp.writeText(json.toString())
             tmp.renameTo(file)
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("CommandPredictorStore", "Failed to save predictor", e)
             false
         }
     }

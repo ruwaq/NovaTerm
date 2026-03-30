@@ -5,31 +5,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
 
 /**
  * On-device Gemma inference engine.
  *
- * This is the concrete implementation of [LlmEngine] using Google's
- * Gemma model. Completely optional — only loaded when the user
- * explicitly enables it and has downloaded the model.
- *
- * The actual inference runtime (LiteRT, llama.cpp, etc.) is abstracted
- * behind [InferenceBackend]. This allows swapping backends without
- * changing the engine logic.
+ * Thread-safe: uses a [Mutex] to serialize inference calls
+ * and protect state transitions from concurrent access.
  *
  * Lifecycle:
  * 1. User enables in Settings → [initialize] called
  * 2. Backend loads model from disk
- * 3. [suggest]/[explain] available
+ * 3. [suggest]/[explain] available (serialized via mutex)
  * 4. User disables or app destroyed → [release] called
  */
 class GemmaEngine(private val config: LlmConfig) : LlmEngine {
 
     private val _state = MutableStateFlow(LlmState.IDLE)
     override val state: StateFlow<LlmState> = _state.asStateFlow()
+
+    /** Serializes inference calls — backend is NOT thread-safe. */
+    private val inferenceMutex = Mutex()
 
     private var backend: InferenceBackend? = null
 
@@ -45,7 +44,7 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
         }
 
         try {
-            val b = LiteRtBackend(File(config.modelPath), config.numThreads)
+            val b = LiteRtBackend(java.io.File(config.modelPath), config.numThreads)
             b.load()
             backend = b
             _state.value = LlmState.READY
@@ -60,50 +59,54 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
 
     override suspend fun suggest(context: TerminalContext): LlmSuggestion? {
         if (_state.value != LlmState.READY) return null
-        val b = backend ?: return null
 
-        _state.value = LlmState.INFERRING
-        try {
-            val prompt = PromptBuilder.buildSuggestionPrompt(context)
-            val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
-                b.generate(prompt, config.maxTokens, config.temperature)
+        return inferenceMutex.withLock {
+            val b = backend ?: return@withLock null
+            if (_state.value != LlmState.READY) return@withLock null
+
+            _state.value = LlmState.INFERRING
+            try {
+                val prompt = PromptBuilder.buildSuggestionPrompt(context)
+                val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
+                    b.generate(prompt, config.maxTokens, config.temperature)
+                }
+                _state.value = LlmState.READY
+
+                if (response == null) {
+                    Log.w(TAG, "Inference timed out")
+                    return@withLock null
+                }
+
+                val command = PromptBuilder.parseCommandResponse(response) ?: return@withLock null
+                LlmSuggestion(command = command, confidence = 0.85, reasoning = null)
+            } catch (e: Exception) {
+                Log.e(TAG, "Inference failed", e)
+                _state.value = LlmState.READY
+                null
             }
-            _state.value = LlmState.READY
-
-            if (response == null) {
-                Log.w(TAG, "Inference timed out")
-                return null
-            }
-
-            val command = PromptBuilder.parseCommandResponse(response) ?: return null
-            return LlmSuggestion(
-                command = command,
-                confidence = 0.85,
-                reasoning = null,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Inference failed", e)
-            _state.value = LlmState.READY
-            return null
         }
     }
 
     override suspend fun explain(input: String, context: TerminalContext): String? {
         if (_state.value != LlmState.READY) return null
-        val b = backend ?: return null
 
-        _state.value = LlmState.INFERRING
-        try {
-            val prompt = PromptBuilder.buildExplanationPrompt(input, context)
-            val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
-                b.generate(prompt, config.maxTokens * 2, config.temperature)
+        return inferenceMutex.withLock {
+            val b = backend ?: return@withLock null
+            if (_state.value != LlmState.READY) return@withLock null
+
+            _state.value = LlmState.INFERRING
+            try {
+                val prompt = PromptBuilder.buildExplanationPrompt(input, context)
+                val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
+                    b.generate(prompt, config.maxTokens * 2, config.temperature)
+                }
+                _state.value = LlmState.READY
+                response?.trim()
+            } catch (e: Exception) {
+                Log.e(TAG, "Explain inference failed", e)
+                _state.value = LlmState.READY
+                null
             }
-            _state.value = LlmState.READY
-            return response?.trim()
-        } catch (e: Exception) {
-            Log.e(TAG, "Explain inference failed", e)
-            _state.value = LlmState.READY
-            return null
         }
     }
 

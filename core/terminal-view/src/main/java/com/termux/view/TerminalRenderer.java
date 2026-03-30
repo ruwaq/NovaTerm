@@ -28,6 +28,11 @@ public final class TerminalRenderer {
     final Typeface mTypeface;
     private final Paint mTextPaint = new Paint();
 
+    /** Pre-allocated objects for Kitty Graphics rendering (avoid GC pressure at 60/120Hz). */
+    private final Paint mImagePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Rect mImageSrcRect = new Rect();
+    private final RectF mImageDstRect = new RectF();
+
     /** The width of a single mono spaced character obtained by {@link Paint#measureText(String)} on a single 'X'. */
     final float mFontWidth;
     /** The {@link Paint#getFontSpacing()}. See http://www.fampennings.nl/maarten/android/08numgrid/font.png */
@@ -174,7 +179,6 @@ public final class TerminalRenderer {
         KittyGraphicsManager gfx = emulator.mKittyGraphics;
         if (gfx == null || gfx.getPlacements().isEmpty()) return;
 
-        Paint imgPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
         int visibleRows = emulator.mRows;
 
         for (Map.Entry<Integer, KittyGraphicsManager.KittyPlacement> entry : gfx.getPlacements().entrySet()) {
@@ -201,10 +205,10 @@ public final class TerminalRenderer {
             float right = left + dispCols * mFontWidth;
             float bottom = top + dispRows * mFontLineSpacing;
 
-            // Draw image scaled to the cell region
-            Rect src = new Rect(0, 0, bmp.getWidth(), bmp.getHeight());
-            RectF dst = new RectF(left, top, right, bottom);
-            canvas.drawBitmap(bmp, src, dst, imgPaint);
+            // Reuse pre-allocated rect objects (no GC pressure at 120Hz)
+            mImageSrcRect.set(0, 0, bmp.getWidth(), bmp.getHeight());
+            mImageDstRect.set(left, top, right, bottom);
+            canvas.drawBitmap(bmp, mImageSrcRect, mImageDstRect, mImagePaint);
         }
     }
 
