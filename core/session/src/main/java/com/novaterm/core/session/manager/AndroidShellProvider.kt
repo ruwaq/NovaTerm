@@ -95,7 +95,13 @@ class AndroidShellProvider(
         env["PREFIX"] = prefix
         env["LANG"] = "en_US.UTF-8"
         env["PATH"] = "$homeDir/.local/bin:$prefix/bin:$prefix/bin/applets:/system/bin"
+        // TMPDIR must be set BEFORE any child process starts.
+        // Claude Code and Node.js use os.tmpdir() which reads TMPDIR.
+        // Android's /tmp is owned by shell:shell and not writable by apps.
         env["TMPDIR"] = "$prefix/tmp"
+        // Also set TMP and TEMP for compatibility with various tools
+        env["TMP"] = "$prefix/tmp"
+        env["TEMP"] = "$prefix/tmp"
         env["SHELL"] = findShell()
         env["LD_LIBRARY_PATH"] = "$prefix/lib"
         env["ENV"] = "$homeDir/.shrc"
@@ -261,6 +267,17 @@ class AndroidShellProvider(
                 appendLine("export EDITOR=vi")
                 appendLine("export PAGER=less")
                 appendLine("export LESS='-R -i -M'")
+                appendLine()
+                appendLine("# ── /tmp fix for Claude Code and other tools ──")
+                appendLine("# Android doesn't have /tmp. Create it as symlink if possible,")
+                appendLine("# or ensure TMPDIR points to our writable tmp directory.")
+                appendLine("if [ ! -e /tmp ] && [ -w /data/data ]; then")
+                appendLine("  ln -sf \"\$PREFIX/tmp\" /tmp 2>/dev/null")
+                appendLine("fi")
+                appendLine("if [ ! -d /tmp ]; then")
+                appendLine("  mkdir -p \"\$PREFIX/tmp\" 2>/dev/null")
+                appendLine("  export TMPDIR=\"\$PREFIX/tmp\"")
+                appendLine("fi")
                 appendLine()
                 appendLine("# ── History (crash-safe: saved on every command) ──")
                 appendLine("export HISTSIZE=10000")
