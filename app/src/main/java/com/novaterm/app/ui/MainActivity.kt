@@ -39,7 +39,6 @@ class MainActivity : ComponentActivity() {
 
         requestNotificationPermission()
         requestStoragePermission()
-        requestBatteryExemptionIfNeeded()
 
         // Service starts AFTER bootstrap completes (in BootstrapScreen.onComplete)
         // or immediately if already bootstrapped
@@ -52,23 +51,87 @@ class MainActivity : ComponentActivity() {
             val preferences = viewModel.preferences.collectAsState()
             val isDarkScheme = com.novaterm.core.common.model.ColorSchemes.isDark(preferences.value.colorScheme)
             val installer = remember { com.novaterm.core.bootstrap.BootstrapInstaller(applicationContext) }
+            val context = this@MainActivity
 
             var bootstrapped by remember { mutableStateOf(installer.isBootstrapped) }
 
+            // OEM battery optimization state — managed inside Compose
+            val oemInfo = remember { OemDetector.detect(context) }
+            val prefs = remember { context.getSharedPreferences("novaterm_prefs", MODE_PRIVATE) }
+            var batteryDismissed by remember {
+                mutableStateOf(
+                    prefs.getBoolean("battery_guide_dismissed", false) ||
+                    !OemDetector.needsBatteryWhitelist(oemInfo)
+                )
+            }
+            // Re-check battery status when returning from Settings
+            var needsWhitelist by remember { mutableStateOf(OemDetector.needsBatteryWhitelist(oemInfo)) }
+
+            // Re-evaluate battery status when app resumes (user may have changed Settings)
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        val fresh = OemDetector.detect(context)
+                        needsWhitelist = OemDetector.needsBatteryWhitelist(fresh)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
             NovaTermTheme(darkTheme = isDarkScheme) {
-                if (!bootstrapped) {
-                    BootstrapScreen(
-                        installer = installer,
-                        onComplete = {
-                            bootstrapped = true
-                            // Start service AFTER bootstrap — ensures shell finds bash
-                            startForegroundService(
-                                Intent(this@MainActivity, TerminalService::class.java)
-                            )
-                        },
-                    )
-                } else {
-                    NovaTermApp(viewModel = viewModel)
+                when {
+                    // Step 1: OEM battery guide (aggressive OEMs only, first launch)
+                    !batteryDismissed -> {
+                        com.novaterm.feature.oemcompat.ui.OemGuideScreen(
+                            oemInfo = oemInfo,
+                            needsWhitelist = needsWhitelist,
+                            instructions = OemDetector.getInstructions(oemInfo.brand),
+                            onRequestBatteryExemption = {
+                                try {
+                                    context.startActivity(
+                                        OemDetector.batteryOptimizationIntent(context)
+                                    )
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Could not open battery settings", e)
+                                }
+                            },
+                            onOpenAutostartSettings = OemDetector.autostartSettingsIntent(
+                                context, oemInfo.brand
+                            )?.let { intent ->
+                                {
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Could not open autostart settings", e)
+                                    }
+                                }
+                            },
+                            onBack = {
+                                prefs.edit().putBoolean("battery_guide_dismissed", true).apply()
+                                batteryDismissed = true
+                            },
+                        )
+                    }
+
+                    // Step 2: Bootstrap (first launch only)
+                    !bootstrapped -> {
+                        BootstrapScreen(
+                            installer = installer,
+                            onComplete = {
+                                bootstrapped = true
+                                startForegroundService(
+                                    Intent(context, TerminalService::class.java)
+                                )
+                            },
+                        )
+                    }
+
+                    // Step 3: Main terminal
+                    else -> {
+                        NovaTermApp(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -84,35 +147,7 @@ class MainActivity : ComponentActivity() {
         viewModel.unbindService()
     }
 
-    /**
-     * On aggressive OEMs (Xiaomi, Huawei, Samsung, etc.), request battery
-     * optimization exemption once. This is critical for coexistence
-     * with other terminal apps — without it, HyperOS/MIUI will kill background
-     * apps when NovaTerm takes the foreground.
-     *
-     * Only shows the dialog once per install. If the user already granted
-     * the exemption, [OemDetector.needsBatteryWhitelist] returns false.
-     */
-    private fun requestBatteryExemptionIfNeeded() {
-        val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
-        if (prefs.getBoolean("battery_exemption_asked", false)) return
-
-        val oemInfo = OemDetector.detect(this)
-        Log.i(TAG, "OEM: ${oemInfo.brand.displayName} (aggressiveness=${oemInfo.brand.aggressiveness}), optimized=${oemInfo.isBatteryOptimized}")
-
-        if (OemDetector.needsBatteryWhitelist(oemInfo)) {
-            prefs.edit().putBoolean("battery_exemption_asked", true).apply()
-            try {
-                startActivity(OemDetector.batteryOptimizationIntent(this))
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not open battery optimization dialog", e)
-            }
-        }
-    }
-
     private fun requestStoragePermission() {
-        // For Android 10-12, request legacy storage permission for ~/storage/ symlinks.
-        // Android 13+ uses granular media permissions which we don't need (we access via SAF).
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
             if (ContextCompat.checkSelfPermission(
                     this, Manifest.permission.READ_EXTERNAL_STORAGE

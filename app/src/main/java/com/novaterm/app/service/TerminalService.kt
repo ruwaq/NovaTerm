@@ -85,11 +85,15 @@ class TerminalService : Service() {
 
     // ── Rust engine instances (Phase 2) ────────────────────
 
-    private val rustEngines = mutableMapOf<String, TerminalEngine>()
+    private val rustEngines = java.util.concurrent.ConcurrentHashMap<String, TerminalEngine>()
     private var rustEngineFactory: RustEngine.Factory? = null
 
     /** Get the Rust engine for a session handle, if one exists. */
     fun getRustEngine(sessionHandle: String): TerminalEngine? = rustEngines[sessionHandle]
+
+    // ── Lifecycle flag ──────────────────────────────────────
+
+    @Volatile private var isServiceDestroyed = false
 
     // ── Locks ──────────────────────────────────────────────
 
@@ -207,7 +211,7 @@ class TerminalService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        shellProvider = AndroidShellProvider(this)
+        shellProvider = AndroidShellProvider(this, appVersion = com.novaterm.app.BuildConfig.VERSION_NAME)
         sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
 
@@ -219,10 +223,13 @@ class TerminalService : Service() {
 
     private val saveRunnable = object : Runnable {
         override fun run() {
+            if (isServiceDestroyed) return
             if (_sessions.value.isNotEmpty()) {
                 saveSessionMetadata()
             }
-            mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
+            if (!isServiceDestroyed) {
+                mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
+            }
         }
     }
 
@@ -269,6 +276,7 @@ class TerminalService : Service() {
     }
 
     override fun onDestroy() {
+        isServiceDestroyed = true
         onScreenUpdated = null
         stopPeriodicSave()
         saveSessionMetadata()
@@ -494,7 +502,7 @@ class TerminalService : Service() {
         )
 
         val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(getString(R.string.notification_bell_activity))
             .setAutoCancel(true)
@@ -537,7 +545,7 @@ class TerminalService : Service() {
         return NotificationCompat.Builder(this, NovaTermApp.CHANNEL_SERVICE)
             .setContentTitle(getString(R.string.notification_title_running))
             .setContentText(getString(R.string.notification_sessions, count))
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setShowWhen(false)
@@ -564,8 +572,8 @@ class TerminalService : Service() {
         private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
-        const val ACTION_EXIT = "com.novaterm.app.action.EXIT"
-        const val ACTION_NEW_SESSION = "com.novaterm.app.action.NEW_SESSION"
-        const val ACTION_TOGGLE_WAKELOCK = "com.novaterm.app.action.TOGGLE_WAKELOCK"
+        const val ACTION_EXIT = "com.nvterm.action.EXIT"
+        const val ACTION_NEW_SESSION = "com.nvterm.action.NEW_SESSION"
+        const val ACTION_TOGGLE_WAKELOCK = "com.nvterm.action.TOGGLE_WAKELOCK"
     }
 }

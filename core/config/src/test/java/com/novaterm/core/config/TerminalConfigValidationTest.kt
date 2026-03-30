@@ -66,7 +66,7 @@ class TerminalConfigValidationTest {
         val minConfig = TerminalConfig(fontSize = TerminalConfig.FONT_SIZE_RANGE.first)
         val maxConfig = TerminalConfig(fontSize = TerminalConfig.FONT_SIZE_RANGE.last)
         assertEquals(6, minConfig.fontSize)
-        assertEquals(24, maxConfig.fontSize)
+        assertEquals(48, maxConfig.fontSize)
     }
 
     @Test

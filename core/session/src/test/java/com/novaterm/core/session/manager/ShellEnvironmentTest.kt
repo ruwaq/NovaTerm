@@ -149,18 +149,36 @@ class ShellEnvironmentTest {
         val home = tempDir.newFolder("home")
         val motd = File(home, ".motd")
 
-        if (!motd.exists()) {
-            motd.writeText(buildString {
-                appendLine()
-                appendLine("\u001b[38;5;208m  ╭─────────────────────────────╮\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0            \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  ╰─────────────────────────────╯\u001b[0m")
-                appendLine()
-            })
-        }
+        // Simulate dynamic MOTD generation matching AndroidShellProvider logic
+        val appVersion = "0.1.0"
+        val device = "Test Device Ultra Pro Max"  // Long name to exercise dynamic sizing
+        val androidVer = "16"
+        val novaText = "NovaTerm v$appVersion"
+        val deviceText = "$device · Android $androidVer"
+        val innerWidth = maxOf(novaText.length, deviceText.length) + 4
+        val border = "─".repeat(innerWidth)
+        val novaPad = " ".repeat((innerWidth - 2 - novaText.length).coerceAtLeast(0))
+        val devicePad = " ".repeat((innerWidth - 2 - deviceText.length).coerceAtLeast(0))
+
+        motd.writeText(buildString {
+            appendLine()
+            appendLine("  ╭${border}╮")
+            appendLine("  │  $novaText${novaPad}│")
+            appendLine("  │  $deviceText${devicePad}│")
+            appendLine("  ╰${border}╯")
+            appendLine()
+        })
 
         assertTrue(motd.exists())
-        assertTrue("MOTD should contain NovaTerm", motd.readText().contains("NovaTerm"))
+        val content = motd.readText()
+        assertTrue("MOTD should contain NovaTerm", content.contains("NovaTerm"))
+        assertTrue("MOTD should contain device name", content.contains(device))
+        assertTrue("MOTD should contain Android version", content.contains("Android $androidVer"))
+
+        // Verify box alignment: all lines between ╭ and ╯ should have same visual width
+        val boxLines = content.lines().filter { it.contains("│") || it.contains("╭") || it.contains("╰") }
+        val widths = boxLines.map { it.length }
+        assertEquals("All box lines should have equal width", 1, widths.distinct().size)
     }
 
     @Test

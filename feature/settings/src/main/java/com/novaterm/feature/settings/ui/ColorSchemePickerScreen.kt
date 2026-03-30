@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.novaterm.feature.settings.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -127,7 +129,7 @@ private val PREVIEW_LINES = listOf(
     PreviewLine(2, "  OS", "      Android 15 aarch64"),
     PreviewLine(3, "  Host", "    Xiaomi 15T Pro"),
     PreviewLine(1, "  Shell", "   zsh 5.9"),
-    PreviewLine(4, "  Term", "    NovaTerm 0.1.0"),
+    PreviewLine(4, "  Term", "    NovaTerm"),
     PreviewLine(5, "  Uptime", "  2 hours, 15 mins"),
     PreviewLine(6, "", ""),
     PreviewLine(0, "~$", " echo \"Hello, World!\""),
@@ -195,7 +197,7 @@ fun ColorSchemePickerScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Choose your theme",
+            text = stringResource(R.string.onboarding_choose_theme),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -203,7 +205,7 @@ fun ColorSchemePickerScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "You can change this later in Settings",
+            text = stringResource(R.string.onboarding_change_later),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -329,7 +331,7 @@ fun ColorSchemePickerScreen(
             shape = RoundedCornerShape(12.dp),
         ) {
             Text(
-                text = "Continue",
+                text = stringResource(R.string.onboarding_continue),
                 style = MaterialTheme.typography.titleSmall,
             )
         }

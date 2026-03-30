@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.novaterm.feature.terminal.R
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -45,7 +47,7 @@ fun UrlConfirmDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Open link?") },
+        title = { Text(stringResource(R.string.url_dialog_title)) },
         text = {
             Column {
                 Text(
@@ -68,7 +70,7 @@ fun UrlConfirmDialog(
                 openUrl(context, url)
                 onDismiss()
             }) {
-                Text("Open")
+                Text(stringResource(R.string.url_dialog_open))
             }
         },
         dismissButton = {
@@ -77,11 +79,11 @@ fun UrlConfirmDialog(
                     copyToClipboard(context, url)
                     onDismiss()
                 }) {
-                    Text("Copy")
+                    Text(stringResource(R.string.url_dialog_copy))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.url_dialog_cancel))
                 }
             }
         },
@@ -92,12 +94,12 @@ private fun openUrl(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     } catch (_: Exception) {
-        Toast.makeText(context, "Cannot open URL", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.url_cannot_open), Toast.LENGTH_SHORT).show()
     }
 }
 
 private fun copyToClipboard(context: Context, url: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
-    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.url_copied), Toast.LENGTH_SHORT).show()
 }

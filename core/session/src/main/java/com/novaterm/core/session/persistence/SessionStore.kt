@@ -9,7 +9,7 @@ import java.io.File
  * Sessions are saved as a JSON array in a single file for simplicity.
  *
  * Thread-safe: all operations are synchronized on the file lock.
- * File location: /data/data/com.novaterm.app/files/sessions.json
+ * File location: /data/data/com.nvterm/files/sessions.json
  */
 class SessionStore(context: Context) {
 

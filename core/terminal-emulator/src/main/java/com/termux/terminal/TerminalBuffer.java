@@ -180,6 +180,11 @@ public final class TerminalBuffer {
         return (internalRow < 0) ? (mTotalRows + internalRow) : (internalRow % mTotalRows);
     }
 
+    /** Get the TerminalRow at the given external screen row. */
+    public TerminalRow getRow(int externalRow) {
+        return mLines[externalToInternalRow(externalRow)];
+    }
+
     public void setLineWrap(int row) {
         mLines[externalToInternalRow(row)].mLineWrap = true;
     }

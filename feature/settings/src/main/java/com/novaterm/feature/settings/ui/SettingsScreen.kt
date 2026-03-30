@@ -87,8 +87,8 @@ fun SettingsScreen(
                                 // Live preview: update immediately while dragging
                                 onPreferencesChanged(preferences.copy(fontSize = it.toInt()))
                             },
-                            valueRange = 6f..24f,
-                            steps = 23,
+                            valueRange = 6f..48f,
+                            steps = 41,
                         )
                     }
                 }

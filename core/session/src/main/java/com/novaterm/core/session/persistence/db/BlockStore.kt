@@ -30,9 +30,9 @@ class BlockStore(context: Context) {
         shell: String,
         cwd: String,
     ) {
-        if (closed) return
         val now = System.currentTimeMillis()
         synchronized(lock) {
+            if (closed) return
             val values = ContentValues().apply {
                 put("id", id)
                 put("tab_index", tabIndex)
@@ -51,6 +51,7 @@ class BlockStore(context: Context) {
 
     fun updateSessionCwd(sessionId: String, cwd: String) {
         synchronized(lock) {
+            if (closed) return
             val values = ContentValues().apply {
                 put("cwd", cwd)
                 put("updated_at", System.currentTimeMillis())
@@ -83,16 +84,25 @@ class BlockStore(context: Context) {
 
     fun deleteSession(sessionId: String) {
         synchronized(lock) {
+            if (closed) return
             db.writableDatabase.delete("sessions", "id = ?", arrayOf(sessionId))
         }
     }
 
     fun clearAllSessions() {
         synchronized(lock) {
-            db.writableDatabase.delete("sessions", null, null)
-            db.writableDatabase.delete("blocks", null, null)
-            db.writableDatabase.delete("block_output", null, null)
-            db.writableDatabase.delete("snapshots", null, null)
+            if (closed) return
+            val wdb = db.writableDatabase
+            wdb.beginTransaction()
+            try {
+                wdb.delete("sessions", null, null)
+                wdb.delete("blocks", null, null)
+                wdb.delete("block_output", null, null)
+                wdb.delete("snapshots", null, null)
+                wdb.setTransactionSuccessful()
+            } finally {
+                wdb.endTransaction()
+            }
         }
     }
 
@@ -106,9 +116,9 @@ class BlockStore(context: Context) {
         durationMs: Long? = null,
         isAiGenerated: Boolean = false,
     ): String? {
-        if (closed) return null
         val id = UUID.randomUUID().toString()
         synchronized(lock) {
+            if (closed) return null
             val values = ContentValues().apply {
                 put("id", id)
                 put("session_id", sessionId)
@@ -155,9 +165,10 @@ class BlockStore(context: Context) {
      * Returns the content hash. If identical content already exists,
      * increments reference count instead of storing a duplicate.
      */
-    fun storeOutput(data: ByteArray): String {
+    fun storeOutput(data: ByteArray): String? {
         val hash = sha256(data)
         synchronized(lock) {
+            if (closed) return null
             val cursor = db.readableDatabase.rawQuery(
                 "SELECT ref_count FROM cas_blobs WHERE hash = ?",
                 arrayOf(hash),
@@ -184,6 +195,7 @@ class BlockStore(context: Context) {
     }
 
     fun getOutput(hash: String): ByteArray? {
+        if (closed) return null
         val cursor = db.readableDatabase.rawQuery(
             "SELECT data FROM cas_blobs WHERE hash = ?",
             arrayOf(hash),
@@ -204,6 +216,7 @@ class BlockStore(context: Context) {
         cols: Int,
     ) {
         synchronized(lock) {
+            if (closed) return
             val values = ContentValues().apply {
                 put("session_id", sessionId)
                 put("vt_data", vtData)
@@ -221,6 +234,7 @@ class BlockStore(context: Context) {
     }
 
     fun getSnapshot(sessionId: String): SnapshotRecord? {
+        if (closed) return null
         val cursor = db.readableDatabase.rawQuery(
             "SELECT vt_data, cursor_row, cursor_col, rows, cols, updated_at FROM snapshots WHERE session_id = ?",
             arrayOf(sessionId),
@@ -242,6 +256,7 @@ class BlockStore(context: Context) {
     // ── Stats ─────────────────────────────────────────────
 
     fun getStats(): StoreStats {
+        if (closed) return StoreStats(0, 0, 0, 0L, 0L)
         val blockCount = queryCount("SELECT COUNT(*) FROM blocks")
         val sessionCount = queryCount("SELECT COUNT(*) FROM sessions")
         val casCount = queryCount("SELECT COUNT(*) FROM cas_blobs")
@@ -278,9 +293,11 @@ class BlockStore(context: Context) {
     val isClosed: Boolean get() = closed
 
     fun close() {
-        if (closed) return
-        closed = true
-        try { db.close() } catch (_: Exception) { }
+        synchronized(lock) {
+            if (closed) return
+            closed = true
+        }
+        try { db.close() } catch (e: Exception) { Log.w(TAG, "BlockStore close failed", e) }
     }
 
     companion object {

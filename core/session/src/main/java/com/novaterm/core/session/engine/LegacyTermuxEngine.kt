@@ -38,6 +38,7 @@ class LegacyTermuxEngine(
         val grid = IntArray(rows * cols * 4)
 
         for (row in 0 until rows) {
+            val line = screen.getRow(row) ?: continue
             for (col in 0 until cols) {
                 val idx = (row * cols + col) * 4
                 val style = screen.getStyleAt(row, col)
@@ -45,10 +46,20 @@ class LegacyTermuxEngine(
                 val backColor = TextStyle.decodeBackColor(style)
                 val effect = TextStyle.decodeEffect(style)
 
-                // Character: use screen's internal text access
-                // TerminalBuffer doesn't expose per-cell char directly,
-                // so we extract from the selected text area for the cell
-                grid[idx] = ' '.code // Character access requires row object
+                // Extract character codepoint from TerminalRow's text buffer
+                val charIdx = line.findStartOfColumn(col)
+                val codePoint = if (charIdx < line.getSpaceUsed()) {
+                    val c = line.mText[charIdx]
+                    if (Character.isHighSurrogate(c) && charIdx + 1 < line.getSpaceUsed()) {
+                        Character.toCodePoint(c, line.mText[charIdx + 1])
+                    } else {
+                        c.code
+                    }
+                } else {
+                    ' '.code
+                }
+
+                grid[idx] = codePoint
                 grid[idx + 1] = colorToArgb(foreColor)
                 grid[idx + 2] = colorToArgb(backColor)
                 grid[idx + 3] = effectToFlags(effect)

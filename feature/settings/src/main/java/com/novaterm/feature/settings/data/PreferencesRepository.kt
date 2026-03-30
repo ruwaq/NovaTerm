@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class TerminalPreferences(
-    val fontSize: Int = 12,  // 12sp matches color picker preview (~55 cols on 6.83")
+    val fontSize: Int = 12,  // 12sp default for 6.83" AMOLED (~55 cols)
     val keepScreenOn: Boolean = false,
     val hapticFeedback: Boolean = true,
     val bellEnabled: Boolean = true,
@@ -40,7 +40,7 @@ class PreferencesRepository(context: Context) {
 
     private fun load(): TerminalPreferences {
         return TerminalPreferences(
-            fontSize = prefs.getInt("font_size", 32),
+            fontSize = prefs.getInt("font_size", 12),
             keepScreenOn = prefs.getBoolean("keep_screen_on", false),
             hapticFeedback = prefs.getBoolean("haptic_feedback", true),
             bellEnabled = prefs.getBoolean("bell_enabled", true),

@@ -25,6 +25,8 @@ class TerminalNotificationProvider(
     private val channelId: String,
     private val alertChannelId: String,
     private val activityClass: Class<*>,
+    private val smallIconRes: Int = android.R.drawable.ic_menu_manage,
+    private val alertIconRes: Int = android.R.drawable.ic_dialog_alert,
 ) : NotificationProvider {
 
     private val notificationManager: NotificationManager =
@@ -49,7 +51,7 @@ class TerminalNotificationProvider(
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("NovaTerm")
             .setContentText(statusParts.joinToString(" | "))
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setSmallIcon(smallIconRes)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setShowWhen(false)
@@ -72,7 +74,7 @@ class TerminalNotificationProvider(
         val notification = NotificationCompat.Builder(context, alertChannelId)
             .setContentTitle(title)
             .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(alertIconRes)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

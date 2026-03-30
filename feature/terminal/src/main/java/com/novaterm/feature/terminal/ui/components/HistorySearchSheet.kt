@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.novaterm.feature.terminal.R
 
 /**
  * A command from the block store history.
@@ -88,15 +90,15 @@ fun HistorySearchSheet(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search commands...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text(stringResource(R.string.search_commands_hint)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_commands_hint)) },
                 singleLine = true,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "${filtered.size} commands",
+                text = stringResource(R.string.search_results_count, filtered.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

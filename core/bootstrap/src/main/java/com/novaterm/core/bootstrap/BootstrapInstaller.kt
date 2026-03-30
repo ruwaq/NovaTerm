@@ -73,6 +73,16 @@ class BootstrapInstaller(private val context: Context) {
         try {
             _state.value = State.Extracting(0f, "Loading...")
 
+            // 0. Check available storage (bootstrap needs ~100MB)
+            val availableBytes = File(filesDir).freeSpace
+            val requiredBytes = 100L * 1024 * 1024 // 100MB
+            if (availableBytes < requiredBytes) {
+                val availableMB = availableBytes / 1024 / 1024
+                Log.e(TAG, "Insufficient storage: ${availableMB}MB available, need 100MB")
+                _state.value = State.Error("Insufficient storage. Need at least 100MB free (${availableMB}MB available).")
+                return@withContext false
+            }
+
             // 1. Load ZIP from assets (Phase 1) or native library (Phase 2)
             val zipBytes = try {
                 // Try assets first (simpler, no NDK required)
@@ -116,14 +126,56 @@ class BootstrapInstaller(private val context: Context) {
             }
             oldPrefix.deleteRecursively()
 
-            // 6. Create symlinks (after rename, so paths resolve correctly)
-            createSymlinks(symlinks, prefixDir)
+            // 6. Create symlinks with patched targets (com.termux → com.nvterm in paths)
+            val patchedSymlinks = symlinks.map { (target, link) ->
+                target.replace("com.termux", "com.nvterm") to link
+            }
+            createSymlinks(patchedSymlinks, prefixDir)
 
-            // 7. Patch scripts: replace com.termux paths with our package paths
-            patchTermuxPaths(prefixDir)
+            // 7. Validate critical files exist (after symlinks, so sh→bash resolves)
+            val criticalBinaries = listOf("bin/bash", "bin/sh", "bin/login", "bin/apt", "bin/dpkg")
+            val missing = criticalBinaries.filter { !File(prefixDir, it).exists() }
+            if (missing.isNotEmpty()) {
+                throw RuntimeException("Bootstrap extraction incomplete — missing: ${missing.joinToString()}")
+            }
 
-            // 8. Ensure tmp directory exists
-            File(prefixDir, "tmp").mkdirs()
+            // 8. Ensure required directories exist (apt, dpkg, cache)
+            val requiredDirs = listOf(
+                "tmp",
+                "etc/apt/apt.conf.d",
+                "etc/apt/preferences.d",
+                "etc/apt/sources.list.d",
+                "etc/apt/trusted.gpg.d",
+                "var/lib/apt/lists/partial",
+                "var/lib/dpkg/info",
+                "var/lib/dpkg/triggers",
+                "var/lib/dpkg/updates",
+                "var/log/apt",
+            )
+            for (dir in requiredDirs) File(prefixDir, dir).mkdirs()
+
+            // Also create apt cache outside $PREFIX (where libapt-pkg expects it)
+            val cacheDir = File(context.cacheDir, "apt/archives/partial")
+            cacheDir.mkdirs()
+
+            // 10. Ensure dpkg status files exist
+            File(prefixDir, "var/lib/dpkg/available").apply { if (!exists()) createNewFile() }
+
+            // 11. Install dpkg wrapper that patches .deb paths on install.
+            //     Termux .debs have /data/data/com.termux/ hardcoded in data.tar.
+            //     Since com.nvterm == com.termux in length, sed binary patch works.
+            installDpkgWrapper(prefixDir)
+
+            // 12. Copy GPG keys to trusted.gpg.d if they exist in share/
+            val keyringDir = File(prefixDir, "share/termux-keyring")
+            val trustedDir = File(prefixDir, "etc/apt/trusted.gpg.d")
+            if (keyringDir.isDirectory) {
+                keyringDir.listFiles()?.filter { it.extension == "gpg" }?.forEach { key ->
+                    val dest = File(trustedDir, key.name)
+                    if (!dest.exists()) key.copyTo(dest)
+                }
+                Log.i(TAG, "Installed ${trustedDir.listFiles()?.size ?: 0} GPG keys")
+            }
 
             _state.value = State.Done
             Log.i(TAG, "Bootstrap installation complete: ${prefixDir.absolutePath}")
@@ -182,10 +234,26 @@ class BootstrapInstaller(private val context: Context) {
                     }
                     !entry.isDirectory -> {
                         val outFile = File(targetDir, name)
-                        outFile.parentFile?.mkdirs()
-                        FileOutputStream(outFile).use { fos ->
-                            zis.copyTo(fos, bufferSize = 64 * 1024)
+                        // Security: block path traversal
+                        val canonical = outFile.canonicalPath
+                        val targetCanonical = targetDir.canonicalPath + File.separator
+                        if (!canonical.startsWith(targetCanonical)) {
+                            Log.w(TAG, "Skipping path traversal entry: $name")
+                            entry = zis.nextEntry
+                            continue
                         }
+                        outFile.parentFile?.mkdirs()
+
+                        // Read into memory, patch com.termux→com.nvterm, write out.
+                        // Same-length replacement (10 bytes each) — safe for ALL files
+                        // including ELF binaries. Zero extra I/O passes.
+                        val data = zis.readBytes()
+                        val ext = outFile.extension.lowercase()
+                        val shouldPatch = ext !in SKIP_PATCH_EXTENSIONS
+                        if (shouldPatch) {
+                            patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
+                        }
+                        outFile.writeBytes(data)
                     }
                 }
 
@@ -204,70 +272,103 @@ class BootstrapInstaller(private val context: Context) {
         Log.i(TAG, "Extracted $extracted files, found ${symlinks.size} symlinks")
     }
 
-    // ── Permissions ───────────────────────────────────────
-
-    // ── Path patching ──────────────────────────────────
+    // ── dpkg wrapper ──────────────────────────────────────
 
     /**
-     * Replace hardcoded com.termux paths in shell scripts with our package paths.
-     * The bootstrap is built from Termux packages which have /data/data/com.termux
-     * hardcoded. We patch text files (scripts, configs) to use our actual paths.
-     * Binary ELF files are NOT patched — termux-exec handles those at runtime.
+     * Install a dpkg wrapper that patches downloaded .deb files before
+     * dpkg processes them. Termux repo .debs have paths with com.termux
+     * hardcoded; we replace with com.nvterm (same length = safe binary sed).
+     *
+     * Strategy: rename real dpkg to dpkg.real, install a shell script as
+     * dpkg that patches any .deb arguments, then calls dpkg.real.
      */
-    private fun patchTermuxPaths(prefix: File) {
-        val termuxPrefix = "/data/data/com.termux/files"
-        val ourPrefix = context.filesDir.absolutePath
+    private fun installDpkgWrapper(prefix: File) {
+        val dpkgReal = File(prefix, "bin/dpkg.real")
+        val dpkgBin = File(prefix, "bin/dpkg")
 
-        // Patch ONLY text files (scripts, configs). Skip ELF binaries.
-        // readText()/writeText() on ELF files corrupts them by replacing
-        // invalid UTF-8 bytes with U+FFFD (3 bytes), inflating the file
-        // and destroying the ELF header (e_version becomes garbage).
-        val dirsToPath = listOf("bin", "etc", "etc/profile.d", "etc/apt")
-        var patched = 0
-        var skippedElf = 0
+        // Only install once
+        if (dpkgReal.exists()) return
+        if (!dpkgBin.exists()) return
 
-        for (dir in dirsToPath) {
-            val d = File(prefix, dir)
-            if (!d.isDirectory) continue
-            d.listFiles()?.forEach { file ->
-                if (file.isFile && file.length() < 100_000) {
-                    try {
-                        // Skip ELF binaries — detect by magic bytes \x7fELF
-                        val header = file.inputStream().use { stream ->
-                            val buf = ByteArray(4)
-                            stream.read(buf)
-                            buf
-                        }
-                        if (header.size >= 4 &&
-                            header[0] == 0x7F.toByte() &&
-                            header[1] == 0x45.toByte() && // 'E'
-                            header[2] == 0x4C.toByte() && // 'L'
-                            header[3] == 0x46.toByte()     // 'F'
-                        ) {
-                            skippedElf++
-                            return@forEach
-                        }
+        // Rename real dpkg
+        dpkgBin.renameTo(dpkgReal)
 
-                        // Also skip .so shared libraries
-                        if (file.name.endsWith(".so") || file.name.contains(".so.")) {
-                            skippedElf++
-                            return@forEach
-                        }
+        // Write wrapper script
+        dpkgBin.writeText(buildString {
+            appendLine("#!/data/data/com.nvterm/files/usr/bin/sh")
+            appendLine("# NovaTerm dpkg wrapper — patches com.termux paths in .deb files")
+            appendLine("# Real dpkg is at dpkg.real")
+            appendLine()
+            appendLine("patch_deb() {")
+            appendLine("  local deb=\"\$1\"")
+            appendLine("  [ -f \"\$deb\" ] || return 1")
+            appendLine("  local tmp=\"\$(mktemp -d)\"")
+            appendLine("  cd \"\$tmp\" || return 1")
+            appendLine("  # Extract .deb components")
+            appendLine("  ar x \"\$deb\" 2>/dev/null || { cd /; rm -rf \"\$tmp\"; return 1; }")
+            appendLine("  # Find and patch data archive")
+            appendLine("  for f in data.tar.*; do")
+            appendLine("    [ -f \"\$f\" ] || continue")
+            appendLine("    local ext=\"\${f##*.}\"")
+            appendLine("    local decomp=\"\" comp=\"\"")
+            appendLine("    case \"\$ext\" in")
+            appendLine("      xz)  decomp=\"xz -d\" comp=\"xz\" ;;")
+            appendLine("      gz)  decomp=\"gzip -d\" comp=\"gzip\" ;;")
+            appendLine("      zst) decomp=\"zstd -d\" comp=\"zstd\" ;;")
+            appendLine("      *)   decomp=\"cat\" comp=\"cat\" ;;")
+            appendLine("    esac")
+            appendLine("    \$decomp \"\$f\"")
+            appendLine("    # Binary sed: same-length replacement (10 chars each)")
+            appendLine("    LC_ALL=C sed -i 's/com\\.termux/com.nvterm/g' data.tar")
+            appendLine("    \$comp data.tar")
+            appendLine("    [ -f \"data.tar.\$ext\" ] || mv data.tar \"\$f\"")
+            appendLine("  done")
+            appendLine("  # Rebuild .deb")
+            appendLine("  ar rcs \"\$deb\" debian-binary control.tar.* data.tar.*")
+            appendLine("  cd /; rm -rf \"\$tmp\"")
+            appendLine("}")
+            appendLine()
+            appendLine("# Patch any .deb file arguments")
+            appendLine("patched_args=()")
+            appendLine("for arg in \"\$@\"; do")
+            appendLine("  case \"\$arg\" in")
+            appendLine("    *.deb)")
+            appendLine("      if [ -f \"\$arg\" ]; then")
+            appendLine("        patch_deb \"\$arg\"")
+            appendLine("      fi")
+            appendLine("      ;;")
+            appendLine("  esac")
+            appendLine("  patched_args+=(\"\$arg\")")
+            appendLine("done")
+            appendLine()
+            appendLine("exec /data/data/com.nvterm/files/usr/bin/dpkg.real \"\${patched_args[@]}\"")
+        })
 
-                        // Safe to read as text — it's a script or config
-                        val content = file.readText()
-                        if (content.contains(termuxPrefix)) {
-                            file.writeText(content.replace(termuxPrefix, ourPrefix))
-                            patched++
-                        }
-                    } catch (_: Exception) {
-                        // Skip files that fail to read
-                    }
-                }
+        dpkgBin.setExecutable(true, true)
+        dpkgBin.setReadable(true, true)
+        Log.i(TAG, "Installed dpkg wrapper script")
+    }
+
+    // ── Inline byte patching (during extraction) ───────────
+
+    /**
+     * Replace all occurrences of [old] with [new] in [data] in-place.
+     * Both arrays MUST have equal length (same-length binary patching).
+     */
+    private fun patchBytes(data: ByteArray, old: ByteArray, new: ByteArray) {
+        var i = 0
+        while (i <= data.size - old.size) {
+            var match = true
+            for (j in old.indices) {
+                if (data[i + j] != old[j]) { match = false; break }
+            }
+            if (match) {
+                System.arraycopy(new, 0, data, i, new.size)
+                i += new.size
+            } else {
+                i++
             }
         }
-
-        Log.i(TAG, "Patched $patched text files, skipped $skippedElf binaries")
     }
 
     // ── Permissions ───────────────────────────────────
@@ -296,25 +397,47 @@ class BootstrapInstaller(private val context: Context) {
     // ── Symlinks ──────────────────────────────────────────
 
     private fun createSymlinks(symlinks: List<Pair<String, String>>, prefix: File) {
+        // Critical symlinks that must succeed for the terminal to work
+        val criticalLinks = setOf("bin/sh", "bin/bash", "bin/login")
         var created = 0
         var failed = 0
+        val criticalFailures = mutableListOf<String>()
+
         for ((target, linkPath) in symlinks) {
             try {
                 val linkFile = File(prefix, linkPath)
                 linkFile.parentFile?.mkdirs()
-                linkFile.delete() // Remove existing file/symlink
+                linkFile.delete()
                 Os.symlink(target, linkFile.absolutePath)
                 created++
             } catch (e: Exception) {
                 Log.w(TAG, "Symlink failed: $linkPath → $target: ${e.message}")
                 failed++
+                if (linkPath in criticalLinks) {
+                    criticalFailures.add(linkPath)
+                }
             }
         }
         Log.i(TAG, "Symlinks: $created created, $failed failed")
+        if (criticalFailures.isNotEmpty()) {
+            Log.e(TAG, "Critical symlinks failed: ${criticalFailures.joinToString()}")
+        }
     }
 
     companion object {
         private const val TAG = "Bootstrap"
+
+        // Same-length byte arrays for inline binary patching during extraction.
+        // com.termux (10 bytes) == com.nvterm (10 bytes) — safe for ELF binaries.
+        private val OLD_PKG_BYTES = "com.termux".toByteArray(Charsets.US_ASCII)
+        private val NEW_PKG_BYTES = "com.nvterm".toByteArray(Charsets.US_ASCII)
+
+        // Extensions containing crypto/compressed data — must NOT be patched.
+        private val SKIP_PATCH_EXTENSIONS = setOf(
+            "gpg", "pgp", "sig", "asc", "der", "pem", "crt", "key",
+            "gz", "xz", "bz2", "zst", "lz4", "zip", "tar", "deb",
+            "png", "jpg", "jpeg", "gif", "ico", "webp",
+        )
     }
 }
 

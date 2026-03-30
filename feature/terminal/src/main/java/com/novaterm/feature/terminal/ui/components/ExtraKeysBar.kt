@@ -82,6 +82,7 @@ private val ROW_2 = listOf(
     ExtraKey("▼", "\u001b[B", popup = "PgDn"),          // Down (completes cross)
     ExtraKey("▶", "\u001b[C", popup = "End"),           // Right
     ExtraKey("⏎", "\r", popup = "^Z"),                  // Enter
+    ExtraKey("⌨", code = "__KEYBOARD__"),               // Keyboard toggle
 )
 
 private val ROWS = listOf(ROW_1, ROW_2)
@@ -101,6 +102,7 @@ fun ExtraKeysBar(
     onKey: (String) -> Unit,
     onCtrlToggle: () -> Unit,
     onAltToggle: () -> Unit,
+    onKeyboardToggle: () -> Unit = {},
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
     hapticEnabled: Boolean = true,
@@ -119,7 +121,7 @@ fun ExtraKeysBar(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         ROWS.forEach { row ->
-            ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, ctrlActive, altActive, hapticEnabled, haptic)
+            ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, onKeyboardToggle, ctrlActive, altActive, hapticEnabled, haptic)
         }
     }
 }
@@ -130,6 +132,7 @@ private fun ExtraKeyRow(
     onKey: (String) -> Unit,
     onCtrlToggle: () -> Unit,
     onAltToggle: () -> Unit,
+    onKeyboardToggle: () -> Unit,
     ctrlActive: Boolean,
     altActive: Boolean,
     hapticEnabled: Boolean,
@@ -139,6 +142,7 @@ private fun ExtraKeyRow(
     val currentOnKey by rememberUpdatedState(onKey)
     val currentOnCtrlToggle by rememberUpdatedState(onCtrlToggle)
     val currentOnAltToggle by rememberUpdatedState(onAltToggle)
+    val currentOnKeyboardToggle by rememberUpdatedState(onKeyboardToggle)
 
     Row(
         modifier = Modifier
@@ -161,9 +165,10 @@ private fun ExtraKeyRow(
                     if (hapticEnabled) {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
-                    when (key.label) {
-                        "CTRL" -> currentOnCtrlToggle()
-                        "ALT" -> currentOnAltToggle()
+                    when {
+                        key.label == "CTRL" -> currentOnCtrlToggle()
+                        key.label == "ALT" -> currentOnAltToggle()
+                        key.code == "__KEYBOARD__" -> currentOnKeyboardToggle()
                         else -> currentOnKey(key.code)
                     }
                 },

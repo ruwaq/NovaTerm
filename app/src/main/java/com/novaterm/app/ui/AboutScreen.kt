@@ -20,9 +20,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.novaterm.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,10 +34,10 @@ fun AboutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About") },
+                title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
             )
@@ -58,7 +60,7 @@ fun AboutScreen(
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = "v0.1.0",
+                text = "v${com.novaterm.app.BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
@@ -67,7 +69,7 @@ fun AboutScreen(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Next-gen Android terminal emulator",
+                text = stringResource(R.string.about_tagline),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

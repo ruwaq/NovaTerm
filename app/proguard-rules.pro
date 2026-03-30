@@ -46,6 +46,17 @@
 -keep class com.novaterm.core.session.persistence.db.*Record { *; }
 -keep class com.novaterm.core.session.persistence.db.StoreStats { *; }
 
+# === Rust JNI bridge (Phase 2) ===
+-keep class com.novaterm.core.session.engine.NativeTerminal { *; }
+-keep class com.novaterm.core.session.engine.NativeSession { *; }
+-keep class com.novaterm.core.session.engine.NativeRenderer { *; }
+-keep class com.novaterm.core.session.engine.RustEngine { *; }
+-keep class com.novaterm.core.session.engine.RustEngine$Factory { *; }
+-keep class com.novaterm.core.session.engine.RustSessionEngine { *; }
+-keep class com.novaterm.core.session.engine.RustSessionEngine$Companion { *; }
+-keep class com.novaterm.core.session.engine.GpuRenderer { *; }
+-keep class com.novaterm.core.common.model.CursorPosition { *; }
+
 # === Compose ===
 # Compose compiler handles most of this, but keep @Composable metadata
 -keep class androidx.compose.runtime.** { *; }

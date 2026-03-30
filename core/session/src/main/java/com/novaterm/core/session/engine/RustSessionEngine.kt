@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class RustSessionEngine private constructor(
     handle: Long,
-    private var rows: Int,
-    private var cols: Int,
+    @Volatile private var rows: Int,
+    @Volatile private var cols: Int,
     /** Child process PID. */
     val pid: Int,
 ) : TerminalEngine {
