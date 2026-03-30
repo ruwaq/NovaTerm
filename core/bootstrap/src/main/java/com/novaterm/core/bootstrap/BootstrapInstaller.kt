@@ -250,6 +250,7 @@ class BootstrapInstaller(private val context: Context) {
                         val data = zis.readBytes()
                         val ext = outFile.extension.lowercase()
                         val shouldPatch = ext !in SKIP_PATCH_EXTENSIONS
+                            && name !in SKIP_PATCH_FILES
                         if (shouldPatch) {
                             patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
                         }
@@ -328,20 +329,17 @@ class BootstrapInstaller(private val context: Context) {
             appendLine("  cd /; rm -rf \"\$tmp\"")
             appendLine("}")
             appendLine()
-            appendLine("# Patch any .deb file arguments")
-            appendLine("patched_args=()")
+            appendLine("# Patch any .deb file arguments before passing to real dpkg")
             appendLine("for arg in \"\$@\"; do")
             appendLine("  case \"\$arg\" in")
             appendLine("    *.deb)")
-            appendLine("      if [ -f \"\$arg\" ]; then")
-            appendLine("        patch_deb \"\$arg\"")
-            appendLine("      fi")
+            appendLine("      [ -f \"\$arg\" ] && patch_deb \"\$arg\"")
             appendLine("      ;;")
             appendLine("  esac")
-            appendLine("  patched_args+=(\"\$arg\")")
             appendLine("done")
             appendLine()
-            appendLine("exec /data/data/com.nvterm/files/usr/bin/dpkg.real \"\${patched_args[@]}\"")
+            appendLine("# Pass all original args through (POSIX-compatible, no bash arrays)")
+            appendLine("exec /data/data/com.nvterm/files/usr/bin/dpkg.real \"\$@\"")
         })
 
         dpkgBin.setExecutable(true, true)
@@ -437,6 +435,12 @@ class BootstrapInstaller(private val context: Context) {
             "gpg", "pgp", "sig", "asc", "der", "pem", "crt", "key",
             "gz", "xz", "bz2", "zst", "lz4", "zip", "tar", "deb",
             "png", "jpg", "jpeg", "gif", "ico", "webp",
+        )
+
+        // Specific files that must NOT be patched (Java class names, etc.)
+        private val SKIP_PATCH_FILES = setOf(
+            "bin/am",                    // Java class: com.termux.termuxam.Am
+            "libexec/termux-am/am.apk",  // APK with Java classes
         )
     }
 }
