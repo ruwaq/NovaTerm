@@ -161,7 +161,13 @@ class BootstrapInstaller(private val context: Context) {
             // 10. Ensure dpkg status files exist
             File(prefixDir, "var/lib/dpkg/available").apply { if (!exists()) createNewFile() }
 
-            // 11. Install dpkg wrapper that patches .deb paths on install.
+            // 11. Patch login script to export TMPDIR (Claude Code needs this).
+            //     Android's /tmp is not writable by apps. Node.js os.tmpdir()
+            //     reads TMPDIR env var, so we must ensure it's set before any
+            //     child process starts.
+            patchLoginScript(prefixDir)
+
+            // 12. Install dpkg wrapper that patches .deb paths on install.
             //     Termux .debs have /data/data/com.termux/ hardcoded in data.tar.
             //     Since com.nvterm == com.termux in length, sed binary patch works.
             installDpkgWrapper(prefixDir)
@@ -392,6 +398,44 @@ class BootstrapInstaller(private val context: Context) {
         prefix.walkTopDown()
             .filter { it.isFile && (it.name.endsWith(".so") || it.name.contains(".so.")) }
             .forEach { it.setExecutable(true, true) }
+    }
+
+    // ── Login script patching ─────────────────────────────
+
+    /**
+     * Patch the Termux login script to export TMPDIR early.
+     * This is critical for Claude Code and other Node.js tools that
+     * call os.tmpdir() which returns /tmp if TMPDIR is not set.
+     * Android's /tmp is owned by shell:shell and not writable by apps.
+     */
+    private fun patchLoginScript(prefix: File) {
+        val login = File(prefix, "bin/login")
+        if (!login.exists()) return
+
+        try {
+            var content = login.readText()
+
+            // Insert TMPDIR export right after the shebang line
+            val shebang = content.lines().first()
+            val rest = content.removePrefix(shebang).trimStart('\n')
+            content = buildString {
+                appendLine(shebang)
+                appendLine()
+                appendLine("# NovaTerm: ensure TMPDIR points to writable directory")
+                appendLine("# Android's /tmp is not writable by apps (owned by shell:shell)")
+                appendLine("export TMPDIR=\"\${TMPDIR:-\${PREFIX:-/data/data/com.nvterm/files/usr}/tmp}\"")
+                appendLine("export TMP=\"\$TMPDIR\"")
+                appendLine("export TEMP=\"\$TMPDIR\"")
+                appendLine()
+                append(rest)
+            }
+
+            login.writeText(content)
+            login.setExecutable(true, true)
+            Log.i(TAG, "Patched login script with TMPDIR export")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to patch login script: ${e.message}")
+        }
     }
 
     // ── MOTD branding ─────────────────────────────────────
