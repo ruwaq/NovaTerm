@@ -35,6 +35,7 @@ import com.novaterm.core.session.engine.RustEngine
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
+import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
@@ -68,6 +69,9 @@ class TerminalService : Service() {
     private lateinit var sessionStore: SessionStore
     lateinit var blockStore: BlockStore
         private set
+    lateinit var predictionEngine: PredictionEngine
+        private set
+    val predictionEngineReady: Boolean get() = ::predictionEngine.isInitialized
 
     // ── Session state (observable) ─────────────────────────
 
@@ -225,6 +229,7 @@ class TerminalService : Service() {
         shellProvider = AndroidShellProvider(this, appVersion = com.novaterm.app.BuildConfig.VERSION_NAME)
         sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
+        predictionEngine = PredictionEngine(filesDir).also { it.load() }
 
         startForeground(NOTIFICATION_ID, buildNotification())
 
@@ -266,6 +271,7 @@ class TerminalService : Service() {
             if (_sessions.value.isNotEmpty()) {
                 saveSessionMetadata()
             }
+            if (::predictionEngine.isInitialized) predictionEngine.save()
             if (!isServiceDestroyed) {
                 mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
             }
@@ -321,6 +327,7 @@ class TerminalService : Service() {
         mcpServer = null
         stopPeriodicSave()
         saveSessionMetadata()
+        if (::predictionEngine.isInitialized) predictionEngine.save()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { session ->

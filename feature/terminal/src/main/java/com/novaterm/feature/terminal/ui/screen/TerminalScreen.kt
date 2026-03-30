@@ -56,6 +56,8 @@ fun TerminalScreen(
     backIsEscape: Boolean = false,
     onModifiersConsumed: () -> Unit = {},
     onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null,
+    /** Called when Tab is pressed to check if a suggestion should be accepted instead. Returns the suggestion text or null. */
+    onTabAcceptSuggestion: (() -> String?)? = null,
     onViewReady: ((TerminalView) -> Unit)? = null,
     /** Exposes prompt navigation to the parent. Call jumpToPrompt(delta) where delta is -1 (up) or +1 (down). */
     onPromptNavigatorReady: ((jumpToPrompt: (Int) -> Unit) -> Unit)? = null,
@@ -75,6 +77,7 @@ fun TerminalScreen(
             backIsEscape = backIsEscape,
             onModifiersConsumed = onModifiersConsumed,
             onUrlDetected = { url -> detectedUrl = url },
+            onTabAcceptSuggestion = onTabAcceptSuggestion,
         )
     }
 
@@ -85,6 +88,7 @@ fun TerminalScreen(
     viewClient.backIsEscape = backIsEscape
     viewClient.onModifiersConsumed = onModifiersConsumed
     viewClient.onUrlDetected = { url -> detectedUrl = url }
+    viewClient.onTabAcceptSuggestion = onTabAcceptSuggestion
 
     // Reference to the native view for imperative updates.
     val terminalViewRef = remember { mutableStateOf<TerminalView?>(null) }
@@ -227,6 +231,7 @@ private class NovaTermViewClient(
     @Volatile var backIsEscape: Boolean,
     var onModifiersConsumed: () -> Unit,
     var onUrlDetected: (String) -> Unit = {},
+    var onTabAcceptSuggestion: (() -> String?)? = null,
     var terminalView: TerminalView? = null,
 ) : TerminalViewClient {
 
@@ -303,6 +308,14 @@ private class NovaTermViewClient(
         if (keyCode == KeyEvent.KEYCODE_ENTER && e?.isShiftPressed == true) {
             session?.write("\n")
             return true
+        }
+        // Tab → accept suggestion if one is active (→ key also works, like Fish shell)
+        if (keyCode == KeyEvent.KEYCODE_TAB || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            val accepted = onTabAcceptSuggestion?.invoke()
+            if (accepted != null) {
+                session?.write(accepted)
+                return true
+            }
         }
         return false
     }

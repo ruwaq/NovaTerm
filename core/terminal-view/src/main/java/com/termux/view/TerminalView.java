@@ -108,6 +108,10 @@ public final class TerminalView extends View {
 
     final OverScroller mScroller;
 
+    /** Edge glow effects for overscroll feedback at top and bottom of scrollback. */
+    private final EdgeEffect mEdgeGlowTop;
+    private final EdgeEffect mEdgeGlowBottom;
+
     /** What was left in from scrolling movement. */
     float mScrollRemainder;
 
@@ -170,6 +174,10 @@ public final class TerminalView extends View {
             @Override
             public boolean onUp(MotionEvent event) {
                 mScrollRemainder = 0.0f;
+                // Release edge glow effects on finger lift
+                mEdgeGlowTop.onRelease();
+                mEdgeGlowBottom.onRelease();
+
                 if (mEmulator != null && mEmulator.isMouseTrackingActive() && !event.isFromSource(InputDevice.SOURCE_MOUSE) && !isSelectingText() && !scrolledWithFinger) {
                     // Quick event processing when mouse tracking is active - do not wait for check of double tapping
                     // for zooming.
@@ -228,15 +236,17 @@ public final class TerminalView extends View {
                 if (!mScroller.isFinished()) return true;
 
                 final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
-                // Higher scale = faster fling response. 0.6 feels natural on touch.
-                float SCALE = 0.6f;
+                // 0.8 balances responsiveness with control. Lower = sluggish, higher = overshoots.
+                float SCALE = 0.8f;
                 if (mouseTrackingAtStartOfFling) {
                     mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
                 } else {
                     mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
                 }
 
-                post(new Runnable() {
+                // Use postOnAnimation to sync with vsync (60/120 Hz) for smooth animation.
+                // post() runs on next message loop tick which may not align with frame boundaries.
+                postOnAnimation(new Runnable() {
                     private int mLastY = 0;
 
                     @Override
@@ -251,7 +261,7 @@ public final class TerminalView extends View {
                         int diff = mouseTrackingAtStartOfFling ? (newY - mLastY) : (newY - mTopRow);
                         doScroll(e2, diff);
                         mLastY = newY;
-                        if (more) post(this);
+                        if (more) postOnAnimation(this);
                     }
                 });
 
@@ -260,13 +270,10 @@ public final class TerminalView extends View {
 
             @Override
             public boolean onDown(float x, float y) {
-                // Why is true not returned here?
-                // https://developer.android.com/training/gestures/detector.html#detect-a-subset-of-supported-gestures
-                // Although setting this to true still does not solve the following errors when long pressing in terminal view text area
-                // ViewDragHelper: Ignoring pointerId=0 because ACTION_DOWN was not received for this pointer before ACTION_MOVE
-                // Commenting out the call to mGestureDetector.onTouchEvent(event) in GestureAndScaleRecognizer#onTouchEvent() removes
-                // the error logging, so issue is related to GestureDetector
-                return false;
+                // Must return true so GestureDetector processes subsequent onScroll/onFling events.
+                // Returning false causes GestureDetector to skip scroll detection on some Android versions.
+                // The ViewDragHelper log warning ("Ignoring pointerId=0...") is harmless and cosmetic.
+                return true;
             }
 
             @Override
@@ -286,6 +293,14 @@ public final class TerminalView extends View {
             }
         });
         mScroller = new OverScroller(context);
+        mEdgeGlowTop = new EdgeEffect(context);
+        mEdgeGlowBottom = new EdgeEffect(context);
+        // Match Material3 overscroll color (subtle, not jarring)
+        mEdgeGlowTop.setColor(0x40FFFFFF);
+        mEdgeGlowBottom.setColor(0x40FFFFFF);
+
+        setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+
         AccessibilityManager am = (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
         mAccessibilityEnabled = am.isEnabled();
     }
@@ -599,21 +614,48 @@ public final class TerminalView extends View {
         mEmulator.sendMouseEvent(button, x, y, pressed);
     }
 
-    /** Perform a scroll, either from dragging the screen or by scrolling a mouse wheel. */
+    /**
+     * Perform a scroll, either from dragging the screen or by scrolling a mouse wheel.
+     *
+     * For normal scrollback: applies the full delta at once with a single invalidate.
+     * For mouse tracking / alt buffer: must send individual events per row (protocol requirement).
+     */
     void doScroll(MotionEvent event, int rowsDown) {
+        if (rowsDown == 0) return;
+
         boolean up = rowsDown < 0;
         int amount = Math.abs(rowsDown);
-        for (int i = 0; i < amount; i++) {
-            if (mEmulator.isMouseTrackingActive()) {
-                sendMouseEventCode(event, up ? TerminalEmulator.MOUSE_WHEELUP_BUTTON : TerminalEmulator.MOUSE_WHEELDOWN_BUTTON, true);
-            } else if (mEmulator.isAlternateBufferActive()) {
-                // Send up and down key events for scrolling, which is what some terminals do to make scroll work in
-                // e.g. less, which shifts to the alt screen without mouse handling.
-                handleKeyCode(up ? KeyEvent.KEYCODE_DPAD_UP : KeyEvent.KEYCODE_DPAD_DOWN, 0);
-            } else {
-                mTopRow = Math.min(0, Math.max(-(mEmulator.getScreen().getActiveTranscriptRows()), mTopRow + (up ? -1 : 1)));
-                if (!awakenScrollBars()) invalidate();
+
+        if (mEmulator.isMouseTrackingActive()) {
+            // Mouse tracking: each row must be a separate wheel event (terminal protocol)
+            int button = up ? TerminalEmulator.MOUSE_WHEELUP_BUTTON : TerminalEmulator.MOUSE_WHEELDOWN_BUTTON;
+            for (int i = 0; i < amount; i++) {
+                sendMouseEventCode(event, button, true);
             }
+        } else if (mEmulator.isAlternateBufferActive()) {
+            // Alt buffer (less, vim): send arrow keys per row
+            int keyCode = up ? KeyEvent.KEYCODE_DPAD_UP : KeyEvent.KEYCODE_DPAD_DOWN;
+            for (int i = 0; i < amount; i++) {
+                handleKeyCode(keyCode, 0);
+            }
+        } else {
+            // Normal scrollback: apply full delta at once, single redraw
+            int oldTopRow = mTopRow;
+            int minTopRow = -(mEmulator.getScreen().getActiveTranscriptRows());
+            mTopRow = Math.min(0, Math.max(minTopRow, mTopRow + (up ? -amount : amount)));
+
+            // Edge glow feedback when hitting the bounds of scrollback
+            if (mTopRow == oldTopRow) {
+                float pull = Math.min(0.15f, amount * 0.03f);
+                if (up) {
+                    mEdgeGlowTop.onPull(pull);
+                } else {
+                    mEdgeGlowBottom.onPull(pull);
+                }
+            }
+
+            // Sync with vsync for smooth 60/120Hz scrolling instead of immediate invalidate
+            if (!awakenScrollBars()) postInvalidateOnAnimation();
         }
     }
 
@@ -635,6 +677,15 @@ public final class TerminalView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         if (mEmulator == null) return true;
         final int action = event.getAction();
+
+        // Tell parent views (Compose AndroidView, HorizontalPager, Scaffold) to NOT
+        // intercept our touch events once we start receiving them. Without this,
+        // Compose's gesture system can steal vertical scroll events from TerminalView.
+        if (action == MotionEvent.ACTION_DOWN) {
+            if (getParent() != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+            }
+        }
 
         if (isSelectingText()) {
             updateFloatingToolbarVisibility(event);
@@ -1058,6 +1109,37 @@ public final class TerminalView extends View {
             }
             mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
             renderTextSelection();
+        }
+
+        // Draw edge glow effects (overscroll feedback at top/bottom of scrollback)
+        drawEdgeEffects(canvas);
+    }
+
+    /** Draw edge glow indicators when the user scrolls past the top/bottom of scrollback. */
+    private void drawEdgeEffects(Canvas canvas) {
+        boolean needsInvalidate = false;
+        final int width = getWidth();
+
+        if (!mEdgeGlowTop.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(0, 0);
+            mEdgeGlowTop.setSize(width, getHeight());
+            needsInvalidate = mEdgeGlowTop.draw(canvas);
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeGlowBottom.isFinished()) {
+            final int restoreCount = canvas.save();
+            final int height = getHeight();
+            canvas.translate(-width, height);
+            canvas.rotate(180, width, 0);
+            mEdgeGlowBottom.setSize(width, height);
+            needsInvalidate |= mEdgeGlowBottom.draw(canvas);
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (needsInvalidate) {
+            postInvalidateOnAnimation();
         }
     }
 

@@ -52,6 +52,7 @@ import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
+import com.novaterm.feature.terminal.ui.components.SuggestionBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
 import kotlinx.coroutines.launch
 
@@ -67,6 +68,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
     val showOnboarding by viewModel.showOnboarding.collectAsState()
     val sessionNames by viewModel.sessionNames.collectAsState()
     val service by viewModel.service.collectAsState()
+    val suggestion by viewModel.suggestion.collectAsState()
     val view = LocalView.current
 
     // Sync preferences to service
@@ -203,6 +205,17 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                         )
                     }
 
+                    // Command suggestion — subtle bar, only visible when there's a prediction
+                    SuggestionBar(
+                        suggestion = suggestion,
+                        onAccept = { cmd ->
+                            val accepted = viewModel.acceptSuggestion()
+                            if (accepted != null && safeIndex in sessions.indices) {
+                                sessions[safeIndex].write(accepted)
+                            }
+                        },
+                    )
+
                     AnimatedVisibility(
                         visible = preferences.showExtraKeys,
                         enter = slideInVertically { it },
@@ -211,6 +224,14 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                         ExtraKeysBar(
                             onKey = { code ->
                                 if (safeIndex in sessions.indices) {
+                                    // Tab or Right arrow accepts suggestion if one is active
+                                    if ((code == "\t" || code == "\u001b[C") && suggestion != null) {
+                                        val accepted = viewModel.acceptSuggestion()
+                                        if (accepted != null) {
+                                            sessions[safeIndex].write(accepted)
+                                            return@ExtraKeysBar
+                                        }
+                                    }
                                     sessions[safeIndex].write(resolveKeyInput(code, ctrlActive, altActive))
                                     viewModel.resetModifiers()
                                 }
@@ -255,13 +276,22 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                 altActive = altActive,
                                 backIsEscape = preferences.backIsEscape,
                                 onModifiersConsumed = viewModel::resetModifiers,
+                                onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
                                 onBlockComplete = { command, exitCode ->
+                                    val sessionId = "session_$page"
+                                    val cwd = sessions.getOrNull(page)?.cwd
                                     service?.blockStore?.insertBlock(
-                                        sessionId = "session_$page",
+                                        sessionId = sessionId,
                                         command = command,
                                         exitCode = exitCode,
-                                        cwd = sessions.getOrNull(page)?.cwd,
+                                        cwd = cwd,
                                     )
+                                    service?.predictionEngine?.onCommandExecuted(
+                                        sessionId = sessionId,
+                                        command = command,
+                                        cwd = cwd,
+                                    )
+                                    viewModel.refreshSuggestion()
                                 },
                                 onPromptNavigatorReady = { nav ->
                                     if (page == pagerState.settledPage) jumpToPrompt = nav

@@ -122,6 +122,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _showOnboarding = MutableStateFlow(!prefsRepo.isOnboardingCompleted)
     val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
 
+    /** Current command suggestion from the prediction engine. Null = no suggestion shown. */
+    private val _suggestion = MutableStateFlow<String?>(null)
+    val suggestion: StateFlow<String?> = _suggestion.asStateFlow()
+
     private val _sessionCreationFailed = MutableStateFlow(false)
     val sessionCreationFailed: StateFlow<Boolean> = _sessionCreationFailed.asStateFlow()
 
@@ -231,5 +235,37 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleWakeLock() {
         _service.value?.toggleWakeLock()
+    }
+
+    // ── Command prediction ────────────────────────────────
+
+    /** Update the suggestion based on what the user just executed. */
+    fun refreshSuggestion() {
+        val svc = _service.value ?: return
+        if (!svc.predictionEngineReady) {
+            _suggestion.value = null
+            return
+        }
+        val sessionIndex = _currentSessionIndex.value
+        val sessionId = "session_$sessionIndex"
+        val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
+        val predictions = svc.predictionEngine.predict(
+            sessionId = sessionId,
+            cwd = cwd,
+            maxResults = 1,
+        )
+        _suggestion.value = predictions.firstOrNull()?.command
+    }
+
+    /** Accept the current suggestion — write it to the terminal. */
+    fun acceptSuggestion(): String? {
+        val cmd = _suggestion.value
+        _suggestion.value = null
+        return cmd
+    }
+
+    /** Dismiss suggestion without accepting. */
+    fun dismissSuggestion() {
+        _suggestion.value = null
     }
 }
