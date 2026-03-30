@@ -188,6 +188,15 @@ public final class TerminalEmulator {
     /** Holds OSC and device control arguments, which can be strings. */
     private final StringBuilder mOSCOrDeviceControlArgs = new StringBuilder();
 
+    /** Buffer for APC (Application Program Command) data — used by Kitty Graphics Protocol. */
+    private final StringBuilder mApcArgs = new StringBuilder();
+
+    /** Maximum APC data length (4MB for large image transmissions). */
+    private static final int MAX_APC_LENGTH = 4 * 1024 * 1024;
+
+    /** Kitty Graphics Protocol manager — handles image storage, decoding, placement. */
+    public KittyGraphicsManager mKittyGraphics;
+
     /**
      * True if the current escape sequence should continue, false if the current escape sequence should be terminated.
      * Used when parsing a single character.
@@ -335,6 +344,7 @@ public final class TerminalEmulator {
         mCellWidthPixels = cellWidthPixels;
         mCellHeightPixels = cellHeightPixels;
         mTabStop = new boolean[mColumns];
+        mKittyGraphics = new KittyGraphicsManager(session);
         reset();
     }
 
@@ -1039,26 +1049,57 @@ public final class TerminalEmulator {
 
     /**
      * When in {@link #ESC_APC} (APC, Application Program Command) sequence.
+     * Accumulates data for Kitty Graphics Protocol (ESC _ G ... ESC \).
      */
     private void doApc(int b) {
         if (b == 27) {
             continueSequence(ESC_APC_ESCAPE);
+        } else if (mApcArgs.length() < MAX_APC_LENGTH) {
+            mApcArgs.appendCodePoint(b);
+            continueSequence(ESC_APC);
+        } else {
+            // APC data too large — discard
+            finishSequence();
+            mApcArgs.setLength(0);
         }
-        // Eat APC sequences silently for now.
     }
 
     /**
-     * When in {@link #ESC_APC} (APC, Application Program Command) sequence.
+     * When in {@link #ESC_APC_ESCAPE} — ESC seen inside APC, checking for ST (backslash).
      */
     private void doApcEscape(int b) {
         if (b == '\\') {
-            // A String Terminator (ST), ending the APC escape sequence.
+            // String Terminator (ST) — process the APC command.
+            processApcCommand();
             finishSequence();
         } else {
-            // The Escape character was not the start of a String Terminator (ST),
-            // but instead just data inside of the APC escape sequence.
+            // The ESC was data, not ST. Put ESC and current byte back into buffer.
+            if (mApcArgs.length() < MAX_APC_LENGTH) {
+                mApcArgs.append((char) 27);
+                mApcArgs.appendCodePoint(b);
+            }
             continueSequence(ESC_APC);
         }
+    }
+
+    /**
+     * Process a completed APC command. Currently handles Kitty Graphics Protocol.
+     * Format: G key=val,key=val ; base64_payload
+     */
+    private void processApcCommand() {
+        if (mApcArgs.length() == 0) return;
+
+        // Check if this is a Kitty Graphics command (starts with 'G')
+        if (mApcArgs.charAt(0) == 'G') {
+            String body = mApcArgs.substring(1); // Everything after 'G'
+            KittyGraphicsCommand cmd = KittyGraphicsCommand.parse(body);
+            if (cmd != null) {
+                mKittyGraphics.processCommand(cmd, mCursorRow, mCursorCol);
+            }
+        }
+        // Other APC commands can be added here in the future
+
+        mApcArgs.setLength(0);
     }
 
     private int nextTabStop(int numTabs) {
