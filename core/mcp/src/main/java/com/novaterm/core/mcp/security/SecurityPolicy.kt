@@ -19,14 +19,14 @@ object SecurityPolicy {
         DANGEROUS,
     }
 
-    /** Commands that are never allowed via MCP, regardless of approval. */
-    val BLOCKED_COMMANDS = setOf(
-        "rm -rf /",
-        "rm -rf /*",
-        "mkfs",
-        "dd if=/dev",
-        ":(){:|:&};:",  // fork bomb
-        "chmod -R 777 /",
+    /** Patterns that are never allowed via MCP, regardless of approval. */
+    private val BLOCKED_PATTERNS = listOf(
+        Regex("""^rm\s+-rf\s+/\s*$"""),       // rm -rf /
+        Regex("""^rm\s+-rf\s+/\*"""),          // rm -rf /*
+        Regex("""^mkfs"""),                     // mkfs anything
+        Regex("""^dd\s+if=/dev/"""),            // dd from device
+        Regex(""":\(\)\s*\{.*\|.*&\s*\}"""),   // fork bomb variants
+        Regex("""^chmod\s+-R\s+777\s+/\s*$"""), // chmod 777 /
     )
 
     /** Paths that tools cannot read or write. */
@@ -44,8 +44,8 @@ object SecurityPolicy {
 
     /** Check if a command is blocked by policy. */
     fun isBlockedCommand(command: String): Boolean {
-        val normalized = command.trim().lowercase()
-        return BLOCKED_COMMANDS.any { normalized.startsWith(it) }
+        val normalized = command.trim()
+        return BLOCKED_PATTERNS.any { it.containsMatchIn(normalized) }
     }
 
     /** Check if a file path is blocked by policy. */
