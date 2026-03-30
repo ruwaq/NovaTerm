@@ -1050,17 +1050,37 @@ public final class TerminalEmulator {
     /**
      * When in {@link #ESC_APC} (APC, Application Program Command) sequence.
      * Accumulates data for Kitty Graphics Protocol (ESC _ G ... ESC \).
+     *
+     * Per ECMA-48, CAN (0x18) and SUB (0x1A) abort any escape sequence.
+     * BEL (0x07) is also treated as a string terminator (like OSC).
+     * Without these safety valves, a stray ESC _ in the byte stream
+     * (e.g. from cat-ing a binary file) would eat ALL subsequent output
+     * until 4MB accumulated — the terminal would appear completely frozen.
      */
     private void doApc(int b) {
-        if (b == 27) {
-            continueSequence(ESC_APC_ESCAPE);
-        } else if (mApcArgs.length() < MAX_APC_LENGTH) {
-            mApcArgs.appendCodePoint(b);
-            continueSequence(ESC_APC);
-        } else {
-            // APC data too large — discard
-            finishSequence();
-            mApcArgs.setLength(0);
+        switch (b) {
+            case 27: // ESC — might be start of ST (ESC \)
+                continueSequence(ESC_APC_ESCAPE);
+                break;
+            case 7: // BEL — alternative string terminator (widely used, like OSC)
+                processApcCommand();
+                finishSequence();
+                break;
+            case 24: // CAN — abort escape sequence (ECMA-48)
+            case 26: // SUB — abort escape sequence (ECMA-48)
+                finishSequence();
+                mApcArgs.setLength(0);
+                break;
+            default:
+                if (mApcArgs.length() < MAX_APC_LENGTH) {
+                    mApcArgs.appendCodePoint(b);
+                    continueSequence(ESC_APC);
+                } else {
+                    // APC data too large — discard
+                    finishSequence();
+                    mApcArgs.setLength(0);
+                }
+                break;
         }
     }
 
@@ -1072,6 +1092,10 @@ public final class TerminalEmulator {
             // String Terminator (ST) — process the APC command.
             processApcCommand();
             finishSequence();
+        } else if (b == 24 || b == 26) {
+            // CAN/SUB — abort escape sequence (ECMA-48)
+            finishSequence();
+            mApcArgs.setLength(0);
         } else {
             // The ESC was data, not ST. Put ESC and current byte back into buffer.
             if (mApcArgs.length() < MAX_APC_LENGTH) {
@@ -2603,6 +2627,7 @@ public final class TerminalEmulator {
 
         // XXX: Should we set terminal driver back to IUTF8 with termios?
         mUtf8Index = mUtf8ToFollow = 0;
+        mApcArgs.setLength(0);
 
         mColors.reset();
         mSession.onColorsChanged();
