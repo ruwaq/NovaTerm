@@ -177,6 +177,9 @@ class BootstrapInstaller(private val context: Context) {
                 Log.i(TAG, "Installed ${trustedDir.listFiles()?.size ?: 0} GPG keys")
             }
 
+            // 13. Copy setup scripts from assets (Claude Code auto-install, etc.)
+            copyAssetScript("setup-claude.sh", File(prefixDir, "bin/setup-claude"))
+
             _state.value = State.Done
             Log.i(TAG, "Bootstrap installation complete: ${prefixDir.absolutePath}")
             // Diagnostic: verify critical files exist
@@ -385,6 +388,23 @@ class BootstrapInstaller(private val context: Context) {
         prefix.walkTopDown()
             .filter { it.isFile && (it.name.endsWith(".so") || it.name.contains(".so.")) }
             .forEach { it.setExecutable(true, true) }
+    }
+
+    // ── Asset scripts ─────────────────────────────────────
+
+    /** Copy a script from APK assets to the prefix, with execute permission. */
+    private fun copyAssetScript(assetName: String, dest: File) {
+        try {
+            context.assets.open(assetName).use { input ->
+                dest.parentFile?.mkdirs()
+                dest.outputStream().use { output -> input.copyTo(output) }
+            }
+            dest.setExecutable(true, true)
+            dest.setReadable(true, true)
+            Log.i(TAG, "Copied asset script: $assetName → ${dest.absolutePath}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to copy asset script: $assetName: ${e.message}")
+        }
     }
 
     // ── Symlinks ──────────────────────────────────────────

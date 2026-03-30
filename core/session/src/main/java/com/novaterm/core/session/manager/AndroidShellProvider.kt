@@ -282,6 +282,11 @@ class AndroidShellProvider(
                 appendLine("shopt -s histappend 2>/dev/null")
                 appendLine("export PS1='${esc}[38;5;208m>${esc}[0m '")
                 appendLine()
+                appendLine("# Auto-install Claude Code on first launch (runs once)")
+                appendLine("if [ -x \"\$PREFIX/bin/setup-claude\" ]; then")
+                appendLine("  \"\$PREFIX/bin/setup-claude\" && rm -f \"\$PREFIX/bin/setup-claude\"")
+                appendLine("fi")
+                appendLine()
             })
         }
 
