@@ -48,6 +48,10 @@ class LiteRtBackend(
         //
         // At runtime, LiteRT classes must be present for inference to work.
         // If not present, initialize() catches the exception and sets state = ERROR.
+        if (!modelFile.exists()) {
+            throw RuntimeException("Model file not found: ${modelFile.absolutePath}")
+        }
+
         try {
             val optionsClass = Class.forName("com.google.ai.edge.litert.InterpreterApi\$Options")
             val builderMethod = optionsClass.getMethod("builder")
@@ -62,6 +66,8 @@ class LiteRtBackend(
             interpreterHandle = createMethod.invoke(null, modelFile, options)
         } catch (e: ClassNotFoundException) {
             throw RuntimeException("LiteRT runtime not found. Add litert dependency.", e)
+        } catch (e: ReflectiveOperationException) {
+            throw RuntimeException("LiteRT API incompatible. Check litert version.", e)
         }
     }
 

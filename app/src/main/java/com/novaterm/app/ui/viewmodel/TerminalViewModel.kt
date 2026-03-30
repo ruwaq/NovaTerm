@@ -12,6 +12,7 @@ import com.novaterm.app.service.TerminalService
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.termux.terminal.TerminalSession
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel that owns the service binding and all terminal UI state.
@@ -246,15 +248,18 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             _suggestion.value = null
             return
         }
-        val sessionIndex = _currentSessionIndex.value
-        val sessionId = "session_$sessionIndex"
-        val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
-        val predictions = svc.predictionEngine.predict(
-            sessionId = sessionId,
-            cwd = cwd,
-            maxResults = 1,
-        )
-        _suggestion.value = predictions.firstOrNull()?.command
+        // Run prediction off main thread to avoid jank with large vocabularies
+        viewModelScope.launch(Dispatchers.Default) {
+            val sessionIndex = _currentSessionIndex.value
+            val sessionId = "session_$sessionIndex"
+            val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
+            val predictions = svc.predictionEngine.predict(
+                sessionId = sessionId,
+                cwd = cwd,
+                maxResults = 1,
+            )
+            _suggestion.value = predictions.firstOrNull()?.command
+        }
     }
 
     /** Accept the current suggestion — write it to the terminal. */

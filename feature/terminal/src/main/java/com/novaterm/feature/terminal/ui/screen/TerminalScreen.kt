@@ -312,7 +312,7 @@ private class NovaTermViewClient(
         // Tab → accept suggestion if one is active (→ key also works, like Fish shell)
         if (keyCode == KeyEvent.KEYCODE_TAB || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
             val accepted = onTabAcceptSuggestion?.invoke()
-            if (accepted != null) {
+            if (!accepted.isNullOrEmpty()) {
                 session?.write(accepted)
                 return true
             }

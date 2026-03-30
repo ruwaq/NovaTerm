@@ -21,7 +21,7 @@ class PredictionEngine(private val storageDir: File) {
     // Track last command per session for bigram context (thread-safe)
     private val lastCommand = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-    private var dirty = false
+    @Volatile private var dirty = false
 
     /** Load saved model from disk. Call once on startup. */
     fun load() {
@@ -88,8 +88,16 @@ class PredictionEngine(private val storageDir: File) {
      */
     fun loadHistoryFile(historyFile: File) {
         if (!historyFile.exists()) return
-        val lines = historyFile.readLines()
-        predictor.loadHistory(lines)
+        // Stream line-by-line to avoid loading entire history into memory
+        var prev: String? = null
+        historyFile.useLines { lines ->
+            for (line in lines) {
+                val cmd = line.trim()
+                if (cmd.isBlank() || cmd.startsWith("#")) continue
+                predictor.learn(cmd, prev)
+                prev = cmd
+            }
+        }
         dirty = true
     }
 
