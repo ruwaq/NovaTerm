@@ -52,6 +52,15 @@
     <string name="settings_mcp_port">MCP port</string>
     <string name="settings_mcp_port_value">Port: %1$d</string>
 
+    <!-- On-device AI -->
+    <string name="settings_section_ai">AI</string>
+    <string name="settings_llm_enabled">On-device AI suggestions</string>
+    <string name="settings_llm_enabled_desc">Use Gemma model for smarter command suggestions. Requires ~288 MB download and ~551 MB RAM.</string>
+    <string name="settings_llm_download">Download model</string>
+    <string name="settings_llm_download_desc">Gemma 270M — %1$d MB</string>
+    <string name="settings_llm_model_ready">Model ready</string>
+    <string name="settings_llm_delete">Delete model</string>
+
     <!-- Onboarding color picker -->
     <string name="onboarding_choose_theme">Choose your theme</string>
     <string name="onboarding_change_later">You can change this later in Settings</string>

@@ -84,6 +84,12 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
         service?.startMcpServerIfEnabled()
     }
 
+    // Sync LLM preference — only loads model when user enables it
+    LaunchedEffect(preferences.llmEnabled, service) {
+        service?.llmEnabled = preferences.llmEnabled
+        service?.updateLlmState()
+    }
+
     // ── Full-screen overlays (onboarding, about, settings) ───
     if (showOnboarding) {
         ColorSchemePickerScreen(onSchemeSelected = viewModel::completeOnboarding)

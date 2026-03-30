@@ -18,6 +18,7 @@ data class TerminalPreferences(
     val useGpuRenderer: Boolean = false,
     val mcpEnabled: Boolean = false,
     val mcpPort: Int = 8080,
+    val llmEnabled: Boolean = false,
 )
 
 class PreferencesRepository(context: Context) {
@@ -53,6 +54,7 @@ class PreferencesRepository(context: Context) {
             useGpuRenderer = prefs.getBoolean("use_gpu_renderer", false),
             mcpEnabled = prefs.getBoolean("mcp_enabled", false),
             mcpPort = prefs.getInt("mcp_port", 8080),
+            llmEnabled = prefs.getBoolean("llm_enabled", false),
         )
     }
 
@@ -69,6 +71,7 @@ class PreferencesRepository(context: Context) {
             .putBoolean("use_gpu_renderer", p.useGpuRenderer)
             .putBoolean("mcp_enabled", p.mcpEnabled)
             .putInt("mcp_port", p.mcpPort)
+            .putBoolean("llm_enabled", p.llmEnabled)
             .apply()
     }
 }
