@@ -291,8 +291,22 @@ class TerminalService : Service() {
         val modelPath = modelManager.getModelPath() ?: return
         try {
             val config = LlmConfig(modelPath = modelPath)
-            llmEngine = GemmaEngine(config)
-            Log.i(TAG, "LLM engine created (model: $modelPath)")
+            val engine = GemmaEngine(config)
+            llmEngine = engine
+            // Initialize on background thread — loads model into memory
+            Thread {
+                try {
+                    kotlinx.coroutines.runBlocking {
+                        val success = engine.initialize()
+                        if (!success) {
+                            Log.w(TAG, "LLM initialization failed")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "LLM initialization error", e)
+                }
+            }.start()
+            Log.i(TAG, "LLM engine created, initializing in background...")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create LLM engine", e)
         }

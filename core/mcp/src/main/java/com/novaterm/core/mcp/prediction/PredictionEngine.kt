@@ -18,8 +18,8 @@ class PredictionEngine(private val storageDir: File) {
 
     val predictor = CommandPredictor()
 
-    // Track last command per session for bigram context
-    private val lastCommand = HashMap<String, String>()
+    // Track last command per session for bigram context (thread-safe)
+    private val lastCommand = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private var dirty = false
 

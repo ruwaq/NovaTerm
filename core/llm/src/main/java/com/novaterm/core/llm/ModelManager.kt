@@ -30,9 +30,10 @@ import java.io.File
  * The model is stored in app-private external storage (no permissions needed,
  * auto-deleted on uninstall).
  */
-class ModelManager(private val context: Context) {
+class ModelManager(context: Context) {
 
-    private val modelsDir = File(context.getExternalFilesDir(null), "models").also { it.mkdirs() }
+    private val context: Context = context.applicationContext
+    private val modelsDir = File(this.context.getExternalFilesDir(null), "models").also { it.mkdirs() }
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     private val prefs = context.getSharedPreferences("llm_models", Context.MODE_PRIVATE)
 
@@ -128,13 +129,17 @@ class ModelManager(private val context: Context) {
      * Poll download progress. Call from a coroutine while UI is visible.
      * Returns when download completes, fails, or is cancelled.
      */
+    /** Maximum poll time: 24 hours. Prevents infinite loop if download stays paused. */
+    private val maxPollIterations = (24 * 60 * 60 * 1000L) / 500 // 24h at 500ms intervals
+
     suspend fun pollProgress() = withContext(Dispatchers.IO) {
         val downloadId = activeDownloadId
         if (downloadId == -1L) return@withContext
 
         val query = DownloadManager.Query().setFilterById(downloadId)
+        var iterations = 0L
 
-        while (true) {
+        while (iterations++ < maxPollIterations) {
             val cursor = downloadManager.query(query)
             if (cursor == null || !cursor.moveToFirst()) {
                 cursor?.close()

@@ -44,6 +44,9 @@ public final class KittyGraphicsManager {
     /** Active placements (image ID → placement). */
     private final HashMap<Integer, KittyPlacement> placements = new HashMap<>();
 
+    /** Maximum accumulated payload size for chunked transmission (128MB base64 ≈ 96MB raw). */
+    private static final int MAX_PENDING_PAYLOAD = 128 * 1024 * 1024;
+
     /** Chunked transmission in progress (accumulates base64 until m=0). */
     private KittyGraphicsCommand pendingCommand;
     private final StringBuilder pendingPayload = new StringBuilder();
@@ -69,6 +72,13 @@ public final class KittyGraphicsManager {
         // Handle chunked transmission
         if (pendingCommand != null) {
             pendingPayload.append(cmd.payload);
+            // Prevent unbounded memory growth from malicious chunk streams
+            if (pendingPayload.length() > MAX_PENDING_PAYLOAD) {
+                Log.w(TAG, "Chunked payload too large, aborting");
+                pendingCommand = null;
+                pendingPayload.setLength(0);
+                return;
+            }
             if (cmd.hasMoreChunks()) {
                 return; // More chunks to come
             }
@@ -125,6 +135,12 @@ public final class KittyGraphicsManager {
      * @return The assigned image ID, or -1 on failure.
      */
     private int handleTransmit(KittyGraphicsCommand cmd) {
+        // Security: reject file-based transmission (path traversal risk)
+        if (cmd.medium == KittyGraphicsCommand.MEDIUM_FILE) {
+            sendResponse(cmd, "EINVAL:file transmission not supported");
+            return -1;
+        }
+
         byte[] data = cmd.decodePayload();
         if (data.length == 0) {
             sendResponse(cmd, "EINVAL:empty payload");
@@ -149,8 +165,16 @@ public final class KittyGraphicsManager {
         int id = cmd.imageId > 0 ? cmd.imageId : nextImageId++;
         if (cmd.imageId <= 0) cmd.imageId = id;
 
-        // Evict old images if over budget
+        // Reject images that individually exceed budget
         long bitmapBytes = bitmap.getAllocationByteCount();
+        if (bitmapBytes > MAX_MEMORY_BYTES / 2) {
+            Log.w(TAG, "Image too large: " + (bitmapBytes / 1024 / 1024) + "MB, rejecting");
+            bitmap.recycle();
+            sendResponse(cmd, "EINVAL:image too large");
+            return -1;
+        }
+
+        // Evict old images if over budget
         while (usedMemoryBytes + bitmapBytes > MAX_MEMORY_BYTES && !images.isEmpty()) {
             evictOldest();
         }
@@ -268,8 +292,8 @@ public final class KittyGraphicsManager {
         }
 
         int bytesPerPixel = hasAlpha ? 4 : 3;
-        int expectedSize = width * height * bytesPerPixel;
-        if (data.length < expectedSize) return null;
+        long expectedSize = (long) width * height * bytesPerPixel;
+        if (data.length < expectedSize || expectedSize > MAX_MEMORY_BYTES) return null;
 
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         int[] pixels = new int[width * height];
@@ -320,9 +344,9 @@ public final class KittyGraphicsManager {
 
     // ── Public API for renderer ─────────────────────────────
 
-    /** Get all active placements for rendering. */
+    /** Get all active placements for rendering. Returns a defensive copy (thread-safe). */
     public Map<Integer, KittyPlacement> getPlacements() {
-        return placements;
+        return new HashMap<>(placements);
     }
 
     /** Get a stored image by ID. */
