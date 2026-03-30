@@ -4,6 +4,7 @@ plugins {
 
 android {
     namespace = "com.novaterm.core.mcp"
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 dependencies {
