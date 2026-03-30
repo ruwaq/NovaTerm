@@ -1,92 +1,93 @@
 package com.novaterm.core.llm
 
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import java.io.File
 
+/**
+ * Tests for ModelManager (non-Android logic).
+ * DownloadManager integration requires instrumented tests.
+ */
 class ModelManagerTest {
 
-    private lateinit var tempDir: File
-    private lateinit var manager: ModelManager
-
-    @Before
-    fun setup() {
-        tempDir = File(System.getProperty("java.io.tmpdir"), "llm_test_${System.nanoTime()}")
-        tempDir.mkdirs()
-        manager = ModelManager(tempDir)
-    }
-
-    @After
-    fun cleanup() {
-        tempDir.deleteRecursively()
+    @Test
+    fun `ModelCatalog has a default model`() {
+        assertNotNull(ModelCatalog.DEFAULT)
+        assertTrue(ModelCatalog.DEFAULT.isDefault)
+        assertTrue(ModelCatalog.DEFAULT.url.contains("huggingface"))
     }
 
     @Test
-    fun `isModelAvailable returns false when no model`() {
-        assertFalse(manager.isModelAvailable())
+    fun `ModelCatalog ALL contains default`() {
+        assertTrue(ModelCatalog.ALL.any { it.isDefault })
+        assertTrue(ModelCatalog.ALL.size >= 3)
     }
 
     @Test
-    fun `isModelAvailable returns true when model exists`() {
-        File(tempDir, LlmConfig.DEFAULT_MODEL_NAME).writeText("fake model")
-        assertTrue(manager.isModelAvailable())
+    fun `ModelCatalog findById works`() {
+        val found = ModelCatalog.findById("gemma-3-270m-q4")
+        assertNotNull(found)
+        assertEquals("Gemma 3 270M", found!!.displayName)
     }
 
     @Test
-    fun `getModelPath points to correct location`() {
-        val path = manager.getModelPath()
-        assertTrue(path.endsWith(LlmConfig.DEFAULT_MODEL_NAME))
-        assertTrue(path.startsWith(tempDir.absolutePath))
+    fun `ModelCatalog findById returns null for unknown`() {
+        assertNull(ModelCatalog.findById("nonexistent"))
     }
 
     @Test
-    fun `deleteModel removes the file`() {
-        File(tempDir, LlmConfig.DEFAULT_MODEL_NAME).writeText("fake model")
-        assertTrue(manager.isModelAvailable())
-
-        val deleted = manager.deleteModel()
-        assertTrue(deleted)
-        assertFalse(manager.isModelAvailable())
+    fun `all models have valid URLs`() {
+        ModelCatalog.ALL.forEach { model ->
+            assertTrue("${model.id} should have HF URL", model.url.startsWith("https://"))
+            assertTrue("${model.id} should have filename", model.filename.isNotBlank())
+            assertTrue("${model.id} should have size", model.sizeMb > 0)
+            assertTrue("${model.id} should have RAM", model.ramMb > 0)
+        }
     }
 
     @Test
-    fun `deleteModel returns false when no model`() {
-        assertFalse(manager.deleteModel())
+    fun `models are sorted by size ascending`() {
+        val sizes = ModelCatalog.ALL.map { it.sizeMb }
+        assertEquals(sizes, sizes.sorted())
     }
 
     @Test
-    fun `getModelSizeBytes returns 0 when no model`() {
-        assertEquals(0, manager.getModelSizeBytes())
+    fun `ModelState NotDownloaded has all fields`() {
+        val state = ModelState.NotDownloaded(
+            modelId = "test",
+            displayName = "Test Model",
+            sizeMb = 100,
+            ramMb = 200,
+            description = "A test model",
+        )
+        assertEquals("test", state.modelId)
+        assertEquals(100, state.sizeMb)
     }
 
     @Test
-    fun `getModelSizeBytes returns actual size`() {
-        val content = "x".repeat(1024)
-        File(tempDir, LlmConfig.DEFAULT_MODEL_NAME).writeText(content)
-        assertEquals(1024, manager.getModelSizeBytes())
+    fun `ModelState Downloading progress calculation`() {
+        val state = ModelState.Downloading(
+            modelId = "test",
+            displayName = "Test",
+            bytesDownloaded = 50 * 1024 * 1024,
+            totalBytes = 100 * 1024 * 1024,
+        )
+        assertEquals(50, state.progressPercent)
+        assertEquals(50, state.downloadedMb)
+        assertEquals(100, state.totalMb)
     }
 
     @Test
-    fun `initial download state is Idle`() {
-        assertEquals(DownloadState.Idle, manager.downloadState.value)
-    }
-
-    @Test
-    fun `cancelDownload resets state to Idle`() {
-        manager.cancelDownload()
-        assertEquals(DownloadState.Idle, manager.downloadState.value)
-    }
-
-    @Test
-    fun `models directory is created on init`() {
-        val newDir = File(tempDir, "sub/models")
-        assertFalse(newDir.exists())
-
-        ModelManager(newDir)
-        assertTrue(newDir.exists())
+    fun `ModelState Downloading handles zero total`() {
+        val state = ModelState.Downloading(
+            modelId = "test",
+            displayName = "Test",
+            bytesDownloaded = 1000,
+            totalBytes = 0,
+        )
+        assertEquals(0, state.progressPercent)
     }
 }
