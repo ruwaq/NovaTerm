@@ -1,7 +1,7 @@
 package com.novaterm.core.common.model
 
 data class TerminalConfig(
-    val fontSize: Int = 12,
+    val fontSize: Int = DEFAULT_FONT_SIZE,
     val fontFamily: String = "monospace",
     val colorScheme: ColorScheme = ColorScheme.GRUVBOX_DARK,
     val scrollbackLines: Int = 10_000,
@@ -21,7 +21,8 @@ data class TerminalConfig(
     }
 
     companion object {
-        val FONT_SIZE_RANGE = 6..24
+        const val DEFAULT_FONT_SIZE = 12
+        val FONT_SIZE_RANGE = 6..48
         val SCROLLBACK_RANGE = 0..100_000
     }
 }
@@ -29,6 +30,7 @@ data class TerminalConfig(
 enum class ColorScheme(val displayName: String) {
     GRUVBOX_DARK("Gruvbox Dark"),
     GRUVBOX_LIGHT("Gruvbox Light"),
+    CATPPUCCIN_MOCHA("Catppuccin Mocha"),
     MONOKAI("Monokai"),
     DRACULA("Dracula"),
     SOLARIZED_DARK("Solarized Dark"),

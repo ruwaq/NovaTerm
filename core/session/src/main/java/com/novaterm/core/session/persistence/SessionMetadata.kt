@@ -32,7 +32,7 @@ data class SessionMetadata(
             shell = json.getString("shell"),
             cwd = json.getString("cwd"),
             title = json.optString("title", "shell"),
-            createdAt = json.optLong("createdAt", 0),
+            createdAt = json.optLong("createdAt", System.currentTimeMillis()),
         )
     }
 }

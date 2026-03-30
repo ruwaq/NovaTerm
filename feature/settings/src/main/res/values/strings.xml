@@ -45,4 +45,9 @@
     <!-- GPU renderer -->
     <string name="settings_gpu_renderer">GPU renderer</string>
     <string name="settings_gpu_renderer_desc">Use Vulkan compute shaders for rendering. Requires restart of new sessions.</string>
+
+    <!-- Onboarding color picker -->
+    <string name="onboarding_choose_theme">Choose your theme</string>
+    <string name="onboarding_change_later">You can change this later in Settings</string>
+    <string name="onboarding_continue">Continue</string>
 </resources>

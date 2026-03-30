@@ -1,0 +1,262 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# novaterm-bench — Terminal performance benchmark suite
+# Runs in any terminal (Termux, NovaTerm, etc.) and outputs a comparison report.
+# Usage: novaterm-bench [--quick]
+
+set -euo pipefail
+
+# ── Config ────────────────────────────────────────────────
+QUICK="${1:-}"
+RESULTS_DIR="${HOME}/.local/share/novaterm-bench"
+TMPDIR="${PREFIX:-/data/data/com.termux/files/usr}/tmp"
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+TERMINAL="${TERM_PROGRAM:-unknown}"
+RESULT_FILE="${RESULTS_DIR}/${TERMINAL}_${TIMESTAMP}.json"
+
+mkdir -p "$RESULTS_DIR" "$TMPDIR"
+
+# ── Colors ────────────────────────────────────────────────
+C_RESET='\033[0m'
+C_BOLD='\033[1m'
+C_DIM='\033[2m'
+C_GREEN='\033[38;5;142m'
+C_YELLOW='\033[38;5;214m'
+C_ORANGE='\033[38;5;208m'
+C_RED='\033[38;5;167m'
+C_BLUE='\033[38;5;109m'
+
+header() { echo -e "\n${C_ORANGE}${C_BOLD}═══ $1 ═══${C_RESET}"; }
+result() { printf "  ${C_GREEN}%-30s${C_RESET} %s\n" "$1" "$2"; }
+warn()   { echo -e "  ${C_YELLOW}⚠ $1${C_RESET}"; }
+
+# ── Prep test data ────────────────────────────────────────
+BENCH_SEQ="$TMPDIR/bench_seq.txt"
+BENCH_UNI="$TMPDIR/bench_unicode.txt"
+BENCH_CSI="$TMPDIR/bench_csi.txt"
+
+prep_data() {
+    header "Preparing test data"
+    if [ ! -f "$BENCH_SEQ" ]; then
+        seq 1 500000 > "$BENCH_SEQ"
+        echo -e "  Created: seq 500K lines ($(du -h "$BENCH_SEQ" | cut -f1))"
+    fi
+    if [ ! -f "$BENCH_UNI" ]; then
+        python3 -c "print('日本語テスト 🎉 ' * 50000)" > "$BENCH_UNI" 2>/dev/null || \
+        python -c "print('Unicode test ' * 50000)" > "$BENCH_UNI" 2>/dev/null || \
+        echo "Unicode not available" > "$BENCH_UNI"
+        echo -e "  Created: unicode ($(du -h "$BENCH_UNI" | cut -f1))"
+    fi
+    if [ ! -f "$BENCH_CSI" ]; then
+        python3 -c "
+for i in range(50000):
+    print(f'\033[38;5;{i%256}m█', end='')
+    if i % 80 == 79: print()
+" > "$BENCH_CSI" 2>/dev/null || echo "CSI test" > "$BENCH_CSI"
+        echo -e "  Created: csi dense ($(du -h "$BENCH_CSI" | cut -f1))"
+    fi
+}
+
+# ── Benchmark functions ───────────────────────────────────
+
+# Measure time of a command, return seconds as float
+measure() {
+    local start end elapsed
+    start=$(date +%s%N)
+    eval "$@" > /dev/null 2>&1
+    end=$(date +%s%N)
+    elapsed=$(( (end - start) ))
+    echo "scale=3; $elapsed / 1000000000" | bc
+}
+
+# A1: ASCII throughput
+bench_ascii_throughput() {
+    header "A1: ASCII Throughput (cat seq 500K)"
+    local size_mb
+    size_mb=$(du -m "$BENCH_SEQ" | cut -f1)
+    local t1 t2 t3 avg mbs
+    t1=$(measure "cat $BENCH_SEQ")
+    t2=$(measure "cat $BENCH_SEQ")
+    t3=$(measure "cat $BENCH_SEQ")
+    avg=$(echo "scale=3; ($t1 + $t2 + $t3) / 3" | bc)
+    mbs=$(echo "scale=1; $size_mb / $avg" | bc 2>/dev/null || echo "?")
+    result "Time (avg of 3)" "${avg}s"
+    result "Throughput" "${mbs} MB/s"
+    JSON_ASCII_TIME="$avg"
+    JSON_ASCII_MBS="$mbs"
+}
+
+# A2: Unicode throughput
+bench_unicode_throughput() {
+    header "A2: Unicode Throughput"
+    local size_mb
+    size_mb=$(du -m "$BENCH_UNI" | cut -f1)
+    [ "$size_mb" -eq 0 ] && size_mb=1
+    local t1 t2 avg mbs
+    t1=$(measure "cat $BENCH_UNI")
+    t2=$(measure "cat $BENCH_UNI")
+    avg=$(echo "scale=3; ($t1 + $t2) / 2" | bc)
+    mbs=$(echo "scale=1; $size_mb / $avg" | bc 2>/dev/null || echo "?")
+    result "Time (avg of 2)" "${avg}s"
+    result "Throughput" "${mbs} MB/s"
+    JSON_UNI_TIME="$avg"
+    JSON_UNI_MBS="$mbs"
+}
+
+# A3: CSI dense throughput
+bench_csi_throughput() {
+    header "A3: CSI Dense Throughput (50K colored cells)"
+    local size_mb
+    size_mb=$(du -m "$BENCH_CSI" | cut -f1)
+    [ "$size_mb" -eq 0 ] && size_mb=1
+    local t1 t2 avg mbs
+    t1=$(measure "cat $BENCH_CSI")
+    t2=$(measure "cat $BENCH_CSI")
+    avg=$(echo "scale=3; ($t1 + $t2) / 2" | bc)
+    mbs=$(echo "scale=1; $size_mb / $avg" | bc 2>/dev/null || echo "?")
+    result "Time (avg of 2)" "${avg}s"
+    result "Throughput" "${mbs} MB/s"
+    JSON_CSI_TIME="$avg"
+    JSON_CSI_MBS="$mbs"
+}
+
+# B1: Input latency (DSR roundtrip)
+bench_input_latency() {
+    header "B1: Input Latency (DSR roundtrip, 50 samples)"
+    python3 -c "
+import os, sys, time, termios, tty
+fd = sys.stdin.fileno()
+old = termios.tcgetattr(fd)
+tty.setraw(fd)
+results = []
+for i in range(50):
+    start = time.perf_counter_ns()
+    os.write(1, b'\033[6n')
+    response = b''
+    while not response.endswith(b'R'):
+        response += os.read(0, 1)
+    elapsed = (time.perf_counter_ns() - start) / 1_000_000
+    results.append(elapsed)
+termios.tcsetattr(fd, termios.TCSADRAIN, old)
+avg = sum(results) / len(results)
+p99 = sorted(results)[48]
+mn = min(results)
+mx = max(results)
+print(f'AVG={avg:.2f}')
+print(f'P99={p99:.2f}')
+print(f'MIN={mn:.2f}')
+print(f'MAX={mx:.2f}')
+" 2>/dev/null | while IFS= read -r line; do
+        case "$line" in
+            AVG=*) result "Average" "${line#AVG=} ms"; JSON_LAT_AVG="${line#AVG=}" ;;
+            P99=*) result "P99" "${line#P99=} ms" ;;
+            MIN=*) result "Min" "${line#MIN=} ms" ;;
+            MAX=*) result "Max" "${line#MAX=} ms" ;;
+        esac
+    done
+}
+
+# C1: Scroll FPS
+bench_scroll_fps() {
+    header "C1: Scroll FPS (5 second burst)"
+    python3 -c "
+import sys, time
+line = 'A' * 80 + '\n'
+start = time.time()
+lines = 0
+while time.time() - start < 5:
+    sys.stdout.write(line)
+    lines += 1
+sys.stdout.flush()
+elapsed = time.time() - start
+lps = lines / elapsed
+mbs = (lines * 80) / elapsed / 1024 / 1024
+sys.stderr.write(f'LPS={lps:.0f}\nMBS={mbs:.1f}\n')
+" 2>&1 >/dev/null | while IFS= read -r line; do
+        case "$line" in
+            LPS=*) result "Lines/second" "${line#LPS=}" ;;
+            MBS=*) result "Throughput" "${line#MBS=} MB/s" ;;
+        esac
+    done
+}
+
+# D1: Memory usage
+bench_memory() {
+    header "D1: Memory Usage"
+    if [ -f /proc/self/status ]; then
+        local vmrss vmpeak
+        vmrss=$(grep VmRSS /proc/self/status | awk '{print $2}')
+        vmpeak=$(grep VmPeak /proc/self/status | awk '{print $2}')
+        result "Shell RSS" "$((vmrss / 1024)) MB"
+        result "Shell Peak" "$((vmpeak / 1024)) MB"
+    else
+        warn "Cannot read /proc/self/status"
+    fi
+    # Terminal app memory (if available via ps)
+    local app_mem
+    app_mem=$(ps -o rss= -p $PPID 2>/dev/null | awk '{print $1/1024}' || echo "?")
+    result "Parent process" "${app_mem} MB"
+}
+
+# E1: Startup time (shell init)
+bench_startup() {
+    header "E1: Shell Startup Time"
+    local t1 t2 t3 avg
+    t1=$(measure "bash -c 'exit 0'")
+    t2=$(measure "bash -c 'exit 0'")
+    t3=$(measure "bash -c 'exit 0'")
+    avg=$(echo "scale=0; ($t1 + $t2 + $t3) * 1000 / 3" | bc)
+    result "bash -c exit (avg)" "${avg} ms"
+
+    t1=$(measure "bash --login -c 'exit 0'")
+    t2=$(measure "bash --login -c 'exit 0'")
+    avg=$(echo "scale=0; ($t1 + $t2) * 1000 / 2" | bc)
+    result "bash --login exit (avg)" "${avg} ms"
+}
+
+# F1: CPU during heavy output
+bench_cpu_output() {
+    header "F1: CPU During Heavy Output"
+    warn "Run 'top' in another terminal while this test runs"
+    result "Skipping" "(requires manual observation)"
+}
+
+# ── System info ───────────────────────────────────────────
+print_sysinfo() {
+    header "System Information"
+    result "Terminal" "$TERMINAL"
+    result "TERM" "${TERM:-unknown}"
+    result "Shell" "${SHELL:-unknown}"
+    result "Device" "$(getprop ro.product.model 2>/dev/null || uname -m)"
+    result "Android" "$(getprop ro.build.version.release 2>/dev/null || uname -r)"
+    result "CPU" "$(getprop ro.hardware 2>/dev/null || uname -p)"
+    result "RAM" "$(free -h 2>/dev/null | awk '/Mem:/{print $2}' || echo '?')"
+    result "Date" "$(date '+%Y-%m-%d %H:%M:%S')"
+}
+
+# ── Main ──────────────────────────────────────────────────
+echo -e "${C_ORANGE}${C_BOLD}"
+echo "  ╭────────────────────────────────────╮"
+echo "  │    NovaTerm Benchmark Suite v1.0   │"
+echo "  ╰────────────────────────────────────╯"
+echo -e "${C_RESET}"
+
+print_sysinfo
+prep_data
+
+bench_ascii_throughput
+bench_unicode_throughput
+bench_csi_throughput
+
+if [ "$QUICK" != "--quick" ]; then
+    bench_input_latency
+    bench_scroll_fps
+fi
+
+bench_memory
+bench_startup
+
+echo ""
+header "Done"
+echo -e "  ${C_DIM}Run this in both Termux and NovaTerm to compare.${C_RESET}"
+echo -e "  ${C_DIM}Results saved to: $RESULTS_DIR/${C_RESET}"
+echo ""

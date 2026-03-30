@@ -14,9 +14,10 @@ import java.io.File
  */
 class AndroidShellProvider(
     private val context: Context,
+    private val appVersion: String = "0.1.0",
 ) : ShellProvider {
 
-    // rootDir = context.filesDir = /data/data/com.novaterm.app/files
+    // rootDir = context.filesDir = /data/data/com.nvterm/files
     // This matches Termux layout: /data/data/com.termux/files/{usr,home}
     private val rootDir: String
         get() = context.filesDir.absolutePath
@@ -98,6 +99,11 @@ class AndroidShellProvider(
         env["SHELL"] = findShell()
         env["LD_LIBRARY_PATH"] = "$prefix/lib"
         env["ENV"] = "$homeDir/.shrc"
+        env["PWD"] = homeDir
+        env["OLDPWD"] = homeDir
+        env["SHLVL"] = "1"
+        env["USER"] = "shell"
+        env["LOGNAME"] = "shell"
         env["XDG_CONFIG_HOME"] = "$homeDir/.config"
         env["XDG_DATA_HOME"] = "$homeDir/.local/share"
         env["XDG_STATE_HOME"] = "$homeDir/.local/state"
@@ -106,7 +112,7 @@ class AndroidShellProvider(
 
         // Terminal identification (AI tools check these)
         env["TERM_PROGRAM"] = "novaterm"
-        env["TERM_PROGRAM_VERSION"] = "0.1.0"
+        env["TERM_PROGRAM_VERSION"] = appVersion
 
         // W^X bypass: termux-exec intercepts exec() calls and routes them
         // through /system/bin/linker64, which has permission to execute
@@ -123,8 +129,8 @@ class AndroidShellProvider(
             "libtermux-exec.so",
         )
         // Build candidate paths using BOTH possible base directories
-        val dataDir = context.applicationInfo.dataDir  // /data/user/0/com.novaterm.app
-        val legacyDir = "/data/data/${context.packageName}"  // /data/data/com.novaterm.app
+        val dataDir = context.applicationInfo.dataDir  // /data/user/0/com.nvterm
+        val legacyDir = "/data/data/${context.packageName}"  // /data/data/com.nvterm
         val candidatePaths = ldPreloadNames.flatMap { name ->
             listOf(
                 "$prefix/lib/$name",
@@ -329,12 +335,19 @@ class AndroidShellProvider(
         if (!motd.exists()) {
             val device = Build.MODEL
             val androidVer = Build.VERSION.RELEASE
+            val novaText = "NovaTerm v$appVersion"
+            val deviceText = "$device · Android $androidVer"
+            // Box width adapts to longest content line (2 leading + 2 trailing spaces inside)
+            val innerWidth = maxOf(novaText.length, deviceText.length) + 4
+            val border = "─".repeat(innerWidth)
+            val novaPad = " ".repeat((innerWidth - 2 - novaText.length).coerceAtLeast(0))
+            val devicePad = " ".repeat((innerWidth - 2 - deviceText.length).coerceAtLeast(0))
             motd.writeText(buildString {
                 appendLine()
-                appendLine("\u001b[38;5;208m  ╭───────────────────────────────╮\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1mNovaTerm\u001b[0m v0.1.0              \u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[38;5;246m$device · Android $androidVer\u001b[0m${" ".repeat((19 - device.length - androidVer.length).coerceAtLeast(0))}\u001b[38;5;208m│\u001b[0m")
-                appendLine("\u001b[38;5;208m  ╰───────────────────────────────╯\u001b[0m")
+                appendLine("\u001b[38;5;208m  ╭${border}╮\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[1m$novaText\u001b[0m${novaPad}\u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  │\u001b[0m  \u001b[38;5;246m$deviceText\u001b[0m${devicePad}\u001b[38;5;208m│\u001b[0m")
+                appendLine("\u001b[38;5;208m  ╰${border}╯\u001b[0m")
                 appendLine()
                 appendLine("\u001b[38;5;246m  ~/projects/\u001b[0m    \u001b[38;5;242m← your workspace\u001b[0m")
                 appendLine("\u001b[38;5;246m  ~/storage/\u001b[0m     \u001b[38;5;242m← phone files\u001b[0m")

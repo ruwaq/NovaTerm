@@ -9,7 +9,7 @@ android {
     compileSdk = property("novaterm.compileSdk").toString().toInt()
 
     defaultConfig {
-        applicationId = "com.novaterm.app"
+        applicationId = "com.nvterm"
         minSdk = property("novaterm.minSdk").toString().toInt()
         targetSdk = property("novaterm.targetSdk").toString().toInt()
         versionCode = property("novaterm.versionCode").toString().toInt()

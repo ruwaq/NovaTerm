@@ -97,6 +97,59 @@ class TerminalViewModelStateTest {
     }
 
     @Test
+    fun `removeSession remaps session names shifting indices down`() {
+        val sessionNames = MutableStateFlow(mapOf(0 to "server", 1 to "dev", 3 to "logs"))
+
+        // Simulate removing session at index 1
+        val removeIndex = 1
+        sessionNames.value = buildMap {
+            for ((i, name) in sessionNames.value) {
+                when {
+                    i < removeIndex -> put(i, name)
+                    i > removeIndex -> put(i - 1, name)
+                }
+            }
+        }
+
+        // "server" stays at 0, "dev" (index 1) is removed, "logs" shifts from 3→2
+        assertEquals(mapOf(0 to "server", 2 to "logs"), sessionNames.value)
+    }
+
+    @Test
+    fun `removeSession at index 0 shifts all names down`() {
+        val sessionNames = MutableStateFlow(mapOf(0 to "first", 1 to "second", 2 to "third"))
+
+        val removeIndex = 0
+        sessionNames.value = buildMap {
+            for ((i, name) in sessionNames.value) {
+                when {
+                    i < removeIndex -> put(i, name)
+                    i > removeIndex -> put(i - 1, name)
+                }
+            }
+        }
+
+        assertEquals(mapOf(0 to "second", 1 to "third"), sessionNames.value)
+    }
+
+    @Test
+    fun `removeSession at last index only removes that name`() {
+        val sessionNames = MutableStateFlow(mapOf(0 to "keep", 2 to "remove"))
+
+        val removeIndex = 2
+        sessionNames.value = buildMap {
+            for ((i, name) in sessionNames.value) {
+                when {
+                    i < removeIndex -> put(i, name)
+                    i > removeIndex -> put(i - 1, name)
+                }
+            }
+        }
+
+        assertEquals(mapOf(0 to "keep"), sessionNames.value)
+    }
+
+    @Test
     fun `safeIndex clamping logic`() {
         fun clamp(selectedTab: Int, sessionsSize: Int): Int =
             selectedTab.coerceIn(0, (sessionsSize - 1).coerceAtLeast(0))

@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.novaterm.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,7 +55,7 @@ fun BootstrapScreen(
 
     LaunchedEffect(Unit) {
         // Start with branding
-        bootLines.add(BootLine("NovaTerm v0.1.0", LineType.HEADER))
+        bootLines.add(BootLine("NovaTerm v${com.novaterm.app.BuildConfig.VERSION_NAME}", LineType.HEADER))
         delay(200)
         bootLines.add(BootLine("Next-gen Android terminal", LineType.DIM))
         delay(300)
@@ -157,7 +159,7 @@ fun BootstrapScreen(
                     if (installer.install()) onComplete()
                 }
             }) {
-                Text("Retry")
+                Text(stringResource(R.string.action_retry))
             }
         }
     }

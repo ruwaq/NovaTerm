@@ -12,6 +12,7 @@ import com.novaterm.app.service.TerminalService
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.termux.terminal.TerminalSession
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
      * Sessions derived from the bound service's StateFlow.
      * When service is null, emits empty list.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val sessions: StateFlow<List<TerminalSession>> = _service
         .flatMapLatest { svc -> svc?.sessions ?: flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -59,7 +61,9 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     }
                     svc.clearSavedSessions()
                 } else {
-                    svc.createSession()
+                    if (svc.createSession() == null) {
+                        _sessionCreationFailed.value = true
+                    }
                 }
             }
         }
@@ -118,12 +122,24 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _showOnboarding = MutableStateFlow(!prefsRepo.isOnboardingCompleted)
     val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
 
+    private val _sessionCreationFailed = MutableStateFlow(false)
+    val sessionCreationFailed: StateFlow<Boolean> = _sessionCreationFailed.asStateFlow()
+
     // ── Actions ────────────────────────────────────────────
 
     fun createSession() {
         val svc = _service.value ?: return
-        svc.createSession() ?: return
-        _currentSessionIndex.value = svc.sessionCount - 1
+        val session = svc.createSession()
+        if (session != null) {
+            _currentSessionIndex.value = svc.sessionCount - 1
+            _sessionCreationFailed.value = false
+        } else {
+            _sessionCreationFailed.value = true
+        }
+    }
+
+    fun dismissSessionCreationError() {
+        _sessionCreationFailed.value = false
     }
 
     // ── Session close confirmation ─────────────────────────
@@ -154,8 +170,18 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private fun removeSession(index: Int) {
         val svc = _service.value ?: return
         svc.removeSession(index)
-        // Clean up custom name for removed session
-        _sessionNames.update { names -> names - index }
+        // Rebuild session names map: remove the deleted index and shift higher indices down
+        _sessionNames.update { names ->
+            buildMap {
+                for ((i, name) in names) {
+                    when {
+                        i < index -> put(i, name)
+                        i > index -> put(i - 1, name)
+                        // i == index: dropped (removed session)
+                    }
+                }
+            }
+        }
         val newCount = svc.sessionCount
         if (_currentSessionIndex.value >= newCount) {
             _currentSessionIndex.value = (newCount - 1).coerceAtLeast(0)

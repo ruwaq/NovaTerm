@@ -67,21 +67,24 @@ class SemanticZoneTracker {
             'A' -> {
                 // Fresh prompt — new command cycle
                 closeCurrentZone(row, col)
-                currentZone = SemanticZone(ZoneType.PROMPT, startRow = row, startCol = col)
-                _zones.add(currentZone!!)
+                val zone = SemanticZone(ZoneType.PROMPT, startRow = row, startCol = col)
+                currentZone = zone
+                _zones.add(zone)
                 currentCommand = null
             }
             'B' -> {
                 // Command started (user pressed Enter)
                 closeCurrentZone(row, col)
-                currentZone = SemanticZone(ZoneType.INPUT, startRow = row, startCol = col)
-                _zones.add(currentZone!!)
+                val zone = SemanticZone(ZoneType.INPUT, startRow = row, startCol = col)
+                currentZone = zone
+                _zones.add(zone)
             }
             'C' -> {
                 // Command output begins
                 closeCurrentZone(row, col)
-                currentZone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
-                _zones.add(currentZone!!)
+                val zone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
+                currentZone = zone
+                _zones.add(zone)
             }
             'D' -> {
                 // Command finished with exit code

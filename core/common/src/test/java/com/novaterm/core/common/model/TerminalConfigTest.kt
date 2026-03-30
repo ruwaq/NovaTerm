@@ -31,8 +31,8 @@ class TerminalConfigTest {
 
     @Test
     fun `font size at upper bound is valid`() {
-        val config = TerminalConfig(fontSize = 24)
-        assertEquals(24, config.fontSize)
+        val config = TerminalConfig(fontSize = 48)
+        assertEquals(48, config.fontSize)
     }
 
     @Test
@@ -45,7 +45,7 @@ class TerminalConfigTest {
     @Test
     fun `font size above range throws`() {
         assertThrows(IllegalArgumentException::class.java) {
-            TerminalConfig(fontSize = 25)
+            TerminalConfig(fontSize = 49)
         }
     }
 
@@ -86,6 +86,6 @@ class TerminalConfigTest {
     @Test
     fun `font size range is correctly defined`() {
         assertEquals(6, TerminalConfig.FONT_SIZE_RANGE.first)
-        assertEquals(24, TerminalConfig.FONT_SIZE_RANGE.last)
+        assertEquals(48, TerminalConfig.FONT_SIZE_RANGE.last)
     }
 }
