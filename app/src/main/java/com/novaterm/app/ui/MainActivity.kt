@@ -124,6 +124,8 @@ class MainActivity : ComponentActivity() {
                                 startForegroundService(
                                     Intent(context, TerminalService::class.java)
                                 )
+                                // Bind AFTER bootstrap + service start — now sessions get bash
+                                viewModel.bindService()
                             },
                         )
                     }
@@ -139,7 +141,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        viewModel.bindService()
+        // Only bind if bootstrap is done — otherwise TerminalService creates
+        // a session with /system/bin/sh instead of bash (race condition).
+        // On first launch, BootstrapScreen.onComplete calls startForegroundService,
+        // and bindService is deferred until NovaTermApp renders.
+        val installer = com.novaterm.core.bootstrap.BootstrapInstaller(applicationContext)
+        if (installer.isBootstrapped) {
+            viewModel.bindService()
+        }
     }
 
     override fun onStop() {
