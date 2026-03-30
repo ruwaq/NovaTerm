@@ -159,6 +159,9 @@ class AndroidShellProvider(
         env["TERMUX_APP__DATA_DIR"] = context.applicationInfo.dataDir
         // Legacy data dir path (some Android versions use /data/data/, others /data/user/0/)
         env["TERMUX_APP__LEGACY_DATA_DIR"] = "/data/data/${context.packageName}"
+        // Force termux-exec to use system linker for ALL binaries under our prefix.
+        // This overrides compiled-in defaults that may still reference com.termux.
+        env["TERMUX_EXEC__SYSTEM_LINKER_EXEC__MODE"] = "enable"
 
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }
             ?: run { env["ANDROID_DATA"] = "/data" }
