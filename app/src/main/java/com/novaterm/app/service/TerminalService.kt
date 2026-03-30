@@ -26,6 +26,11 @@ import android.content.pm.PackageManager
 import com.novaterm.app.receiver.BootReceiver
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.model.TerminalDimensions
+import com.novaterm.core.mcp.McpServer
+import com.novaterm.core.mcp.McpServerConfig
+import com.novaterm.core.mcp.bridge.FileEntry
+import com.novaterm.core.mcp.bridge.McpSessionBridge
+import com.novaterm.core.mcp.bridge.McpSessionInfo
 import com.novaterm.core.session.engine.RustEngine
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
@@ -78,10 +83,16 @@ class TerminalService : Service() {
      */
     var onScreenUpdated: (() -> Unit)? = null
 
+    // ── MCP server ──────────────────────────────────────────
+
+    private var mcpServer: McpServer? = null
+
     // ── Preferences bridge ──────────────────────────────────
 
     @Volatile var bellEnabled: Boolean = true
     @Volatile var useRustBackend: Boolean = false
+    @Volatile var mcpEnabled: Boolean = false
+    @Volatile var mcpPort: Int = McpServerConfig.DEFAULT_PORT
 
     // ── Rust engine instances (Phase 2) ────────────────────
 
@@ -219,6 +230,34 @@ class TerminalService : Service() {
 
         // Periodic session save (every 30s) for crash protection
         startPeriodicSave()
+
+        // Start MCP server if enabled in preferences
+        startMcpServerIfEnabled()
+    }
+
+    /**
+     * Start or restart the MCP server based on current preference state.
+     * Safe to call multiple times — stops existing server first.
+     */
+    fun startMcpServerIfEnabled() {
+        mcpServer?.stop()
+        mcpServer = null
+
+        if (!mcpEnabled) return
+
+        try {
+            val config = McpServerConfig(
+                enabled = true,
+                port = mcpPort,
+            )
+            val bridge = ServiceMcpBridge()
+            val server = McpServer(config, bridge)
+            server.start()
+            mcpServer = server
+            Log.i(TAG, "MCP server started on port $mcpPort")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start MCP server", e)
+        }
     }
 
     private val saveRunnable = object : Runnable {
@@ -278,6 +317,8 @@ class TerminalService : Service() {
     override fun onDestroy() {
         isServiceDestroyed = true
         onScreenUpdated = null
+        mcpServer?.stop()
+        mcpServer = null
         stopPeriodicSave()
         saveSessionMetadata()
         if (::blockStore.isInitialized) blockStore.close()
@@ -560,6 +601,135 @@ class TerminalService : Service() {
     private fun updateNotification() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    // ── MCP bridge implementation ───────────────────────────
+
+    /**
+     * Bridge between the MCP server and TerminalService internals.
+     * Delegates all operations to existing service methods.
+     */
+    inner class ServiceMcpBridge : McpSessionBridge {
+
+        override val sessions: StateFlow<List<McpSessionInfo>>
+            get() {
+                // Map TerminalSession list to McpSessionInfo list.
+                // We create a derived StateFlow backed by a MutableStateFlow
+                // that we keep in sync.
+                return _mcpSessions
+            }
+
+        private val _mcpSessions = MutableStateFlow<List<McpSessionInfo>>(emptyList())
+
+        init {
+            // Keep MCP session list in sync with actual sessions.
+            // We use a simple polling approach via the save handler since
+            // StateFlow.map returns a Flow, not a StateFlow.
+            syncMcpSessions()
+        }
+
+        private fun syncMcpSessions() {
+            _mcpSessions.value = _sessions.value.mapIndexed { index, session ->
+                McpSessionInfo(
+                    index = index,
+                    title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
+                    cwd = session.cwd ?: shellProvider.defaultWorkingDirectory(),
+                    isRunning = session.isRunning,
+                    pid = session.pid,
+                )
+            }
+        }
+
+        override fun createSession(cwd: String?): Int {
+            val session = if (cwd != null) {
+                createSessionInDir(cwd)
+            } else {
+                this@TerminalService.createSession()
+            }
+            syncMcpSessions()
+            return if (session != null) _sessions.value.indexOf(session) else -1
+        }
+
+        override fun closeSession(index: Int) {
+            removeSession(index)
+            syncMcpSessions()
+        }
+
+        override fun writeToSession(index: Int, input: String) {
+            val sessionList = _sessions.value
+            if (index !in sessionList.indices) return
+            sessionList[index].write(input)
+        }
+
+        override fun readOutput(index: Int, lines: Int): String {
+            val sessionList = _sessions.value
+            if (index !in sessionList.indices) return ""
+            val emulator = sessionList[index].emulator ?: return ""
+            val screen = emulator.screen
+            val transcript = screen.getTranscriptText()
+            // Return last N lines from transcript
+            val allLines = transcript.split("\n")
+            return allLines.takeLast(lines.coerceAtLeast(1)).joinToString("\n")
+        }
+
+        override fun getSessionCwd(index: Int): String? {
+            val sessionList = _sessions.value
+            if (index !in sessionList.indices) return null
+            return sessionList[index].cwd
+        }
+
+        override fun homePath(): String = shellProvider.defaultWorkingDirectory()
+
+        override fun prefixPath(): String {
+            // prefix = rootDir/usr, home = rootDir/home
+            // rootDir = context.filesDir.absolutePath
+            val home = shellProvider.defaultWorkingDirectory()
+            // home is <rootDir>/home, prefix is <rootDir>/usr
+            val rootDir = java.io.File(home).parent ?: home
+            return "$rootDir/usr"
+        }
+
+        override fun readFile(path: String, maxBytes: Int): String? {
+            return try {
+                val file = java.io.File(path)
+                if (!file.exists() || !file.isFile || !file.canRead()) return null
+                if (file.length() > maxBytes) return null
+                file.readText()
+            } catch (e: Exception) {
+                Log.e(TAG, "MCP readFile error: $path", e)
+                null
+            }
+        }
+
+        override fun writeFile(path: String, content: String): Boolean {
+            return try {
+                val file = java.io.File(path)
+                file.parentFile?.mkdirs()
+                file.writeText(content)
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "MCP writeFile error: $path", e)
+                false
+            }
+        }
+
+        override fun listDirectory(path: String): List<FileEntry> {
+            return try {
+                val dir = java.io.File(path)
+                if (!dir.exists() || !dir.isDirectory) return emptyList()
+                dir.listFiles()?.map { file ->
+                    FileEntry(
+                        name = file.name,
+                        isDirectory = file.isDirectory,
+                        size = if (file.isFile) file.length() else 0L,
+                    )
+                }?.sortedWith(compareByDescending<FileEntry> { it.isDirectory }.thenBy { it.name })
+                    ?: emptyList()
+            } catch (e: Exception) {
+                Log.e(TAG, "MCP listDirectory error: $path", e)
+                emptyList()
+            }
+        }
     }
 
     companion object {

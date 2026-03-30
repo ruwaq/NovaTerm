@@ -46,6 +46,12 @@
     <string name="settings_gpu_renderer">GPU renderer</string>
     <string name="settings_gpu_renderer_desc">Use Vulkan compute shaders for rendering. Requires restart of new sessions.</string>
 
+    <!-- MCP server -->
+    <string name="settings_mcp_server">MCP server</string>
+    <string name="settings_mcp_server_desc">Expose terminal as an MCP tool server for AI agents (Claude Code, Codex CLI). Listens on localhost.</string>
+    <string name="settings_mcp_port">MCP port</string>
+    <string name="settings_mcp_port_value">Port: %1$d</string>
+
     <!-- Onboarding color picker -->
     <string name="onboarding_choose_theme">Choose your theme</string>
     <string name="onboarding_change_later">You can change this later in Settings</string>
