@@ -292,21 +292,25 @@ class TerminalService : Service() {
         try {
             val config = LlmConfig(modelPath = modelPath)
             val engine = GemmaEngine(config)
-            llmEngine = engine
-            // Initialize on background thread — loads model into memory
+            // Initialize on daemon thread — only assign llmEngine AFTER successful init
             Thread {
                 try {
                     kotlinx.coroutines.runBlocking {
                         val success = engine.initialize()
-                        if (!success) {
+                        if (success) {
+                            llmEngine = engine
+                            Log.i(TAG, "LLM engine initialized successfully")
+                        } else {
                             Log.w(TAG, "LLM initialization failed")
+                            engine.release()
                         }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "LLM initialization error", e)
+                    engine.release()
                 }
-            }.start()
-            Log.i(TAG, "LLM engine created, initializing in background...")
+            }.apply { isDaemon = true }.start()
+            Log.i(TAG, "LLM engine loading in background...")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create LLM engine", e)
         }
@@ -318,7 +322,9 @@ class TerminalService : Service() {
             if (_sessions.value.isNotEmpty()) {
                 saveSessionMetadata()
             }
-            if (::predictionEngine.isInitialized) predictionEngine.save()
+            if (::predictionEngine.isInitialized) {
+                Thread { predictionEngine.save() }.apply { isDaemon = true }.start()
+            }
             if (!isServiceDestroyed) {
                 mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
             }

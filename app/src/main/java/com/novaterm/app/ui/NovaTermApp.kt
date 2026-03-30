@@ -70,6 +70,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
     val sessionNames by viewModel.sessionNames.collectAsState()
     val service by viewModel.service.collectAsState()
     val suggestion by viewModel.suggestion.collectAsState()
+    val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
     val view = LocalView.current
 
     // Sync preferences to service
@@ -106,7 +107,6 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
 
     if (showSettings) {
         BackHandler { viewModel.hideSettings() }
-        val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
         SettingsScreen(
             preferences = preferences,
             onPreferencesChanged = viewModel::updatePreferences,

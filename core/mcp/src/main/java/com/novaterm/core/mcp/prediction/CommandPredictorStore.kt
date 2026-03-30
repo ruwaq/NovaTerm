@@ -44,7 +44,11 @@ object CommandPredictorStore {
             val file = File(directory, FILE_NAME)
             val tmp = File(directory, "$FILE_NAME.tmp")
             tmp.writeText(json.toString())
-            tmp.renameTo(file)
+            if (!tmp.renameTo(file)) {
+                // renameTo failed (common on Android) — fallback to copy+delete
+                tmp.copyTo(file, overwrite = true)
+                tmp.delete()
+            }
             true
         } catch (e: Exception) {
             Log.w("CommandPredictorStore", "Failed to save predictor", e)

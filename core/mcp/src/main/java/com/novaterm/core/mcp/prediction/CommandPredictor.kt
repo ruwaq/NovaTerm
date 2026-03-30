@@ -63,6 +63,24 @@ class CommandPredictor {
                 val dirCommands = cwdCommands.getOrPut(cwdKey) { HashMap() }
                 dirCommands[normalized] = (dirCommands[normalized] ?: 0) + 1
             }
+
+            // Evict least frequent entries if vocabulary exceeds limits
+            if (unigrams.size > MAX_UNIGRAMS) {
+                val threshold = unigrams.values.sorted()[unigrams.size - MAX_UNIGRAMS]
+                unigrams.entries.removeAll { it.value <= threshold }
+            }
+            if (bigrams.size > MAX_BIGRAM_KEYS) {
+                val leastUsed = bigrams.entries
+                    .sortedBy { it.value.values.sum() }
+                    .take(bigrams.size - MAX_BIGRAM_KEYS)
+                leastUsed.forEach { bigrams.remove(it.key) }
+            }
+            if (cwdCommands.size > MAX_CWD_KEYS) {
+                val leastUsed = cwdCommands.entries
+                    .sortedBy { it.value.values.sum() }
+                    .take(cwdCommands.size - MAX_CWD_KEYS)
+                leastUsed.forEach { cwdCommands.remove(it.key) }
+            }
         }
     }
 
@@ -230,6 +248,11 @@ class CommandPredictor {
 
         // Pre-compiled regex for normalize() — avoids recompilation on every call
         private val WHITESPACE_REGEX = Regex("\\s+")
+
+        // Memory limits — evict least frequent when exceeded
+        private const val MAX_UNIGRAMS = 10_000
+        private const val MAX_BIGRAM_KEYS = 5_000
+        private const val MAX_CWD_KEYS = 1_000
     }
 }
 

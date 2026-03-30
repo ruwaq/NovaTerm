@@ -104,27 +104,27 @@ public final class KittyGraphicsCommand {
         // Parse key=value pairs
         for (String pair : controlData.split(",")) {
             int eqIdx = pair.indexOf('=');
-            if (eqIdx < 0 || eqIdx + 1 >= pair.length()) continue;
+            if (eqIdx < 1 || eqIdx + 1 >= pair.length()) continue;
             char key = pair.charAt(0);
-            String val = pair.substring(eqIdx + 1);
+            String value = pair.substring(eqIdx + 1);
 
             try {
                 switch (key) {
-                    case 'a': cmd.action = val.charAt(0); break;
-                    case 'f': cmd.format = Integer.parseInt(val); break;
-                    case 't': cmd.medium = val.charAt(0); break;
-                    case 'i': cmd.imageId = Integer.parseInt(val); break;
-                    case 'I': cmd.imageNumber = Integer.parseInt(val); break;
-                    case 'p': cmd.placementId = Integer.parseInt(val); break;
-                    case 's': cmd.sourceWidth = Integer.parseInt(val); break;
-                    case 'v': cmd.sourceHeight = Integer.parseInt(val); break;
-                    case 'c': cmd.displayColumns = Integer.parseInt(val); break;
-                    case 'r': cmd.displayRows = Integer.parseInt(val); break;
-                    case 'z': cmd.zIndex = Integer.parseInt(val); break;
-                    case 'm': cmd.moreChunks = Integer.parseInt(val); break;
-                    case 'q': cmd.quiet = Integer.parseInt(val); break;
-                    case 'd': cmd.deleteTarget = val.charAt(0); break;
-                    case 'C': cmd.cursorMovementSuppressed = "1".equals(val); break;
+                    case 'a': cmd.action = value.charAt(0); break;
+                    case 'f': cmd.format = Integer.parseInt(value); break;
+                    case 't': cmd.medium = value.charAt(0); break;
+                    case 'i': cmd.imageId = Integer.parseInt(value); break;
+                    case 'I': cmd.imageNumber = Integer.parseInt(value); break;
+                    case 'p': cmd.placementId = Integer.parseInt(value); break;
+                    case 's': cmd.sourceWidth = Integer.parseInt(value); break;
+                    case 'v': cmd.sourceHeight = Integer.parseInt(value); break;
+                    case 'c': cmd.displayColumns = Integer.parseInt(value); break;
+                    case 'r': cmd.displayRows = Integer.parseInt(value); break;
+                    case 'z': cmd.zIndex = Integer.parseInt(value); break;
+                    case 'm': cmd.moreChunks = Integer.parseInt(value); break;
+                    case 'q': cmd.quiet = Integer.parseInt(value); break;
+                    case 'd': cmd.deleteTarget = value.charAt(0); break;
+                    case 'C': cmd.cursorMovementSuppressed = "1".equals(value); break;
                 }
             } catch (NumberFormatException | IndexOutOfBoundsException ignored) {
                 // Malformed value — skip this key
