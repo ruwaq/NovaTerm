@@ -1,15 +1,21 @@
 package com.termux.view;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 
+import com.termux.terminal.KittyGraphicsManager;
 import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalRow;
 import com.termux.terminal.TextStyle;
 import com.termux.terminal.WcWidth;
+
+import java.util.Map;
 
 /**
  * Renderer of a {@link TerminalEmulator} into a {@link Canvas}.
@@ -153,6 +159,52 @@ public final class TerminalRenderer {
             }
             drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun, lastRunStartIndex, charsSinceLastRun,
                 measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection);
+        }
+
+        // ── Kitty Graphics: render inline images ──────────────
+        renderKittyImages(canvas, mEmulator, topRow);
+    }
+
+    /**
+     * Render Kitty Graphics Protocol images on top of terminal text.
+     * Images are drawn at their placement cell coordinates, scaled to fit
+     * the specified column/row span.
+     */
+    private void renderKittyImages(Canvas canvas, TerminalEmulator emulator, int topRow) {
+        KittyGraphicsManager gfx = emulator.mKittyGraphics;
+        if (gfx == null || gfx.getPlacements().isEmpty()) return;
+
+        Paint imgPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        int visibleRows = emulator.mRows;
+
+        for (Map.Entry<Integer, KittyGraphicsManager.KittyPlacement> entry : gfx.getPlacements().entrySet()) {
+            KittyGraphicsManager.KittyPlacement placement = entry.getValue();
+            KittyGraphicsManager.KittyImage image = gfx.getImage(placement.imageId);
+            if (image == null || image.bitmap.isRecycled()) continue;
+
+            // Check if placement is in visible range
+            int relativeRow = placement.row - topRow;
+            if (relativeRow + Math.max(placement.rows, 1) < 0 || relativeRow >= visibleRows) continue;
+
+            Bitmap bmp = image.bitmap;
+
+            // Calculate display rectangle in pixels
+            float left = placement.col * mFontWidth;
+            float top = mFontLineSpacingAndAscent + relativeRow * mFontLineSpacing;
+
+            // Auto-size: if columns/rows not specified, calculate from image dimensions
+            int dispCols = placement.columns > 0 ? placement.columns :
+                Math.max(1, (int) Math.ceil((double) bmp.getWidth() / mFontWidth));
+            int dispRows = placement.rows > 0 ? placement.rows :
+                Math.max(1, (int) Math.ceil((double) bmp.getHeight() / mFontLineSpacing));
+
+            float right = left + dispCols * mFontWidth;
+            float bottom = top + dispRows * mFontLineSpacing;
+
+            // Draw image scaled to the cell region
+            Rect src = new Rect(0, 0, bmp.getWidth(), bmp.getHeight());
+            RectF dst = new RectF(left, top, right, bottom);
+            canvas.drawBitmap(bmp, src, dst, imgPaint);
         }
     }
 
