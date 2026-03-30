@@ -177,7 +177,10 @@ class BootstrapInstaller(private val context: Context) {
                 Log.i(TAG, "Installed ${trustedDir.listFiles()?.size ?: 0} GPG keys")
             }
 
-            // 13. Copy setup scripts from assets (Claude Code auto-install, etc.)
+            // 13. Replace Termux MOTD with NovaTerm branding
+            replaceMotd(prefixDir)
+
+            // 14. Copy setup scripts from assets (Claude Code auto-install, etc.)
             copyAssetScript("setup-claude.sh", File(prefixDir, "bin/setup-claude"))
 
             _state.value = State.Done
@@ -389,6 +392,26 @@ class BootstrapInstaller(private val context: Context) {
         prefix.walkTopDown()
             .filter { it.isFile && (it.name.endsWith(".so") || it.name.contains(".so.")) }
             .forEach { it.setExecutable(true, true) }
+    }
+
+    // ── MOTD branding ─────────────────────────────────────
+
+    /** Replace Termux's default MOTD with NovaTerm branding. */
+    private fun replaceMotd(prefix: File) {
+        val motd = File(prefix, "etc/motd")
+        try {
+            motd.writeText(buildString {
+                appendLine("Welcome to NovaTerm!")
+                appendLine()
+                appendLine("  Docs:     https://github.com/PrometeoDEV/NovaTerm")
+                appendLine("  Packages: pkg install <name>")
+                appendLine("  AI:       claude (Claude Code)")
+                appendLine()
+            })
+            Log.i(TAG, "Replaced MOTD with NovaTerm branding")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to replace MOTD: ${e.message}")
+        }
     }
 
     // ── Asset scripts ─────────────────────────────────────
