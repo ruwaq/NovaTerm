@@ -376,7 +376,8 @@ class BootstrapInstaller(private val context: Context) {
             val d = File(prefix, dir)
             if (!d.isDirectory) continue
             d.listFiles()?.forEach { file ->
-                if (file.isFile) {
+                // Set +x on files AND symlinks (File.isFile returns false for symlinks)
+                if (file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) {
                     file.setExecutable(true, true)  // owner-only
                     file.setReadable(true, true)
                     file.setWritable(true, true)
