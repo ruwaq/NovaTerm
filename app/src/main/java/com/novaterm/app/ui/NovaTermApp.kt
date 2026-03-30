@@ -102,6 +102,8 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
     var showHistory by remember { mutableStateOf(false) }
     var renamingTabIndex by remember { mutableStateOf<Int?>(null) }
     var renameText by remember { mutableStateOf("") }
+    // OSC 133 prompt navigation function (set by active TerminalScreen)
+    var jumpToPrompt by remember { mutableStateOf<((Int) -> Unit)?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val safeIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
@@ -172,7 +174,11 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
             bottomBar = {
                 Column(modifier = Modifier.navigationBarsPadding()) {
                     if (sessions.isNotEmpty()) {
-                        StatusLine(cwd = sessions.getOrNull(pagerState.currentPage)?.cwd ?: "")
+                        StatusLine(
+                            cwd = sessions.getOrNull(pagerState.currentPage)?.cwd ?: "",
+                            onPromptUp = jumpToPrompt?.let { jump -> { jump(-1) } },
+                            onPromptDown = jumpToPrompt?.let { jump -> { jump(1) } },
+                        )
 
                         SessionTabBar(
                             sessions = sessions,
@@ -249,6 +255,9 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                         exitCode = exitCode,
                                         cwd = sessions.getOrNull(page)?.cwd,
                                     )
+                                },
+                                onPromptNavigatorReady = { nav ->
+                                    if (page == pagerState.settledPage) jumpToPrompt = nav
                                 },
                                 onViewReady = { terminalView ->
                                     if (page == pagerState.settledPage) {
