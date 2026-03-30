@@ -81,6 +81,7 @@ dependencies {
     implementation(project(":core:session"))
     implementation(project(":core:bootstrap"))
     implementation(project(":core:terminal-view"))
+    implementation(project(":core:mcp"))
 
     // Feature modules
     implementation(project(":feature:terminal"))

@@ -202,6 +202,30 @@ fun SettingsScreen(
                     onPreferencesChanged(preferences.copy(useGpuRenderer = it))
                 },
             )
+
+            // MCP server
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_mcp_server),
+                subtitle = stringResource(R.string.settings_mcp_server_desc),
+                checked = preferences.mcpEnabled,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(mcpEnabled = it))
+                },
+            )
+
+            // MCP port (only show when MCP is enabled)
+            if (preferences.mcpEnabled) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_mcp_port)) },
+                    supportingContent = {
+                        Text(
+                            stringResource(R.string.settings_mcp_port_value, preferences.mcpPort),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                )
+            }
         }
     }
 }

@@ -75,6 +75,13 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
         service?.useRustBackend = preferences.useRustBackend
     }
 
+    // Sync MCP preferences to service and start/stop server
+    LaunchedEffect(preferences.mcpEnabled, preferences.mcpPort, service) {
+        service?.mcpEnabled = preferences.mcpEnabled
+        service?.mcpPort = preferences.mcpPort
+        service?.startMcpServerIfEnabled()
+    }
+
     // ── Full-screen overlays (onboarding, about, settings) ───
     if (showOnboarding) {
         ColorSchemePickerScreen(onSchemeSelected = viewModel::completeOnboarding)
