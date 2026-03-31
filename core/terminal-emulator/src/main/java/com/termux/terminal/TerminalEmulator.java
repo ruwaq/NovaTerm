@@ -143,9 +143,11 @@ public final class TerminalEmulator {
     /** Size of a terminal cell in pixels. */
     private int mCellWidthPixels, mCellHeightPixels;
 
-    /** The number of terminal transcript rows that can be scrolled back to. */
+    /** The number of terminal transcript rows that can be scrolled back to.
+     *  MAX reduced from 50000 to 10000 to limit memory (~10-20MB/tab vs 50-80MB/tab).
+     *  For users who need more scrollback, consider piping to files. */
     public static final int TERMINAL_TRANSCRIPT_ROWS_MIN = 100;
-    public static final int TERMINAL_TRANSCRIPT_ROWS_MAX = 50000;
+    public static final int TERMINAL_TRANSCRIPT_ROWS_MAX = 10000;
     public static final int DEFAULT_TERMINAL_TRANSCRIPT_ROWS = 2000;
 
 
@@ -190,6 +192,9 @@ public final class TerminalEmulator {
 
     /** Buffer for APC (Application Program Command) data — used by Kitty Graphics Protocol. */
     private final StringBuilder mApcArgs = new StringBuilder();
+
+    /** Reusable buffer for SGR mouse event sequences (avoids String.format allocations). */
+    private final StringBuilder mMouseEventBuffer = new StringBuilder(24);
 
     /** Maximum APC data length (4MB for large image transmissions). */
     private static final int MAX_APC_LENGTH = 4 * 1024 * 1024;
@@ -381,7 +386,11 @@ public final class TerminalEmulator {
         if (mouseButton == MOUSE_LEFT_BUTTON_MOVED && !isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT)) {
             // Do not send tracking.
         } else if (isDecsetInternalBitSet(DECSET_BIT_MOUSE_PROTOCOL_SGR)) {
-            mSession.write(String.format("\033[<%d;%d;%d" + (pressed ? 'M' : 'm'), mouseButton, column, row));
+            // Reuse buffer to avoid String.format allocation on every mouse move
+            mMouseEventBuffer.setLength(0);
+            mMouseEventBuffer.append("\033[<").append(mouseButton).append(';')
+                .append(column).append(';').append(row).append(pressed ? 'M' : 'm');
+            mSession.write(mMouseEventBuffer.toString());
         } else {
             mouseButton = pressed ? mouseButton : 3; // 3 for release of all buttons.
             // Clip to screen, and clip to the limits of 8-bit data.

@@ -221,6 +221,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         prefsRepo.update(newPrefs)
     }
 
+    fun resetPreferencesToDefaults() {
+        prefsRepo.resetToDefaults()
+    }
+
     fun completeOnboarding(colorScheme: String) {
         prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
         prefsRepo.completeOnboarding()

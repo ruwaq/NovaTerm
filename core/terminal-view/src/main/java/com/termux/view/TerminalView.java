@@ -1178,7 +1178,26 @@ public final class TerminalView extends View {
         this.mTopRow = mTopRow;
     }
 
+    /** Returns the total number of rows in scrollback history (0 if none). */
+    public int getScrollbackRows() {
+        return mEmulator == null ? 0 : mEmulator.getScreen().getActiveTranscriptRows();
+    }
 
+    /**
+     * Returns the scroll position as a percentage (0-100).
+     * 0 = top of scrollback, 100 = bottom (current output position).
+     */
+    public int getScrollProgress() {
+        int total = getScrollbackRows();
+        if (total <= 0) return 100;
+        // mTopRow goes from -total (top) to 0 (bottom)
+        return Math.round((total + mTopRow) * 100f / total);
+    }
+
+    /** Returns true if the terminal is scrolled up (not showing the current output). */
+    public boolean isScrolledUp() {
+        return mTopRow < 0;
+    }
 
     /**
      * Define functions required for AutoFill API
@@ -1468,11 +1487,7 @@ public final class TerminalView extends View {
     TextSelectionCursorController getTextSelectionCursorController() {
         if (mTextSelectionCursorController == null) {
             mTextSelectionCursorController = new TextSelectionCursorController(this);
-
-            final ViewTreeObserver observer = getViewTreeObserver();
-            if (observer != null) {
-                observer.addOnTouchModeChangeListener(mTextSelectionCursorController);
-            }
+            // Listener is added in onAttachedToWindow() to avoid duplicates
         }
 
         return mTextSelectionCursorController;
@@ -1563,6 +1578,9 @@ public final class TerminalView extends View {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
 
+        // Stop cursor blinker to prevent Handler callbacks accumulating after detach
+        stopTerminalCursorBlinker();
+
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
             // android.view.WindowLeaked: Activity com.termux.app.TermuxActivity has leaked window android.widget.PopupWindow
@@ -1591,6 +1609,8 @@ public final class TerminalView extends View {
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void showFloatingToolbar() {
         if (getTextSelectionActionMode() != null) {
+            // Remove any pending callbacks to prevent accumulation
+            removeCallbacks(mShowFloatingToolbar);
             int delay = ViewConfiguration.getDoubleTapTimeout();
             postDelayed(mShowFloatingToolbar, delay);
         }

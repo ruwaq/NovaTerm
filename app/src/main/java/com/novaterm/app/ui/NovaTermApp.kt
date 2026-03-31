@@ -111,6 +111,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
             preferences = preferences,
             onPreferencesChanged = viewModel::updatePreferences,
             onBack = viewModel::hideSettings,
+            onResetToDefaults = viewModel::resetPreferencesToDefaults,
             modelState = modelState,
             onDownloadModel = { modelId -> service?.modelManager?.startDownload(modelId) },
             onCancelDownload = { service?.modelManager?.cancelDownload() },

@@ -8,7 +8,19 @@
     <string name="url_copied">Copied</string>
     <string name="url_cannot_open">Cannot open URL</string>
 
+    <!-- Extra keys tooltips -->
+    <string name="tooltip_ctrl">Hold to modify next key (e.g., CTRL+C)</string>
+    <string name="tooltip_alt">Hold to modify next key</string>
+    <string name="tooltip_tab">Complete command or accept suggestion</string>
+    <string name="tooltip_esc">Cancel or exit mode</string>
+    <string name="tooltip_long_press">Long-press for more options</string>
+
     <!-- History search -->
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="search_results_count">%d commands</string>
+    <string name="filter_all">All</string>
+    <string name="filter_success">Success</string>
+    <string name="filter_failed">Failed</string>
+    <string name="sort_newest_first">Sort newest first</string>
+    <string name="sort_oldest_first">Sort oldest first</string>
 </resources>

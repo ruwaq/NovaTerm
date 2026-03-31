@@ -45,8 +45,20 @@ data class SemanticZone(
  */
 class SemanticZoneTracker {
 
+    /** Maximum zones to keep in memory to prevent unbounded growth. */
+    private val maxZones = 1000
+
     private val _zones = mutableListOf<SemanticZone>()
     val zones: List<SemanticZone> get() = _zones
+
+    /** Trim oldest zones when we exceed maxZones to prevent memory leak. */
+    private fun trimIfNeeded() {
+        if (_zones.size > maxZones) {
+            // Remove oldest 20% to avoid frequent trimming
+            val removeCount = maxZones / 5
+            repeat(removeCount) { _zones.removeFirstOrNull() }
+        }
+    }
 
     private var currentZone: SemanticZone? = null
     private var currentCommand: String? = null
@@ -70,6 +82,7 @@ class SemanticZoneTracker {
                 val zone = SemanticZone(ZoneType.PROMPT, startRow = row, startCol = col)
                 currentZone = zone
                 _zones.add(zone)
+                trimIfNeeded()
                 currentCommand = null
             }
             'B' -> {
@@ -78,6 +91,7 @@ class SemanticZoneTracker {
                 val zone = SemanticZone(ZoneType.INPUT, startRow = row, startCol = col)
                 currentZone = zone
                 _zones.add(zone)
+                trimIfNeeded()
             }
             'C' -> {
                 // Command output begins
@@ -85,6 +99,7 @@ class SemanticZoneTracker {
                 val zone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
                 currentZone = zone
                 _zones.add(zone)
+                trimIfNeeded()
             }
             'D' -> {
                 // Command finished with exit code

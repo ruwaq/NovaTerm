@@ -61,6 +61,14 @@
     <string name="settings_llm_model_ready">Model ready</string>
     <string name="settings_llm_delete">Delete model</string>
 
+    <!-- Reset to defaults -->
+    <string name="settings_reset_title">Reset to defaults</string>
+    <string name="settings_reset_desc">Restore all settings to their original values</string>
+    <string name="settings_reset_confirm_title">Reset settings?</string>
+    <string name="settings_reset_confirm_message">This will restore all settings to their default values. This action cannot be undone.</string>
+    <string name="settings_reset_confirm">Reset</string>
+    <string name="settings_reset_cancel">Cancel</string>
+
     <!-- Onboarding color picker -->
     <string name="onboarding_choose_theme">Choose your theme</string>
     <string name="onboarding_change_later">You can change this later in Settings</string>

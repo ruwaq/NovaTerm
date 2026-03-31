@@ -70,6 +70,7 @@ public class TextSelectionCursorController implements CursorController {
         if (mActionMode != null) {
             // This will hide the TextSelectionCursorController
             mActionMode.finish();
+            mActionMode = null;  // Clear reference to allow GC
         }
 
         mSelX1 = mSelY1 = mSelX2 = mSelY2 = -1;

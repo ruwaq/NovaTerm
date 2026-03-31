@@ -1,0 +1,33 @@
+# NovaTerm - Android Cross-Compilation Config
+# Optimizado para Mac Apple Silicon -> Android ARM64
+
+[target.aarch64-linux-android]
+# cargo-ndk configura el linker automaticamente via CARGO_TARGET_*_LINKER
+# Solo necesitamos esto si compilamos sin cargo-ndk
+# linker = "aarch64-linux-android30-clang"
+
+# Runner para tests via ADB (opcional)
+runner = "cargo ndk-runner"
+
+[target.armv7-linux-androideabi]
+runner = "cargo ndk-runner"
+
+[env]
+# Defaults para cargo-ndk (pueden override con env vars)
+CARGO_NDK_ANDROID_PLATFORM = "30"
+
+[build]
+# Build para host por defecto (usar cargo ndk para Android)
+# target = "aarch64-linux-android"  # Descomentar para default Android
+
+[profile.release]
+# Ya configurado en Cargo.toml del workspace
+# lto = "thin"
+# opt-level = "s"
+# strip = "symbols"
+# panic = "abort"
+
+[profile.release.build-override]
+# Build scripts corren en host, no necesitan optimizacion agresiva
+opt-level = 0
+codegen-units = 16

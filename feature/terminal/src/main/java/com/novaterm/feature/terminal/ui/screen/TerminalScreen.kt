@@ -5,8 +5,19 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -97,8 +108,30 @@ fun TerminalScreen(
     var lastFontSize by remember(session) { mutableIntStateOf(fontSize) }
     var lastColorScheme by remember(session) { mutableStateOf(colorScheme) }
 
-    AndroidView(
-        modifier = modifier
+    // Scrollback indicator state
+    var isScrolledUp by remember { mutableStateOf(false) }
+    var scrollProgress by remember { mutableIntStateOf(100) }
+
+    // Poll scroll state periodically (only when view exists, cancels on session change)
+    // Key on session to ensure coroutine is cancelled when tab switches
+    LaunchedEffect(session) {
+        while (true) {
+            val view = terminalViewRef.value
+            if (view != null) {
+                val scrolled = view.isScrolledUp
+                isScrolledUp = scrolled
+                if (scrolled) {
+                    scrollProgress = view.scrollProgress
+                }
+            }
+            // Slower polling (5Hz) - scroll indicator doesn't need real-time updates
+            kotlinx.coroutines.delay(200)
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+        modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 6.dp, vertical = 4.dp), // Balanced: readable without wasting columns
         factory = { context ->
@@ -178,6 +211,34 @@ fun TerminalScreen(
             }
         }
     )
+
+        // Scrollback position indicator (appears when scrolled up)
+        AnimatedVisibility(
+            visible = isScrolledUp,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 4.dp, top = 8.dp, bottom = 8.dp)
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            ) {
+                // Scroll position thumb
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxHeight(scrollProgress / 100f)
+                        .width(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+                )
+            }
+        }
+    } // End of Box
 
     // Clean up when the session changes or the composable leaves composition.
     DisposableEffect(session) {
