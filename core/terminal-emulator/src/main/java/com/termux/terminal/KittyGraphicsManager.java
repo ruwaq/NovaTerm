@@ -49,7 +49,8 @@ public final class KittyGraphicsManager {
 
     /** Chunked transmission in progress (accumulates base64 until m=0). */
     private KittyGraphicsCommand pendingCommand;
-    private final StringBuilder pendingPayload = new StringBuilder();
+    /** Note: Not final to allow recreation after large allocations to free memory. */
+    private StringBuilder pendingPayload = new StringBuilder();
 
     /** Current total memory used by stored images. */
     private long usedMemoryBytes;
@@ -76,7 +77,8 @@ public final class KittyGraphicsManager {
             if (pendingPayload.length() > MAX_PENDING_PAYLOAD) {
                 Log.w(TAG, "Chunked payload too large, aborting");
                 pendingCommand = null;
-                pendingPayload.setLength(0);
+                // Recreate StringBuilder to free memory (setLength(0) keeps capacity)
+                pendingPayload = new StringBuilder();
                 return;
             }
             if (cmd.hasMoreChunks()) {

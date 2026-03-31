@@ -15,10 +15,13 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -50,6 +53,7 @@ fun SettingsScreen(
     preferences: TerminalPreferences,
     onPreferencesChanged: (TerminalPreferences) -> Unit,
     onBack: () -> Unit,
+    onResetToDefaults: () -> Unit = {},
     modelState: ModelState = ModelState.Idle,
     onDownloadModel: (String) -> Unit = {},
     onCancelDownload: () -> Unit = {},
@@ -59,6 +63,9 @@ fun SettingsScreen(
     var fontSize by remember(preferences.fontSize) {
         mutableFloatStateOf(preferences.fontSize.toFloat())
     }
+
+    // Reset confirmation dialog state
+    var showResetDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -303,7 +310,51 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── Reset ─────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { showResetDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Text(stringResource(R.string.settings_reset_title))
+            }
+            Text(
+                text = stringResource(R.string.settings_reset_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    // Reset confirmation dialog
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(stringResource(R.string.settings_reset_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_reset_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onResetToDefaults()
+                        showResetDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_reset_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(stringResource(R.string.settings_reset_cancel))
+                }
+            },
+        )
     }
 }
 

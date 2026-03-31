@@ -1,0 +1,604 @@
+[2026-03-31 00:17:54] === NovaTerm Automated Build Started ===
+[2026-03-31 00:17:54] Waiting for bootstrap build to complete...
+[2026-03-31 00:17:54] Build in progress: /usr/bin/install -c -m 644 ../Lib/encodings/cp869.py /home/munay/.termux-build/_cache/python-3.13.12/host-build-prefix/lib/python3.13/encodings
+[2026-03-31 00:18:54] Build in progress: checking for grp.h... 
+[2026-03-31 00:19:54] Build in progress: checking alignment of size_t... 
+[2026-03-31 00:20:54] Build in progress: checking for fork... 
+[2026-03-31 00:21:54] Build in progress: checking for tmpnam... 
+[2026-03-31 00:22:54] Build in progress: checking size of wchar_t... 
+[2026-03-31 00:23:54] Build in progress: aarch64-linux-android-clang -shared -L/data/data/com.nvterm/files/usr/lib -Wl,-rpath=/data/data/com.nvterm/files/usr/lib -Wl,--enable-new-dtags  -Wl,-z,relro,-z,now -Wl,--no-as-needed,-landroid-support,--as-needed -L/home/munay/.termux-build/_cache/android-r29-api-24-v4/sysroot/usr/lib -landroid-posix-semaphore -L/data/data/com.nvterm/files/usr/lib -Wl,-rpath=/data/data/com.nvterm/files/usr/lib -Wl,--enable-new-dtags  -Wl,-z,relro,-z,now -Wl,--no-as-needed,-landroid-support,--as-needed -L/home/munay/.termux-build/_cache/android-r29-api-24-v4/sysroot/usr/lib -landroid-posix-semaphore    Modules/xxlimited_35.o  -L. -lpython3.13 -o Modules/xxlimited_35.cpython-313-aarch64-linux-android.so
+[2026-03-31 00:24:54] Build in progress: INFO: Running symbol checks on 81 files with nproc=16
+[2026-03-31 00:25:55] Build in progress:   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  4 12.8M    4  554k    0     0   554k      0  0:00:23  0:00:01  0:00:22  556k 16 12.8M   16 2234k    0     0  1118k      0  0:00:11  0:00:01  0:00:10 1119k 32 12.8M   32 4343k    0     0  1449k      0  0:00:09  0:00:02  0:00:07 1450k 54 12.8M   54 7203k    0     0  1792k      0  0:00:07  0:00:04  0:00:03 1794k 71 12.8M   71 9453k    0     0  1885k      0  0:00:06  0:00:05  0:00:01 1886k 83 12.8M   83 10.7M    0     0  1834k      0  0:00:07  0:00:05  0:00:02 2090k100 12.8M  100 12.8M    0     0  2009k      0  0:00:06  0:00:06 --:--:-- 2400k
+[2026-03-31 00:26:55] Build in progress: Copying file m4/longlong.m4
+[2026-03-31 00:27:55] Build in progress: checking for broken visibility attribute... 
+[2026-03-31 00:28:55] Build in progress: libtoolize: copying file 'm4/ltversion.m4'
+[2026-03-31 00:29:55] Build in progress: checking for ushort... 
+[2026-03-31 00:30:55] Build in progress: /bin/bash ../libtool  --tag=CC   --mode=compile aarch64-linux-android-clang -DHAVE_CONFIG_H -I. -I/home/munay/.termux-build/libgcrypt/src/cipher -I..  -I../src -I/home/munay/.termux-build/libgcrypt/src/src -I../mpi -I/home/munay/.termux-build/libgcrypt/src/mpi -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -Wa,--noexecstack -fstack-protector-strong -Oz -c -o cipher-gcm-armv8-aarch64-ce.lo /home/munay/.termux-build/libgcrypt/src/cipher/cipher-gcm-armv8-aarch64-ce.S
+[2026-03-31 00:31:55] Build in progress:   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+[2026-03-31 00:32:55] Build in progress: checking for mbsinit... 
+[2026-03-31 00:33:55] Build in progress: checking for bit size of sig_atomic_t... 
+[2026-03-31 00:34:55] Build in progress: checking for readlinkat... 
+[2026-03-31 00:35:55] Build in progress: checking for CFLocaleCopyCurrent... 
+[2026-03-31 00:36:56] Build in progress: checking for aarch64-linux-android-clang -std=gnu23 options needed to detect all undeclared functions... 
+[2026-03-31 00:37:56] Build in progress: checking whether nullptr_t needs <stddef.h>... 
+[2026-03-31 00:38:56] Build in progress:   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0 44  964k   44  431k    0     0   251k      0  0:00:03  0:00:01  0:00:02  252k100  964k  100  964k    0     0   489k      0  0:00:01  0:00:01 --:--:--  490k
+[2026-03-31 00:39:56] Build in progress: checking whether _XOPEN_SOURCE should be defined... 
+[2026-03-31 00:40:56] Build in progress: checking for library containing getpwnam... 
+[2026-03-31 00:41:56] Build in progress:   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0 11 13.7M   11 1678k    0     0  1665k      0  0:00:08  0:00:01  0:00:07 1669k 32 13.7M   32 4638k    0     0  2309k      0  0:00:06  0:00:02  0:00:04 2313k 51 13.7M   51 7182k    0     0  2339k      0  0:00:06  0:00:03  0:00:03 2341k 62 13.7M   62 8766k    0     0  2186k      0  0:00:06  0:00:04  0:00:02 2188k
+[2026-03-31 00:42:56] Build in progress: Checking for getcwd ... 
+[2026-03-31 00:43:56] Build in progress: Checking for time ... 
+[2026-03-31 00:44:56] Build in progress: Checking whether to include <quadmath.h> ... 
+[2026-03-31 00:45:56] Build in progress: Checking for getaddrinfo ... 
+[2026-03-31 00:46:56] Build in progress: Checking for setruid ... 
+[2026-03-31 00:47:56] Build in progress: Checking FD_SET macros ... 
+[2026-03-31 00:48:56] Build in progress: gcc -DPERL_CORE -DUSE_CROSS_COMPILE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -fwrapv -fno-strict-aliasing -c -o scope.host.o scope.c
+[2026-03-31 00:49:56] Build in progress: aarch64-linux-android-clang -DPERL_CORE --sysroot=/home/munay/.termux-build/_cache/android-r29-api-24-v4/sysroot -D_BSD_SOURCE=1 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O2 -fPIC -Wno-unused-function -c -o pp_hot.o pp_hot.c
+[2026-03-31 00:50:56] Build in progress: ./miniperl_top make_ext_Makefile.pl cpan/Archive-Tar/Makefile.PL
+[2026-03-31 00:51:56] Build in progress: make[2]: Entering directory '/home/munay/.termux-build/perl/src/cpan/Module-Load-Conditional'
+[2026-03-31 00:52:56] Build in progress:  PERL_CORE=1 LIBPERL_A=libperl.so PERL="../../miniperl_top"
+[2026-03-31 00:53:56] Build in progress: make[2]: Entering directory '/home/munay/.termux-build/perl/src/dist/Tie-File'
+[2026-03-31 00:54:56] Build in progress: Creating ext/PerlIO-via/Makefile.PL for PerlIO::via
+[2026-03-31 00:55:56] Build in progress: aarch64-linux-android-clang -c  -I./zlib-src --sysroot=/home/munay/.termux-build/_cache/android-r29-api-24-v4/sysroot -D_BSD_SOURCE=1 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Werror=pointer-arith -Werror=vla -Wextra -Wno-long-long -Wno-declaration-after-statement -Wc++-compat -Wwrite-strings -O2   -DVERSION=\"2.213\" -DXS_VERSION=\"2.213\" -fPIC -Wno-unused-function "-I../.."  -DNO_VIZ -DZ_SOLO   -DZ_PREFIX  -DGZIP_OS_CODE=3  -DPerl_crz_BUILD_ZLIB=1 -Dregister= adler32.c
+[2026-03-31 00:56:57] Build in progress: make[2]: Entering directory '/home/munay/.termux-build/perl/src/cpan/MIME-Base64'
+[2026-03-31 00:57:57] Build in progress: Processing UnicodeData.txt
+[2026-03-31 00:58:57] Build in progress: WARNING: You've never run 'make test'!!!  (Installing anyway.)
+[2026-03-31 00:59:57] Build in progress: checking for aarch64-linux-android-clang option to enable C11 features... 
+[2026-03-31 01:00:57] Build in progress: checking whether _XOPEN_SOURCE should be defined... 
+[2026-03-31 01:01:57] Build in progress: checking for aarch64-linux-android-clang option for timestamps after 2038... 
+[2026-03-31 01:02:57] Build in progress: checking for bit size of wchar_t... 
+[2026-03-31 01:03:57] Build in progress: checking whether fcvt is declared... 
+[2026-03-31 01:04:57] Build in progress: checking for utime... 
+[2026-03-31 01:05:57] Build in progress: -- Performing Test C_FLAG_WCAST_ALIGN
+[2026-03-31 01:06:57] Build in progress: checking for aarch64-linux-android-clang option to enable C11 features... 
+[2026-03-31 01:07:57] Build in progress: checking size of void *... 
+[2026-03-31 01:08:57] Build in progress: checking whether aarch64-linux-android-clang++ accepts -Wold-style-cast... 
+[2026-03-31 01:09:57] Build in progress: checking for a race-free mkdir -p... 
+[2026-03-31 01:10:57] Build in progress: checking for complete errno.h... 
+[2026-03-31 01:11:57] Build in progress: checking whether setenv is declared... 
+[2026-03-31 01:12:58] Build in progress: checking whether mbswidth is declared in <wchar.h>... 
+[2026-03-31 01:13:58] Build in progress: checking for dirent.h that defines DIR... yes
+[2026-03-31 01:14:58] Build in progress: checking command to parse llvm-nm output from aarch64-linux-android-clang object... 
+[2026-03-31 01:15:58] Build in progress: checking whether build environment is sane... yes
+[2026-03-31 01:16:58] Build in progress: checking for sys/inttypes.h... 
+[2026-03-31 01:17:58] Build in progress: checking whether initstate is declared... 
+[2026-03-31 01:18:58] Build in progress: configure: creating ./config.status
+[2026-03-31 01:19:58] Build in progress: aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I..  -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include  -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unicase/u8-casemap.c
+[2026-03-31 01:20:58] Build in progress: aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I..  -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include  -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unictype/joiningtype_longname.c
+[2026-03-31 01:21:58] Build in progress: aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I..  -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include  -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unigbrk/u16-grapheme-breaks.c
+[2026-03-31 01:22:58] Build in progress: aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I..  -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include  -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unistdio/u8-u8-vsprintf.c
+[2026-03-31 01:23:58] Build in progress: aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I..  -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include  -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unistr/u8-check.c
+[2026-03-31 01:24:58] Build in progress: libtool: compile:  aarch64-linux-android-clang -DHAVE_CONFIG_H -DNO_XMALLOC -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I. -I/home/munay/.termux-build/libunistring/src/lib -I.. -I/home/munay/.termux-build/libunistring/src -DIN_LIBUNISTRING -DDEPENDS_ON_LIBICONV=1 -isystem/data/data/com.nvterm/files/usr/include/c++/v1 -isystem/data/data/com.nvterm/files/usr/include -I/data/data/com.nvterm/files/usr/include -Wno-cast-qual -Wno-conversion -Wno-float-equal -Wno-sign-compare -Wno-undef -Wno-unused-function -Wno-unused-parameter -Wno-float-conversion -Wimplicit-fallthrough -Wno-pedantic -Wno-tautological-constant-out-of-range-compare -Wno-sign-conversion -Wno-type-limits -Wno-unused-const-variable -fstack-protector-strong -Oz -c /home/munay/.termux-build/libunistring/src/lib/unictype/pr_extended_pictographic.c -o unictype/libunistring_la-pr_extended_pictographic.o >/dev/null 2>&1
+[2026-03-31 01:25:59] Build in progress: checking for sys/stat.h... 
+[2026-03-31 01:26:59] Build in progress: checking whether MB_CUR_MAX is correct... 
+[2026-03-31 01:27:59] Build in progress: configure: creating ./config.status
+[2026-03-31 01:28:59] Build in progress: checking for dlopen in -ldl... 
+[2026-03-31 01:29:59] Build in progress: -- Performing Test check_c_compiler_flag__Woverride_init
+[2026-03-31 01:30:59] Build in progress: -- Check size of int
+[2026-03-31 01:31:59] Build in progress: checking for limits.h... 
+[2026-03-31 01:32:59] Build in progress: -- Looking for endian.h
+[2026-03-31 01:33:59] Build in progress: checking how to run the C preprocessor... aarch64-linux-android-cpp
+[2026-03-31 01:34:59] Build in progress: Installing /data/data/com.nvterm/files/usr/share/swig/4.4.1/go/std_map.i
+[2026-03-31 01:35:59] Build in progress: checking for glob.h... 
+[2026-03-31 01:37:00] Build in progress: checking for SSL_set1_host... 
+[2026-03-31 01:38:00] Build in progress: checking for ctime_r... 
+[2026-03-31 01:39:00] Build in progress: checking build system type... 
+[2026-03-31 01:40:00] Build in progress: checking for symlink... 
+[2026-03-31 01:41:00] Build in progress: checking whether memmem is declared... 
+[2026-03-31 01:42:00] Build in progress: checking for strerror_r... 
+[2026-03-31 01:43:00] Build in progress: checking whether C compiler handles -Wold-style-definition... 
+[2026-03-31 01:44:00] Build in progress:   CC       glthread/libgnu_la-lock.lo
+[2026-03-31 01:45:00] Build in progress:   CC       glthread/libgnu_gpl_la-lock.lo
+[2026-03-31 01:46:00] Build in progress: checking for GPG Error - version >= 1.8... 
+[2026-03-31 01:47:00] Build in progress: checking for pthread_tryjoin_np... 
+[2026-03-31 01:48:01] Build in progress: configure: creating ./config.status
+[2026-03-31 01:49:01] Build in progress: checking for Qt5Core >= 5.0.0 Qt5Gui >= 5.0.0 Qt5Widgets >= 5.0.0... no
+[2026-03-31 01:50:01] Build in progress: checking whether readline via "-lreadline" is present and sane... 
+[2026-03-31 01:51:01] Build in progress: checking LIBASSUAN API version... okay
+[2026-03-31 01:52:01] Build in progress: checking size of time_t... 
+[2026-03-31 01:53:01] Build in progress: llvm-ranlib libcommonpth.a
+[2026-03-31 01:54:01] Build in progress: checking for netdb.h... 
+[2026-03-31 01:55:01] Build in progress: checking for bit size of size_t... 
+[2026-03-31 01:56:01] Build in progress: checking for __builtin_expect... 
+[2026-03-31 01:57:02] Build in progress:   CC       libgreputils_a-reallocarray.o
+[2026-03-31 01:58:02] Build in progress: checking whether the C compiler works... 
+[2026-03-31 01:59:02] Build in progress: checking for u_int64_t... 
+[2026-03-31 02:00:02] Build in progress: checking for strftime... 
+[2026-03-31 02:01:02] Build in progress: INFO: Found 0 files with undefined symbols after exclusion
+[2026-03-31 02:02:02] Build in progress: checking for memset_s... 
+[2026-03-31 02:03:02] Build in progress: checking whether alarm is declared... 
+[2026-03-31 02:04:02] Build in progress: checking whether wctob is declared... 
+[2026-03-31 02:05:03] Build in progress: checking for C compiler version... 
+[2026-03-31 02:06:03] Build in progress: checking whether the compiler accepts -fPIE... 
+[2026-03-31 02:07:03] Build in progress: checking size of pid_t... 4
+[2026-03-31 02:08:03] Build in progress: checking whether the compiler accepts -Wreserved-user-defined-literal... 
+[2026-03-31 02:09:03] Build in progress: INFO: Done ... 1s
+[2026-03-31 02:10:03] Build in progress: 1 warning generated.
+[2026-03-31 02:11:03] Build in progress: checking for aarch64-linux-android-clang++ option to enable C++98 features... 
+[2026-03-31 02:12:03] Build in progress: checking for stdint.h... 
+[2026-03-31 02:13:03] Build in progress: checking if _REENTRANT is actually needed... 
+[2026-03-31 02:14:04] Build in progress: checking if gethostname is compilable... 
+[2026-03-31 02:15:04] Build in progress:   CC       libcurl_la-psl.lo
+[2026-03-31 02:16:04] Build in progress: checking for __attribute__((__alias__()))... 
+[2026-03-31 02:17:04] Build in progress: checking for tsearch... 
+[2026-03-31 02:18:04] Build in progress: checking for working alloca.h... 
+[2026-03-31 02:19:04] Build in progress: libtool: link: aarch64-linux-android-clang -shared  -fPIC -DPIC  .libs/exceptions.o .libs/extract.o .libs/uceil_exp2.o .libs/uceil_log2.o .libs/ufloor_log2.o .libs/add.o .libs/add1.o .libs/add_ui.o .libs/agm.o .libs/clear.o .libs/cmp.o .libs/cmpabs.o .libs/cmp_si.o .libs/cmp_ui.o .libs/comparisons.o .libs/div_2exp.o .libs/div_2si.o .libs/div_2ui.o .libs/div.o .libs/div_ui.o .libs/dot.o .libs/dump.o .libs/eq.o .libs/exp10.o .libs/exp2.o .libs/exp3.o .libs/exp.o .libs/frac.o .libs/frexp.o .libs/get_d.o .libs/get_exp.o .libs/get_str.o .libs/init.o .libs/inp_str.o .libs/isinteger.o .libs/isinf.o .libs/isnan.o .libs/isnum.o .libs/const_log2.o .libs/log.o .libs/modf.o .libs/mul_2exp.o .libs/mul_2si.o .libs/mul_2ui.o .libs/mul.o .libs/mul_ui.o .libs/neg.o .libs/next.o .libs/out_str.o .libs/printf.o .libs/vasprintf.o .libs/const_pi.o .libs/pow.o .libs/pow_si.o .libs/pow_ui.o .libs/pow_sj.o .libs/pow_uj.o .libs/print_raw.o .libs/print_rnd_mode.o .libs/reldiff.o .libs/round_prec.o .libs/set.o .libs/setmax.o .libs/setmin.o .libs/set_d.o .libs/set_dfl_prec.o .libs/set_exp.o .libs/set_rnd.o .libs/set_f.o .libs/set_prc_raw.o .libs/set_prec.o .libs/set_q.o .libs/set_si.o .libs/set_str.o .libs/set_str_raw.o .libs/set_ui.o .libs/set_z.o .libs/sqrt.o .libs/sqrt_ui.o .libs/sub.o .libs/sub1.o .libs/sub_ui.o .libs/rint.o .libs/ui_div.o .libs/ui_sub.o .libs/urandom.o .libs/urandomb.o .libs/get_z_2exp.o .libs/swap.o .libs/factorial.o .libs/cosh.o .libs/sinh.o .libs/tanh.o .libs/sinh_cosh.o .libs/acosh.o .libs/asinh.o .libs/atanh.o .libs/atan.o .libs/cmp2.o .libs/exp_2.o .libs/asin.o .libs/const_euler.o .libs/cos.o .libs/sin.o .libs/tan.o .libs/fma.o .libs/fms.o .libs/hypot.o .libs/log1p.o .libs/expm1.o .libs/log2.o .libs/log2p1.o .libs/log10.o .libs/log10p1.o .libs/ui_pow.o .libs/ui_pow_ui.o .libs/minmax.o .libs/dim.o .libs/signbit.o .libs/copysign.o .libs/setsign.o .libs/gmp_op.o .libs/init2.o .libs/acos.o .libs/sin_cos.o .libs/set_nan.o .libs/set_inf.o .libs/set_zero.o .libs/powerof2.o .libs/gamma.o .libs/set_ld.o .libs/get_ld.o .libs/cbrt.o .libs/volatile.o .libs/fits_sshort.o .libs/fits_sint.o .libs/fits_slong.o .libs/fits_ushort.o .libs/fits_uint.o .libs/fits_ulong.o .libs/fits_uintmax.o .libs/fits_intmax.o .libs/get_si.o .libs/get_ui.o .libs/zeta.o .libs/cmp_d.o .libs/erf.o .libs/inits.o .libs/inits2.o .libs/clears.o .libs/sgn.o .libs/check.o .libs/sub1sp.o .libs/version.o .libs/mpn_exp.o .libs/mpfr-gmp.o .libs/mp_clz_tab.o .libs/sum.o .libs/add1sp.o .libs/free_cache.o .libs/si_op.o .libs/cmp_ld.o .libs/set_ui_2exp.o .libs/set_si_2exp.o .libs/set_uj.o .libs/set_sj.o .libs/get_sj.o .libs/get_uj.o .libs/get_z.o .libs/iszero.o .libs/cache.o .libs/sqr.o .libs/int_ceil_log2.o .libs/isqrt.o .libs/strtofr.o .libs/pow_z.o .libs/logging.o .libs/mulders.o .libs/get_f.o .libs/round_p.o .libs/erfc.o .libs/atan2.o .libs/atan2u.o .libs/subnormal.o .libs/const_catalan.o .libs/root.o .libs/sec.o .libs/csc.o .libs/cot.o .libs/eint.o .libs/sech.o .libs/csch.o .libs/coth.o .libs/round_near_x.o .libs/constant.o .libs/abort_prec_max.o .libs/stack_interface.o .libs/lngamma.o .libs/zeta_ui.o .libs/set_d64.o .libs/get_d64.o .libs/jn.o .libs/yn.o .libs/rem1.o .libs/add_d.o .libs/sub_d.o .libs/d_sub.o .libs/mul_d.o .libs/div_d.o .libs/d_div.o .libs/li2.o .libs/rec_sqrt.o .libs/min_prec.o .libs/buildopt.o .libs/digamma.o .libs/bernoulli.o .libs/isregular.o .libs/set_flt.o .libs/get_flt.o .libs/scale2.o .libs/set_z_2exp.o .libs/ai.o .libs/gammaonethird.o .libs/grandom.o .libs/fpif.o .libs/set_float128.o .libs/get_float128.o .libs/rndna.o .libs/nrandom.o .libs/random_deviate.o .libs/erandom.o .libs/mpfr-mini-gmp.o .libs/fmma.o .libs/log_ui.o .libs/gamma_inc.o .libs/ubf.o .libs/beta.o .libs/odd_p.o .libs/get_q.o .libs/pool.o .libs/total_order.o .libs/set_d128.o .libs/get_d128.o .libs/nbits_ulong.o .libs/cmpabs_ui.o .libs/sinu.o .libs/cosu.o .libs/tanu.o .libs/fmod_ui.o .libs/acosu.o .libs/asinu.o .libs/atanu.o .libs/compound.o .libs/exp2m1.o .libs/exp10m1.o .libs/powr.o .libs/get_patches.o   -L/data/data/com.nvterm/files/usr/lib -L/data/data/com.nvterm/files/usr/lib -L/data/data/com.nvterm/files/usr/lib /data/data/com.nvterm/files/usr/lib/libgmp.so  -fstack-protector-strong -Oz -Wl,-rpath=/data/data/com.nvterm/files/usr/lib -Wl,--enable-new-dtags -Wl,--as-needed -Wl,-z -Wl,relro -Wl,-z -Wl,now   -Wl,-soname -Wl,libmpfr.so -o .libs/libmpfr.so
+[2026-03-31 02:20:04] Build in progress: checking for isblank... 
+[2026-03-31 02:21:04] Build in progress: checking for dirent.h that defines DIR... 
+[2026-03-31 02:22:04] Build in progress: Copying file po/Makevars.template
+[2026-03-31 02:23:05] Build in progress: checking for strtol... 
+[2026-03-31 02:24:05] Build in progress: checking for CFPreferencesCopyAppValue... 
+[2026-03-31 02:25:05] Build in progress:   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  2  130M    2 3244k    0     0  1895k      0  0:01:10  0:00:01  0:01:09 3316k  6  130M    6 8492k    0     0  3130k      0  0:00:42  0:00:02  0:00:40 4291k  9  130M    9 12.8M    0     0  3536k      0  0:00:37  0:00:03  0:00:34 4408k 13  130M   13 17.6M    0     0  3834k      0  0:00:34  0:00:04  0:00:30 4541k 16  130M   16 21.9M    0     0  3874k      0  0:00:34  0:00:05  0:00:29 4435k 20  130M   20 26.5M    0     0  4046k      0  0:00:32  0:00:06  0:00:26 4782k 23  130M   23 30.9M    0     0  4112k      0  0:00:32  0:00:07  0:00:25 4645k 27  130M   27 36.1M    0     0  4243k      0  0:00:31  0:00:08  0:00:23 4768k 31  130M   31 41.2M    0     0  4344k      0  0:00:30  0:00:09  0:00:21 4824k 35  130M   35 45.7M    0     0  4371k      0  0:00:30  0:00:10  0:00:20 4960k 38  130M   38 50.7M    0     0  4439k      0  0:00:30  0:00:11  0:00:19 4966k 42  130M   42 55.6M    0     0  4484k      0  0:00:29  0:00:12  0:00:17 5057k 45  130M   45 59.6M    0     0  4442k      0  0:00:30  0:00:13  0:00:17 4787k 49  130M   49 64.4M    0     0  4483k      0  0:00:29  0:00:14  0:00:15 4753k 52  130M   52 68.5M    0     0  4470k      0  0:00:29  0:00:15  0:00:14 4684k 55  130M   55 72.4M    0     0  4436k      0  0:00:30  0:00:16  0:00:14 4428k 58  130M   58 76.2M    0     0  4408k      0  0:00:30  0:00:17  0:00:13 4213k 61  130M   61 80.6M    0     0  4415k      0  0:00:30  0:00:18  0:00:12 4337k 64  130M   64 84.6M    0     0  4398k      0  0:00:30  0:00:19  0:00:11 4147k 68  130M   68 89.5M    0     0  4424k      0  0:00:30  0:00:20  0:00:10 4278k 71  130M   71 93.5M    0     0  4409k      0  0:00:30  0:00:21  0:00:09 4320k 75  130M   75 98.0M    0     0  4419k      0  0:00:30  0:00:22  0:00:08 4462k 78  130M   78  102M    0     0  4434k      0  0:00:30  0:00:23  0:00:07 4505k 82  130M   82  107M    0     0  4443k      0  0:00:30  0:00:24  0:00:06 4622k
+[2026-03-31 02:26:05] Build in progress: 
+[2026-03-31 02:27:05] Bootstrap build process not running, checking result...
+[2026-03-31 02:27:05] Checking for bootstrap archive in VM...
+[2026-03-31 02:27:05] Bootstrap not found at expected location, checking alternatives...
+[2026-03-31 02:27:05] WARNING: No bootstrap found, using existing bootstrap
+[2026-03-31 02:27:05] Building APK with all performance fixes...
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: clean assembleDebug
+> Task :build-logic:convention:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-logic:convention:compileKotlin UP-TO-DATE
+> Task :build-logic:convention:compileJava NO-SOURCE
+> Task :build-logic:convention:pluginDescriptors UP-TO-DATE
+> Task :build-logic:convention:processResources UP-TO-DATE
+> Task :build-logic:convention:classes UP-TO-DATE
+> Task :build-logic:convention:jar UP-TO-DATE
+> Task :clean
+> Task :core:common:clean
+> Task :core:config:clean
+> Task :core:bootstrap:clean
+> Task :core:llm:clean
+> Task :app:clean
+> Task :core:terminal-emulator:clean
+> Task :core:terminal-view:clean
+> Task :core:session:clean
+> Task :core:mcp:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :core:common:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:common:compileKotlin FROM-CACHE
+> Task :core:common:compileJava NO-SOURCE
+> Task :core:common:processResources NO-SOURCE
+> Task :core:common:classes UP-TO-DATE
+> Task :feature:oem-compat:clean
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugBuildConfig FROM-CACHE
+> Task :core:bootstrap:preBuild UP-TO-DATE
+> Task :core:bootstrap:preDebugBuild UP-TO-DATE
+> Task :core:common:jar
+> Task :core:llm:preBuild UP-TO-DATE
+> Task :core:llm:preDebugBuild UP-TO-DATE
+> Task :feature:settings:clean
+> Task :core:mcp:preBuild UP-TO-DATE
+> Task :core:mcp:preDebugBuild UP-TO-DATE
+> Task :core:llm:writeDebugAarMetadata
+> Task :core:bootstrap:writeDebugAarMetadata
+> Task :core:session:preBuild UP-TO-DATE
+> Task :core:terminal-emulator:preBuild UP-TO-DATE
+> Task :core:session:preDebugBuild UP-TO-DATE
+> Task :core:terminal-emulator:preDebugBuild UP-TO-DATE
+> Task :core:mcp:writeDebugAarMetadata
+> Task :core:terminal-view:preBuild UP-TO-DATE
+> Task :core:terminal-view:preDebugBuild UP-TO-DATE
+> Task :core:session:writeDebugAarMetadata
+> Task :core:terminal-emulator:writeDebugAarMetadata
+> Task :feature:oem-compat:preBuild UP-TO-DATE
+> Task :feature:settings:preBuild UP-TO-DATE
+> Task :feature:oem-compat:preDebugBuild UP-TO-DATE
+> Task :feature:settings:preDebugBuild UP-TO-DATE
+> Task :core:terminal-view:writeDebugAarMetadata
+> Task :feature:terminal:preBuild UP-TO-DATE
+> Task :feature:terminal:preDebugBuild UP-TO-DATE
+> Task :feature:oem-compat:writeDebugAarMetadata
+> Task :feature:settings:writeDebugAarMetadata
+> Task :app:generateDebugResValues FROM-CACHE
+> Task :core:bootstrap:generateDebugResValues FROM-CACHE
+> Task :core:llm:generateDebugResValues FROM-CACHE
+> Task :core:mcp:generateDebugResValues FROM-CACHE
+> Task :core:llm:generateDebugResources FROM-CACHE
+> Task :core:mcp:generateDebugResources FROM-CACHE
+> Task :core:bootstrap:generateDebugResources FROM-CACHE
+> Task :core:mcp:packageDebugResources FROM-CACHE
+> Task :core:llm:packageDebugResources FROM-CACHE
+> Task :core:bootstrap:packageDebugResources FROM-CACHE
+> Task :core:session:generateDebugResValues FROM-CACHE
+> Task :core:terminal-view:generateDebugResValues FROM-CACHE
+> Task :core:terminal-emulator:generateDebugResValues FROM-CACHE
+> Task :core:session:generateDebugResources FROM-CACHE
+> Task :core:terminal-emulator:generateDebugResources FROM-CACHE
+> Task :core:terminal-view:generateDebugResources FROM-CACHE
+> Task :core:session:packageDebugResources FROM-CACHE
+> Task :core:terminal-emulator:packageDebugResources FROM-CACHE
+> Task :core:terminal-view:packageDebugResources FROM-CACHE
+> Task :feature:oem-compat:generateDebugResValues FROM-CACHE
+> Task :feature:settings:generateDebugResValues FROM-CACHE
+> Task :feature:terminal:clean
+> Task :feature:oem-compat:generateDebugResources FROM-CACHE
+> Task :feature:settings:generateDebugResources FROM-CACHE
+> Task :feature:terminal:writeDebugAarMetadata
+> Task :app:generateDebugResources FROM-CACHE
+> Task :feature:terminal:generateDebugResValues FROM-CACHE
+> Task :feature:oem-compat:packageDebugResources FROM-CACHE
+> Task :feature:settings:packageDebugResources FROM-CACHE
+> Task :feature:terminal:generateDebugResources FROM-CACHE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :feature:terminal:packageDebugResources FROM-CACHE
+> Task :app:extractDeepLinksDebug FROM-CACHE
+> Task :app:packageDebugResources FROM-CACHE
+> Task :app:parseDebugLocalResources FROM-CACHE
+> Task :core:bootstrap:extractDeepLinksDebug FROM-CACHE
+> Task :core:bootstrap:processDebugManifest FROM-CACHE
+> Task :core:llm:extractDeepLinksDebug FROM-CACHE
+> Task :core:llm:processDebugManifest FROM-CACHE
+> Task :core:mcp:extractDeepLinksDebug FROM-CACHE
+> Task :core:mcp:processDebugManifest FROM-CACHE
+> Task :core:session:extractDeepLinksDebug FROM-CACHE
+> Task :core:session:processDebugManifest FROM-CACHE
+> Task :core:terminal-emulator:extractDeepLinksDebug FROM-CACHE
+> Task :core:terminal-emulator:processDebugManifest FROM-CACHE
+> Task :core:terminal-view:extractDeepLinksDebug FROM-CACHE
+> Task :core:terminal-view:processDebugManifest FROM-CACHE
+> Task :feature:oem-compat:extractDeepLinksDebug FROM-CACHE
+> Task :feature:oem-compat:processDebugManifest FROM-CACHE
+> Task :feature:settings:extractDeepLinksDebug FROM-CACHE
+> Task :feature:settings:processDebugManifest FROM-CACHE
+> Task :feature:terminal:extractDeepLinksDebug FROM-CACHE
+> Task :feature:terminal:processDebugManifest FROM-CACHE
+> Task :app:mapDebugSourceSetPaths
+> Task :core:bootstrap:compileDebugLibraryResources FROM-CACHE
+> Task :core:bootstrap:parseDebugLocalResources FROM-CACHE
+> Task :core:bootstrap:generateDebugRFile FROM-CACHE
+> Task :core:llm:compileDebugLibraryResources FROM-CACHE
+> Task :core:llm:parseDebugLocalResources FROM-CACHE
+> Task :app:processDebugMainManifest FROM-CACHE
+> Task :app:processDebugManifest FROM-CACHE
+> Task :core:llm:generateDebugRFile FROM-CACHE
+> Task :app:processDebugManifestForPackage FROM-CACHE
+> Task :core:mcp:compileDebugLibraryResources FROM-CACHE
+> Task :core:mcp:parseDebugLocalResources FROM-CACHE
+> Task :core:session:compileDebugLibraryResources FROM-CACHE
+> Task :core:session:parseDebugLocalResources FROM-CACHE
+> Task :app:checkDebugAarMetadata
+> Task :core:mcp:generateDebugRFile FROM-CACHE
+> Task :core:session:generateDebugRFile FROM-CACHE
+> Task :core:terminal-emulator:compileDebugLibraryResources FROM-CACHE
+> Task :core:terminal-emulator:parseDebugLocalResources FROM-CACHE
+> Task :core:terminal-view:parseDebugLocalResources FROM-CACHE
+> Task :core:terminal-view:compileDebugLibraryResources FROM-CACHE
+> Task :core:terminal-emulator:generateDebugRFile FROM-CACHE
+> Task :feature:oem-compat:compileDebugLibraryResources FROM-CACHE
+> Task :core:terminal-view:generateDebugRFile FROM-CACHE
+> Task :feature:settings:compileDebugLibraryResources FROM-CACHE
+> Task :feature:oem-compat:parseDebugLocalResources FROM-CACHE
+> Task :feature:settings:parseDebugLocalResources FROM-CACHE
+> Task :feature:terminal:compileDebugLibraryResources FROM-CACHE
+> Task :feature:oem-compat:generateDebugRFile FROM-CACHE
+> Task :core:bootstrap:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:terminal:parseDebugLocalResources FROM-CACHE
+> Task :feature:settings:generateDebugRFile FROM-CACHE
+> Task :core:bootstrap:javaPreCompileDebug FROM-CACHE
+> Task :feature:terminal:generateDebugRFile FROM-CACHE
+> Task :core:llm:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:session:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:terminal-emulator:javaPreCompileDebug FROM-CACHE
+> Task :core:session:javaPreCompileDebug FROM-CACHE
+> Task :core:llm:javaPreCompileDebug FROM-CACHE
+> Task :core:mcp:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:mcp:javaPreCompileDebug FROM-CACHE
+> Task :core:terminal-view:javaPreCompileDebug FROM-CACHE
+> Task :feature:oem-compat:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:mergeDebugResources FROM-CACHE
+> Task :core:terminal-emulator:compileDebugJavaWithJavac FROM-CACHE
+> Task :core:bootstrap:compileDebugKotlin FROM-CACHE
+> Task :core:bootstrap:compileDebugJavaWithJavac NO-SOURCE
+> Task :feature:oem-compat:compileDebugKotlin FROM-CACHE
+> Task :core:bootstrap:bundleLibCompileToJarDebug
+> Task :core:terminal-emulator:bundleLibCompileToJarDebug
+> Task :feature:oem-compat:javaPreCompileDebug FROM-CACHE
+> Task :feature:oem-compat:compileDebugJavaWithJavac NO-SOURCE
+> Task :feature:oem-compat:bundleLibCompileToJarDebug
+> Task :feature:settings:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:settings:javaPreCompileDebug FROM-CACHE
+> Task :feature:terminal:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:terminal:javaPreCompileDebug FROM-CACHE
+> Task :app:javaPreCompileDebug FROM-CACHE
+> Task :app:processDebugResources FROM-CACHE
+> Task :core:terminal-view:compileDebugJavaWithJavac FROM-CACHE
+> Task :core:terminal-view:bundleLibCompileToJarDebug
+> Task :core:llm:mergeDebugShaders
+> Task :core:bootstrap:mergeDebugShaders
+> Task :app:mergeDebugShaders
+> Task :core:bootstrap:compileDebugShaders NO-SOURCE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :core:llm:compileDebugShaders NO-SOURCE
+> Task :core:bootstrap:generateDebugAssets UP-TO-DATE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :core:llm:generateDebugAssets UP-TO-DATE
+> Task :core:llm:packageDebugAssets
+> Task :core:mcp:mergeDebugShaders
+> Task :core:bootstrap:packageDebugAssets
+> Task :core:mcp:compileDebugShaders NO-SOURCE
+> Task :core:mcp:generateDebugAssets UP-TO-DATE
+> Task :core:terminal-emulator:mergeDebugShaders
+> Task :core:session:mergeDebugShaders
+> Task :core:mcp:packageDebugAssets
+> Task :core:terminal-emulator:compileDebugShaders NO-SOURCE
+> Task :core:session:compileDebugShaders NO-SOURCE
+> Task :core:session:generateDebugAssets UP-TO-DATE
+> Task :core:terminal-emulator:generateDebugAssets UP-TO-DATE
+> Task :core:terminal-view:mergeDebugShaders
+> Task :core:terminal-view:compileDebugShaders NO-SOURCE
+> Task :core:session:packageDebugAssets
+> Task :core:terminal-emulator:packageDebugAssets
+> Task :core:terminal-view:generateDebugAssets UP-TO-DATE
+> Task :feature:oem-compat:mergeDebugShaders
+> Task :core:terminal-view:packageDebugAssets
+> Task :feature:settings:mergeDebugShaders
+> Task :feature:oem-compat:compileDebugShaders NO-SOURCE
+> Task :feature:settings:compileDebugShaders NO-SOURCE
+> Task :feature:oem-compat:generateDebugAssets UP-TO-DATE
+> Task :feature:settings:generateDebugAssets UP-TO-DATE
+> Task :feature:terminal:mergeDebugShaders
+> Task :feature:oem-compat:packageDebugAssets
+> Task :feature:settings:packageDebugAssets
+> Task :feature:terminal:compileDebugShaders NO-SOURCE
+> Task :feature:terminal:generateDebugAssets UP-TO-DATE
+> Task :feature:terminal:packageDebugAssets
+> Task :core:bootstrap:bundleLibRuntimeToJarDebug
+> Task :feature:oem-compat:bundleLibRuntimeToJarDebug
+> Task :core:terminal-view:bundleLibRuntimeToJarDebug
+> Task :app:desugarDebugFileDependencies FROM-CACHE
+> Task :core:terminal-emulator:bundleLibRuntimeToJarDebug
+> Task :core:bootstrap:processDebugJavaRes
+> Task :core:terminal-emulator:processDebugJavaRes NO-SOURCE
+> Task :core:terminal-view:processDebugJavaRes NO-SOURCE
+> Task :feature:oem-compat:processDebugJavaRes
+> Task :core:session:compileDebugKotlin FROM-CACHE
+> Task :core:session:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:session:bundleLibCompileToJarDebug
+> Task :app:mergeDebugAssets
+> Task :core:llm:compileDebugKotlin FROM-CACHE
+> Task :core:llm:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:llm:bundleLibCompileToJarDebug
+> Task :app:checkDebugDuplicateClasses
+> Task :core:mcp:compileDebugKotlin FROM-CACHE
+> Task :core:mcp:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:mcp:bundleLibCompileToJarDebug
+> Task :feature:settings:compileDebugKotlin FROM-CACHE
+> Task :feature:settings:compileDebugJavaWithJavac NO-SOURCE
+> Task :feature:settings:bundleLibCompileToJarDebug
+> Task :core:mcp:bundleLibRuntimeToJarDebug
+> Task :feature:terminal:compileDebugKotlin FROM-CACHE
+> Task :feature:terminal:compileDebugJavaWithJavac NO-SOURCE
+> Task :feature:terminal:bundleLibCompileToJarDebug
+> Task :feature:settings:bundleLibRuntimeToJarDebug
+> Task :core:llm:bundleLibRuntimeToJarDebug
+> Task :feature:terminal:bundleLibRuntimeToJarDebug
+> Task :core:session:bundleLibRuntimeToJarDebug
+> Task :core:llm:processDebugJavaRes
+> Task :core:mcp:processDebugJavaRes
+> Task :core:session:processDebugJavaRes
+> Task :feature:settings:processDebugJavaRes
+> Task :app:compileDebugKotlin FROM-CACHE
+> Task :feature:terminal:processDebugJavaRes
+> Task :app:processDebugJavaRes
+> Task :app:compileDebugJavaWithJavac FROM-CACHE
+> Task :app:dexBuilderDebug FROM-CACHE
+> Task :app:compressDebugAssets FROM-CACHE
+> Task :core:mcp:bundleLibRuntimeToDirDebug
+> Task :feature:settings:bundleLibRuntimeToDirDebug
+> Task :core:llm:bundleLibRuntimeToDirDebug
+> Task :feature:terminal:bundleLibRuntimeToDirDebug
+> Task :core:session:bundleLibRuntimeToDirDebug
+> Task :app:mergeExtDexDebug FROM-CACHE
+> Task :core:bootstrap:bundleLibRuntimeToDirDebug
+> Task :core:terminal-view:bundleLibRuntimeToDirDebug
+> Task :feature:oem-compat:bundleLibRuntimeToDirDebug
+> Task :core:terminal-emulator:bundleLibRuntimeToDirDebug
+> Task :app:mergeProjectDexDebug FROM-CACHE
+> Task :app:mergeDebugJniLibFolders
+> Task :core:bootstrap:mergeDebugJniLibFolders
+> Task :core:bootstrap:mergeDebugNativeLibs NO-SOURCE
+> Task :core:bootstrap:copyDebugJniLibsProjectOnly
+> Task :core:llm:mergeDebugJniLibFolders
+> Task :core:llm:mergeDebugNativeLibs NO-SOURCE
+> Task :core:llm:copyDebugJniLibsProjectOnly
+> Task :core:mcp:mergeDebugJniLibFolders
+> Task :core:mcp:mergeDebugNativeLibs NO-SOURCE
+> Task :core:mcp:copyDebugJniLibsProjectOnly
+> Task :core:session:mergeDebugJniLibFolders
+> Task :core:session:mergeDebugNativeLibs NO-SOURCE
+> Task :core:session:copyDebugJniLibsProjectOnly
+> Task :core:terminal-emulator:mergeDebugJniLibFolders
+> Task :core:terminal-emulator:mergeDebugNativeLibs
+> Task :core:terminal-emulator:copyDebugJniLibsProjectOnly
+> Task :core:terminal-view:mergeDebugJniLibFolders
+> Task :core:terminal-view:mergeDebugNativeLibs NO-SOURCE
+> Task :core:terminal-view:copyDebugJniLibsProjectOnly
+> Task :feature:oem-compat:mergeDebugJniLibFolders
+> Task :feature:oem-compat:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:oem-compat:copyDebugJniLibsProjectOnly
+> Task :feature:settings:mergeDebugJniLibFolders
+> Task :feature:settings:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:settings:copyDebugJniLibsProjectOnly
+> Task :feature:terminal:mergeDebugJniLibFolders
+> Task :feature:terminal:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:terminal:copyDebugJniLibsProjectOnly
+> Task :app:mergeDebugJavaResource
+> Task :app:mergeDebugNativeLibs
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :core:bootstrap:stripDebugDebugSymbols NO-SOURCE
+> Task :core:bootstrap:copyDebugJniLibsProjectAndLocalJars
+
+> Task :app:stripDebugDebugSymbols
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+[CXX5106] NDK was located by using ndk.dir property. This method is deprecated and will be removed in a future release. Please use android.ndkVersion or android.ndkPath in build.gradle to specify the NDK to use. https://developer.android.com/r/studio-ui/ndk-dir
+
+> Task :core:bootstrap:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:bootstrap:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:bootstrap:extractDebugAnnotations FROM-CACHE
+> Task :core:bootstrap:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :core:bootstrap:prepareDebugArtProfile UP-TO-DATE
+> Task :core:bootstrap:prepareLintJarForPublish UP-TO-DATE
+> Task :core:config:preBuild UP-TO-DATE
+> Task :core:config:preDebugBuild UP-TO-DATE
+> Task :core:config:mergeDebugJniLibFolders
+> Task :core:config:mergeDebugNativeLibs NO-SOURCE
+> Task :core:config:stripDebugDebugSymbols NO-SOURCE
+> Task :core:bootstrap:mergeDebugJavaResource
+> Task :core:config:copyDebugJniLibsProjectAndLocalJars
+> Task :core:config:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:config:generateDebugResValues FROM-CACHE
+> Task :core:bootstrap:syncDebugLibJars FROM-CACHE
+> Task :core:config:generateDebugResources FROM-CACHE
+> Task :core:bootstrap:bundleDebugAar
+> Task :core:bootstrap:assembleDebug
+> Task :core:config:packageDebugResources FROM-CACHE
+> Task :core:config:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:config:parseDebugLocalResources FROM-CACHE
+> Task :core:config:javaPreCompileDebug FROM-CACHE
+> Task :core:config:mergeDebugShaders
+> Task :core:config:generateDebugRFile FROM-CACHE
+> Task :core:config:compileDebugShaders NO-SOURCE
+> Task :core:config:generateDebugAssets UP-TO-DATE
+> Task :core:config:packageDebugAssets
+> Task :core:config:prepareDebugArtProfile UP-TO-DATE
+> Task :core:config:prepareLintJarForPublish UP-TO-DATE
+> Task :core:config:processDebugManifest FROM-CACHE
+> Task :core:config:writeDebugAarMetadata
+> Task :core:llm:stripDebugDebugSymbols NO-SOURCE
+> Task :core:llm:copyDebugJniLibsProjectAndLocalJars
+> Task :core:llm:extractDebugAnnotations FROM-CACHE
+> Task :core:llm:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:llm:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:llm:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :core:llm:prepareDebugArtProfile UP-TO-DATE
+> Task :core:llm:prepareLintJarForPublish UP-TO-DATE
+> Task :core:llm:mergeDebugJavaResource
+> Task :core:llm:syncDebugLibJars FROM-CACHE
+> Task :core:config:compileDebugKotlin FROM-CACHE
+> Task :core:llm:bundleDebugAar
+> Task :core:config:extractDebugAnnotations FROM-CACHE
+> Task :core:config:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:config:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:config:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :core:llm:assembleDebug
+> Task :core:mcp:stripDebugDebugSymbols NO-SOURCE
+> Task :core:config:processDebugJavaRes
+> Task :core:mcp:copyDebugJniLibsProjectAndLocalJars
+> Task :core:config:mergeDebugJavaResource
+> Task :core:config:syncDebugLibJars FROM-CACHE
+> Task :core:mcp:extractDebugAnnotations FROM-CACHE
+> Task :core:mcp:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:mcp:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:mcp:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :core:config:bundleDebugAar
+> Task :core:config:assembleDebug
+> Task :core:mcp:prepareDebugArtProfile UP-TO-DATE
+> Task :core:mcp:prepareLintJarForPublish UP-TO-DATE
+> Task :core:session:stripDebugDebugSymbols NO-SOURCE
+> Task :core:session:copyDebugJniLibsProjectAndLocalJars
+> Task :core:mcp:mergeDebugJavaResource
+> Task :core:session:extractDebugAnnotations FROM-CACHE
+> Task :core:session:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:session:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:mcp:syncDebugLibJars FROM-CACHE
+> Task :core:session:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :core:session:prepareDebugArtProfile UP-TO-DATE
+> Task :core:session:prepareLintJarForPublish UP-TO-DATE
+> Task :core:mcp:bundleDebugAar
+> Task :core:mcp:assembleDebug
+> Task :core:session:mergeDebugJavaResource
+> Task :core:session:syncDebugLibJars FROM-CACHE
+
+> Task :core:terminal-emulator:stripDebugDebugSymbols
+[CXX1104] NDK from ndk.dir at /Users/munay/Android/sdk/ndk/android-ndk-r27c had version [27.2.12479018] which disagrees with android.ndkVersion [27.0.12077973]
+[CXX1104] NDK from ndk.dir at /Users/munay/Android/sdk/ndk/android-ndk-r27c had version [27.2.12479018] which disagrees with android.ndkVersion [27.0.12077973]
+Unable to strip the following libraries, packaging them as they are: libnovaterm.so, libtermux.so.
+
+> Task :core:session:bundleDebugAar
+> Task :core:session:assembleDebug
+> Task :core:terminal-emulator:copyDebugJniLibsProjectAndLocalJars
+> Task :core:terminal-emulator:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:terminal-emulator:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:terminal-emulator:mergeDebugConsumerProguardFiles
+> Task :core:terminal-emulator:prepareDebugArtProfile UP-TO-DATE
+> Task :core:terminal-emulator:prepareLintJarForPublish UP-TO-DATE
+> Task :core:terminal-emulator:mergeDebugJavaResource
+> Task :core:terminal-view:stripDebugDebugSymbols NO-SOURCE
+> Task :core:terminal-view:copyDebugJniLibsProjectAndLocalJars
+> Task :core:terminal-emulator:extractDebugAnnotations
+> Task :core:terminal-view:extractDebugAnnotations FROM-CACHE
+> Task :core:terminal-view:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :core:terminal-view:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :core:terminal-view:mergeDebugConsumerProguardFiles
+> Task :core:terminal-view:prepareDebugArtProfile UP-TO-DATE
+> Task :core:terminal-view:prepareLintJarForPublish UP-TO-DATE
+> Task :core:terminal-view:mergeDebugJavaResource
+> Task :core:terminal-view:syncDebugLibJars FROM-CACHE
+> Task :core:terminal-emulator:syncDebugLibJars
+> Task :core:terminal-view:bundleDebugAar
+> Task :core:terminal-view:assembleDebug
+> Task :feature:oem-compat:stripDebugDebugSymbols NO-SOURCE
+> Task :feature:oem-compat:copyDebugJniLibsProjectAndLocalJars
+> Task :feature:oem-compat:extractDebugAnnotations FROM-CACHE
+> Task :feature:oem-compat:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :feature:oem-compat:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :feature:oem-compat:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :feature:oem-compat:prepareDebugArtProfile UP-TO-DATE
+> Task :feature:oem-compat:prepareLintJarForPublish UP-TO-DATE
+> Task :feature:oem-compat:mergeDebugJavaResource
+> Task :app:mergeDebugGlobalSynthetics FROM-CACHE
+> Task :feature:settings:stripDebugDebugSymbols NO-SOURCE
+> Task :core:terminal-emulator:bundleDebugAar
+> Task :core:terminal-emulator:assembleDebug
+> Task :feature:settings:copyDebugJniLibsProjectAndLocalJars
+> Task :feature:oem-compat:syncDebugLibJars FROM-CACHE
+> Task :feature:settings:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :feature:settings:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :feature:settings:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :feature:settings:prepareDebugArtProfile UP-TO-DATE
+> Task :feature:settings:prepareLintJarForPublish UP-TO-DATE
+> Task :feature:oem-compat:bundleDebugAar
+> Task :feature:oem-compat:assembleDebug
+> Task :feature:settings:extractDebugAnnotations FROM-CACHE
+> Task :feature:terminal:stripDebugDebugSymbols NO-SOURCE
+> Task :feature:settings:mergeDebugJavaResource
+> Task :feature:terminal:copyDebugJniLibsProjectAndLocalJars
+> Task :feature:terminal:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :feature:terminal:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :feature:terminal:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :feature:terminal:prepareDebugArtProfile UP-TO-DATE
+> Task :feature:terminal:prepareLintJarForPublish UP-TO-DATE
+> Task :feature:terminal:extractDebugAnnotations FROM-CACHE
+> Task :feature:settings:syncDebugLibJars FROM-CACHE
+> Task :feature:terminal:mergeDebugJavaResource
+> Task :feature:settings:bundleDebugAar
+> Task :feature:settings:assembleDebug
+> Task :feature:terminal:syncDebugLibJars FROM-CACHE
+> Task :feature:terminal:bundleDebugAar
+> Task :feature:terminal:assembleDebug
+> Task :app:mergeLibDexDebug
+> Task :app:packageDebug
+> Task :app:assembleDebug
+> Task :app:createDebugApkListingFileRedirect
+
+BUILD SUCCESSFUL in 9s
+340 actionable tasks: 151 executed, 137 from cache, 52 up-to-date
+Configuration cache entry stored.
+[2026-03-31 02:27:15] APK built successfully! Size: 112M
+[2026-03-31 02:27:15] APK location: /Users/munay/dev/NovaTerm/app/build/outputs/apk/debug/app-debug.apk
+[2026-03-31 02:27:15] Copied to: /Users/munay/dev/NovaTerm/NovaTerm-debug.apk
+[2026-03-31 02:27:15] === NovaTerm Build Completed Successfully! ===
+[2026-03-31 02:27:15] APK ready for download at: /Users/munay/dev/NovaTerm/NovaTerm-debug.apk
+[2026-03-31 02:41:38] === BUILD COMPLETED ===
+[2026-03-31 02:41:38] APK ready: /Users/munay/dev/NovaTerm/NovaTerm-debug.apk (118MB)
+[2026-03-31 02:41:38] Performance fixes included: 10 optimizations
+[2026-03-31 02:41:38] Bootstrap: Using existing bootstrap (independent build needs Android SDK)

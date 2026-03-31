@@ -41,6 +41,12 @@ class PreferencesRepository(context: Context) {
         _preferences.value = newPrefs
     }
 
+    fun resetToDefaults() {
+        val defaults = TerminalPreferences()
+        save(defaults)
+        _preferences.value = defaults
+    }
+
     private fun load(): TerminalPreferences {
         return TerminalPreferences(
             fontSize = prefs.getInt("font_size", 12),
