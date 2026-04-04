@@ -60,3 +60,8 @@
 # === Compose ===
 # Compose compiler handles most of this, but keep @Composable metadata
 -keep class androidx.compose.runtime.** { *; }
+
+# === Ktor (MCP server) ===
+# java.lang.management not available on Android
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean

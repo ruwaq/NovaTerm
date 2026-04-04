@@ -38,3 +38,4 @@ app/src/main/cpp/bootstrap-aarch64.zip
 # OS
 Thumbs.db
 *~
+keystore.properties
