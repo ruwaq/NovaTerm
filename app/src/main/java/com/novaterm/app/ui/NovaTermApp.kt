@@ -55,6 +55,7 @@ import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
 import com.novaterm.feature.terminal.ui.components.SuggestionBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
+import com.termux.view.TerminalView
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -126,6 +127,8 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
     var renameText by remember { mutableStateOf("") }
     // OSC 133 prompt navigation function (set by active TerminalScreen)
     var jumpToPrompt by remember { mutableStateOf<((Int) -> Unit)?>(null) }
+    // Reference to the active tab's TerminalView (for output search)
+    var activeTerminalView by remember { mutableStateOf<TerminalView?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val safeIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
@@ -261,6 +264,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                             ctrlActive = ctrlActive,
                             altActive = altActive,
                             hapticEnabled = preferences.hapticFeedback,
+                            extraKeysStyle = preferences.extraKeysStyle,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -287,6 +291,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                             TerminalScreen(
                                 session = session,
                                 fontSize = preferences.fontSize,
+                                fontFamily = preferences.fontFamily,
                                 colorScheme = preferences.colorScheme,
                                 keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
                                 ctrlActive = ctrlActive,
@@ -314,6 +319,8 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                     if (page == pagerState.settledPage) jumpToPrompt = nav
                                 },
                                 onViewReady = { terminalView ->
+                                    // Track active tab's TerminalView for output search
+                                    if (page == pagerState.settledPage) activeTerminalView = terminalView
                                     // Register per-session callback so ALL tabs get updates
                                     val handle = session.mHandle
                                     service?.registerScreenCallback(handle) {
@@ -378,10 +385,13 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                     )
                 } ?: emptyList()
         }
+        val currentSession = sessions.getOrNull(pagerState.currentPage)
         HistorySearchSheet(
             entries = blocks,
-            onSelect = { sessions.getOrNull(pagerState.currentPage)?.write(it) },
+            onSelect = { currentSession?.write(it) },
             onDismiss = { showHistory = false },
+            terminalBuffer = currentSession?.emulator?.screen,
+            onScrollToRow = { row -> activeTerminalView?.scrollToRow(row) },
         )
     }
 }

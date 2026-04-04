@@ -115,6 +115,31 @@ fun SettingsScreen(
                 }
             )
 
+            // Font family
+            var fontMenuExpanded by remember { mutableStateOf(false) }
+            val currentFontLabel = TerminalPreferences.FONT_FAMILIES
+                .firstOrNull { it.first == preferences.fontFamily }?.second ?: "System Monospace"
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_font_family)) },
+                supportingContent = { Text(currentFontLabel) },
+                modifier = Modifier.clickable { fontMenuExpanded = true }
+            )
+            DropdownMenu(
+                expanded = fontMenuExpanded,
+                onDismissRequest = { fontMenuExpanded = false }
+            ) {
+                TerminalPreferences.FONT_FAMILIES.forEach { (id, displayName) ->
+                    DropdownMenuItem(
+                        text = { Text(displayName) },
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(fontFamily = id))
+                            fontMenuExpanded = false
+                        }
+                    )
+                }
+            }
+
             // Color scheme
             var schemeMenuExpanded by remember { mutableStateOf(false) }
             val currentSchemeLabel = ColorSchemes.displayName(preferences.colorScheme)
@@ -188,6 +213,60 @@ fun SettingsScreen(
                     onPreferencesChanged(preferences.copy(showExtraKeys = it))
                 },
             )
+
+            // Extra keys style (only shown when extra keys are enabled)
+            if (preferences.showExtraKeys) {
+                var styleMenuExpanded by remember { mutableStateOf(false) }
+                val styleDisplayName = when (preferences.extraKeysStyle) {
+                    TerminalPreferences.EXTRA_KEYS_STYLE_VIM -> stringResource(R.string.settings_extra_keys_style_vim)
+                    TerminalPreferences.EXTRA_KEYS_STYLE_DEV -> stringResource(R.string.settings_extra_keys_style_dev)
+                    TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL -> stringResource(R.string.settings_extra_keys_style_minimal)
+                    else -> stringResource(R.string.settings_extra_keys_style_default)
+                }
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_extra_keys_style)) },
+                    supportingContent = { Text(styleDisplayName) },
+                    modifier = Modifier.clickable { styleMenuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = styleMenuExpanded,
+                    onDismissRequest = { styleMenuExpanded = false },
+                ) {
+                    ExtraKeysStyleOption(
+                        name = stringResource(R.string.settings_extra_keys_style_default),
+                        description = stringResource(R.string.settings_extra_keys_style_default_desc),
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_DEFAULT))
+                            styleMenuExpanded = false
+                        },
+                    )
+                    ExtraKeysStyleOption(
+                        name = stringResource(R.string.settings_extra_keys_style_vim),
+                        description = stringResource(R.string.settings_extra_keys_style_vim_desc),
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_VIM))
+                            styleMenuExpanded = false
+                        },
+                    )
+                    ExtraKeysStyleOption(
+                        name = stringResource(R.string.settings_extra_keys_style_dev),
+                        description = stringResource(R.string.settings_extra_keys_style_dev_desc),
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_DEV))
+                            styleMenuExpanded = false
+                        },
+                    )
+                    ExtraKeysStyleOption(
+                        name = stringResource(R.string.settings_extra_keys_style_minimal),
+                        description = stringResource(R.string.settings_extra_keys_style_minimal_desc),
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL))
+                            styleMenuExpanded = false
+                        },
+                    )
+                }
+            }
 
             // Back button as ESC
             ToggleSettingRow(
@@ -483,5 +562,27 @@ private fun ToggleSettingRow(
             )
         },
         modifier = Modifier.clickable { onCheckedChange(!checked) }
+    )
+}
+
+/** A dropdown menu item showing a style name and short description. */
+@Composable
+private fun ExtraKeysStyleOption(
+    name: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(name)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        onClick = onClick,
     )
 }

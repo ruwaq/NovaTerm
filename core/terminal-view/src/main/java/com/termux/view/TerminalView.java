@@ -38,6 +38,8 @@ import android.widget.OverScroller;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import com.termux.terminal.TerminalBuffer;
+
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
@@ -1185,6 +1187,32 @@ public final class TerminalView extends View {
 
     public TerminalSession getCurrentSession() {
         return mTermSession;
+    }
+
+    /**
+     * Search the terminal scrollback buffer for the given query.
+     *
+     * @param query         Search string (plain text or regex).
+     * @param regex         If true, treat as regex.
+     * @param caseSensitive If true, case-sensitive search.
+     * @return List of matches found in the buffer.
+     */
+    public java.util.List<TerminalBuffer.SearchMatch> findInScrollback(String query, boolean regex, boolean caseSensitive) {
+        if (mEmulator == null) return java.util.Collections.emptyList();
+        return mEmulator.getScreen().searchText(query, regex, caseSensitive);
+    }
+
+    /**
+     * Scroll the terminal view to make the given external row visible.
+     * Rows use the external coordinate system: negative = scrollback, 0..screenRows-1 = visible.
+     */
+    public void scrollToRow(int externalRow) {
+        if (mEmulator == null) return;
+        // mTopRow is 0 when at the bottom. Negative values scroll into history.
+        // To show externalRow at the top of the viewport, set mTopRow = externalRow.
+        int minTopRow = -(mEmulator.getScreen().getActiveTranscriptRows());
+        mTopRow = Math.min(0, Math.max(minTopRow, externalRow));
+        invalidate();
     }
 
     private CharSequence getText() {

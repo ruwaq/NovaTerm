@@ -25,4 +25,15 @@
     <string name="filter_failed">Failed</string>
     <string name="sort_newest_first">Sort newest first</string>
     <string name="sort_oldest_first">Sort oldest first</string>
+
+    <!-- Output search -->
+    <string name="tab_commands">Commands</string>
+    <string name="tab_output">Output</string>
+    <string name="search_output_hint">Search terminal output\u2026</string>
+    <string name="search_output_count">%1$d of %2$d matches</string>
+    <string name="search_no_matches">No matches</string>
+    <string name="search_regex">Regex</string>
+    <string name="search_case_sensitive">Aa</string>
+    <string name="search_previous">Previous match</string>
+    <string name="search_next">Next match</string>
 </resources>

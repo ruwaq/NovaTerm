@@ -1,6 +1,7 @@
 package com.novaterm.feature.terminal.ui.screen
 
 import android.content.Context
+import android.graphics.Typeface
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -60,6 +61,7 @@ private const val TAG = "NovaTerm"
 fun TerminalScreen(
     session: TerminalSession,
     fontSize: Int = 14,
+    fontFamily: String = "system-mono",
     colorScheme: String = "gruvbox-dark",
     keepScreenOn: Boolean = false,
     ctrlActive: Boolean = false,
@@ -106,6 +108,7 @@ fun TerminalScreen(
 
     // Track last applied values — keyed on session so they reset on tab switch
     var lastFontSize by remember(session) { mutableIntStateOf(fontSize) }
+    var lastFontFamily by remember(session) { mutableStateOf(fontFamily) }
     var lastColorScheme by remember(session) { mutableStateOf(colorScheme) }
 
     // Scrollback indicator state
@@ -145,6 +148,7 @@ fun TerminalScreen(
                 // Convert sp to px for consistent sizing across densities
                 val fontSizePx = (fontSize * context.resources.displayMetrics.scaledDensity).toInt()
                 setTextSize(fontSizePx)
+                setTypeface(resolveTerminalTypeface(fontFamily))
                 setTerminalViewClient(viewClient)
                 attachSession(session)
                 setKeepScreenOn(keepScreenOn)
@@ -192,6 +196,12 @@ fun TerminalScreen(
                 val fontSizePx = (fontSize * view.context.resources.displayMetrics.scaledDensity).toInt()
                 view.setTextSize(fontSizePx)
                 lastFontSize = fontSize
+            }
+
+            // Apply font family changes when actually changed.
+            if (fontFamily != lastFontFamily) {
+                view.setTypeface(resolveTerminalTypeface(fontFamily))
+                lastFontFamily = fontFamily
             }
 
             // Hot-reload color scheme when preference changes.
@@ -256,6 +266,30 @@ fun TerminalScreen(
             onDismiss = { detectedEntity = null },
         )
     }
+}
+
+/**
+ * Resolve a font family preference ID to an Android [Typeface].
+ *
+ * Uses [Typeface.create] with the font family name, which checks system-installed fonts.
+ * If the requested font is not available on the device, Android silently falls back to the
+ * default sans-serif; we detect that by comparing with a known-different typeface and fall
+ * back to [Typeface.MONOSPACE] to guarantee a monospaced font is always used.
+ */
+private fun resolveTerminalTypeface(fontFamily: String): Typeface {
+    val familyName = when (fontFamily) {
+        "jetbrains-mono" -> "JetBrains Mono"
+        "fira-code" -> "Fira Code"
+        "source-code-pro" -> "Source Code Pro"
+        "cascadia" -> "Cascadia Code"
+        else -> return Typeface.MONOSPACE  // system-mono or unknown
+    }
+
+    // Typeface.create returns the default sans-serif if the family doesn't exist.
+    // We detect this by checking if the result equals the sans-serif default.
+    val candidate = Typeface.create(familyName, Typeface.NORMAL)
+    val fallback = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+    return if (candidate == fallback) Typeface.MONOSPACE else candidate
 }
 
 /**

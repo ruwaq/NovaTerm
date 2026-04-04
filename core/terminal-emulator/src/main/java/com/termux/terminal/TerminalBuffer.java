@@ -1,6 +1,11 @@
 package com.termux.terminal;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * A circular buffer of {@link TerminalRow}:s which keeps notes about what is visible on a logical screen and the scroll
@@ -499,6 +504,81 @@ public final class TerminalBuffer {
                 line.mStyle[x] = TextStyle.encode(foreColor, backColor, effect);
             }
         }
+    }
+
+    /**
+     * A match found by {@link #searchText(String, boolean, boolean)}.
+     * Row uses the external coordinate system (negative = scrollback, 0..mScreenRows-1 = visible).
+     */
+    public static final class SearchMatch {
+        public final int row;
+        public final int matchStart;
+        public final int matchEnd;
+        public final String lineText;
+
+        public SearchMatch(int row, int matchStart, int matchEnd, String lineText) {
+            this.row = row;
+            this.matchStart = matchStart;
+            this.matchEnd = matchEnd;
+            this.lineText = lineText;
+        }
+    }
+
+    /**
+     * Search through all rows (scrollback + visible screen) for the given query.
+     *
+     * @param query         The search string (plain text or regex pattern).
+     * @param regex         If true, treat query as a regex pattern.
+     * @param caseSensitive If true, perform case-sensitive matching.
+     * @return List of matches with row number (external coords) and column range, or empty list
+     *         if query is blank or regex is invalid.
+     */
+    public List<SearchMatch> searchText(String query, boolean regex, boolean caseSensitive) {
+        List<SearchMatch> matches = new ArrayList<>();
+        if (query == null || query.isEmpty()) return matches;
+
+        Pattern pattern;
+        try {
+            int flags = caseSensitive ? 0 : Pattern.CASE_INSENSITIVE;
+            if (regex) {
+                pattern = Pattern.compile(query, flags);
+            } else {
+                pattern = Pattern.compile(Pattern.quote(query), flags);
+            }
+        } catch (PatternSyntaxException e) {
+            return matches;
+        }
+
+        int firstRow = -mActiveTranscriptRows;
+        int lastRow = mScreenRows - 1;
+
+        for (int row = firstRow; row <= lastRow; row++) {
+            int internalRow = externalToInternalRow(row);
+            TerminalRow line = mLines[internalRow];
+            if (line == null) continue;
+
+            // Extract text from the row
+            String lineText = extractRowText(line);
+            if (lineText.isEmpty()) continue;
+
+            Matcher matcher = pattern.matcher(lineText);
+            while (matcher.find()) {
+                matches.add(new SearchMatch(row, matcher.start(), matcher.end(), lineText));
+            }
+        }
+
+        return matches;
+    }
+
+    /** Extract the printable text from a TerminalRow, trimming trailing spaces. */
+    private String extractRowText(TerminalRow line) {
+        char[] text = line.mText;
+        int spaceUsed = line.getSpaceUsed();
+        // Trim trailing spaces
+        int end = spaceUsed;
+        while (end > 0 && text[end - 1] == ' ') end--;
+        if (end == 0) return "";
+        return new String(text, 0, end);
     }
 
     public void clearTranscript() {

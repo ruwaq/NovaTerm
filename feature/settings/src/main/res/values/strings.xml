@@ -12,6 +12,9 @@
     <string name="settings_font_size">Font size</string>
     <string name="settings_font_size_value">%1$d sp</string>
 
+    <!-- Font family -->
+    <string name="settings_font_family">Font family</string>
+
     <!-- Color scheme -->
     <string name="settings_color_scheme">Color scheme</string>
 
@@ -30,6 +33,15 @@
     <!-- Extra keys -->
     <string name="settings_extra_keys">Extra keys bar</string>
     <string name="settings_extra_keys_desc">Show shortcut keys above keyboard</string>
+    <string name="settings_extra_keys_style">Extra keys style</string>
+    <string name="settings_extra_keys_style_default">Default</string>
+    <string name="settings_extra_keys_style_vim">Vim</string>
+    <string name="settings_extra_keys_style_dev">Developer</string>
+    <string name="settings_extra_keys_style_minimal">Minimal</string>
+    <string name="settings_extra_keys_style_default_desc">CTRL, ALT, arrows, TAB, common symbols</string>
+    <string name="settings_extra_keys_style_vim_desc">ESC prominent, :wq, navigation keys</string>
+    <string name="settings_extra_keys_style_dev_desc">Brackets, parens, semicolons, pipes</string>
+    <string name="settings_extra_keys_style_minimal_desc">Just CTRL, ALT, TAB, ESC, arrows</string>
 
     <!-- Back as ESC -->
     <string name="settings_back_is_escape">Back button sends ESC</string>

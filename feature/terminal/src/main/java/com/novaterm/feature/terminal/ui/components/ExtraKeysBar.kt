@@ -117,34 +117,105 @@ private object Sequences {
     const val CTRL_Z = "\u001a"
 }
 
-// Layout optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
-// Tap = primary action, Long press = popup secondary action.
-
 // Layout organized by function zones:
 // Row 1: [modifiers] [up] [action] [symbols]
 // Row 2: [ESC] [left] [down] [right] [enter] [symbols]
 // Arrows form a natural cross pattern across both rows.
 
-private val ROW_1 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),  // Modifier
-    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),    // Modifier
-    ExtraKey("▲", "\u001b[A", popup = "PgUp"),          // Up (center of cross)
-    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),                   // Tab / @
-    ExtraKey("/", popup = "\\"),                         // Slash / backslash
-    ExtraKey("|", popup = "~"),                          // Pipe / home
-    ExtraKey("-", popup = "_"),                          // Dash / underscore
+// ── Default layout ─────────────────────────────────────────
+// Optimized for vibe coders using AI agents (Claude Code, Gemini CLI, aider).
+// Tap = primary action, Long press = popup secondary action.
+private val DEFAULT_ROW_1 = listOf(
+    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
+    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
+    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),
+    ExtraKey("/", popup = "\\"),
+    ExtraKey("|", popup = "~"),
+    ExtraKey("-", popup = "_"),
 )
-
-private val ROW_2 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),           // Escape
-    ExtraKey("◀", "\u001b[D", popup = "Home"),          // Left
-    ExtraKey("▼", "\u001b[B", popup = "PgDn"),          // Down (completes cross)
-    ExtraKey("▶", "\u001b[C", popup = "End"),           // Right
-    ExtraKey("⏎", "\r", popup = "^Z"),                  // Enter
-    ExtraKey("⌨", code = "__KEYBOARD__"),               // Keyboard toggle
+private val DEFAULT_ROW_2 = listOf(
+    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
+    ExtraKey("◀", "\u001b[D", popup = "Home"),
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
+    ExtraKey("▶", "\u001b[C", popup = "End"),
+    ExtraKey("⏎", "\r", popup = "^Z"),
+    ExtraKey("⌨", code = "__KEYBOARD__"),
 )
+private val DEFAULT_ROWS = listOf(DEFAULT_ROW_1, DEFAULT_ROW_2)
 
-private val ROWS = listOf(ROW_1, ROW_2)
+// ── Vim layout ─────────────────────────────────────────────
+// ESC prominent, :wq shortcut, hjkl navigation hints.
+private val VIM_ROW_1 = listOf(
+    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
+    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
+    ExtraKey(":", popup = ":wq\r"),
+    ExtraKey("/", popup = "?"),
+    ExtraKey("0", popup = "$"),
+    ExtraKey("w", popup = "b"),
+)
+private val VIM_ROW_2 = listOf(
+    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
+    ExtraKey("◀", "\u001b[D", popup = "Home"),
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
+    ExtraKey("▶", "\u001b[C", popup = "End"),
+    ExtraKey("⏎", "\r", popup = "^Z"),
+    ExtraKey("u", popup = "\u0012"),  // u / Ctrl-R (redo)
+    ExtraKey("⌨", code = "__KEYBOARD__"),
+)
+private val VIM_ROWS = listOf(VIM_ROW_1, VIM_ROW_2)
+
+// ── Dev layout ─────────────────────────────────────────────
+// More symbols: {}, [], (), <>, =, ;
+private val DEV_ROW_1 = listOf(
+    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
+    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
+    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),
+    ExtraKey("{", popup = "}"),
+    ExtraKey("[", popup = "]"),
+    ExtraKey("(", popup = ")"),
+    ExtraKey("<", popup = ">"),
+)
+private val DEV_ROW_2 = listOf(
+    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
+    ExtraKey("◀", "\u001b[D", popup = "Home"),
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
+    ExtraKey("▶", "\u001b[C", popup = "End"),
+    ExtraKey(";", popup = ":"),
+    ExtraKey("=", popup = "!="),
+    ExtraKey("|", popup = "&"),
+    ExtraKey("⏎", "\r", popup = "^Z"),
+    ExtraKey("⌨", code = "__KEYBOARD__"),
+)
+private val DEV_ROWS = listOf(DEV_ROW_1, DEV_ROW_2)
+
+// ── Minimal layout ─────────────────────────────────────────
+// Just the essentials: CTRL, ALT, TAB, ESC, arrows, Enter.
+private val MINIMAL_ROW_1 = listOf(
+    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
+    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
+    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),
+    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
+)
+private val MINIMAL_ROW_2 = listOf(
+    ExtraKey("◀", "\u001b[D", popup = "Home"),
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
+    ExtraKey("▶", "\u001b[C", popup = "End"),
+    ExtraKey("⏎", "\r", popup = "^Z"),
+    ExtraKey("⌨", code = "__KEYBOARD__"),
+)
+private val MINIMAL_ROWS = listOf(MINIMAL_ROW_1, MINIMAL_ROW_2)
+
+/** Returns the key layout rows for the given style name. */
+internal fun extraKeysRowsForStyle(style: String): List<List<ExtraKey>> = when (style) {
+    "vim" -> VIM_ROWS
+    "dev" -> DEV_ROWS
+    "minimal" -> MINIMAL_ROWS
+    else -> DEFAULT_ROWS
+}
 
 /**
  * Two-row bar of shortcut keys rendered above the soft keyboard.
@@ -155,6 +226,7 @@ private val ROWS = listOf(ROW_1, ROW_2)
  * @param ctrlActive     Whether CTRL is currently toggled on.
  * @param altActive      Whether ALT is currently toggled on.
  * @param hapticEnabled  Respect the user's haptic preference.
+ * @param extraKeysStyle Layout style: "default", "vim", "dev", or "minimal".
  */
 @Composable
 fun ExtraKeysBar(
@@ -165,9 +237,11 @@ fun ExtraKeysBar(
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
     hapticEnabled: Boolean = true,
+    extraKeysStyle: String = "default",
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
+    val rows = remember(extraKeysStyle) { extraKeysRowsForStyle(extraKeysStyle) }
 
     // Use MaterialTheme surface colors with Gruvbox-compatible fallbacks.
     val barBackground = MaterialTheme.colorScheme.surfaceContainerLowest
@@ -179,7 +253,7 @@ fun ExtraKeysBar(
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        ROWS.forEach { row ->
+        rows.forEach { row ->
             ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, onKeyboardToggle, ctrlActive, altActive, hapticEnabled, haptic)
         }
     }
