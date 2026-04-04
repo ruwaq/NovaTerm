@@ -1,63 +1,110 @@
 # NovaTerm
 
-Next-generation Android terminal emulator. Modern UI built with Kotlin + Jetpack Compose on top of Termux's battle-tested terminal emulation engine.
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-11%2B-green.svg)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.1-purple.svg)](https://kotlinlang.org)
+[![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
+
+Next-generation Android terminal emulator. First Rust-powered, GPU-accelerated, AI-native terminal for Android.
+
+Modern UI (Kotlin + Jetpack Compose) with a Rust core (wgpu + alacritty_terminal) and on-device AI (Gemma 4). Built for developers who live in the terminal.
+
+## Highlights
+
+- **GPU-accelerated** — Vulkan compute shaders via wgpu (Adreno, Mali, PowerVR, Xclipse)
+- **Rust core** — VT parser (alacritty_terminal), PTY, renderer — 160 tests
+- **On-device AI** — Gemma 4 E2B for command suggestions, no cloud needed
+- **AI CLI ready** — Optimized for Claude Code, Gemini CLI, Aider, Codex
+- **7 color schemes** — Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula
+- **Session persistence** — Survives app kill, boot restore, crash-safe history
+- **MCP server** — 6 tools for AI agents to control the terminal
+- **Touch-first** — 48dp targets, swipe tabs, extra keys with popups
 
 ## Features
 
-- **7 color schemes** with live preview and hot-reload (Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula)
-- **Swipe between sessions** with HorizontalPager
-- **Smart notifications** when commands finish in background
-- **Clickable URLs** with confirmation dialog
-- **Session persistence** — survives app kill, restores on next launch
-- **SQLite block store** with content-addressable dedup
-- **OSC 133 semantic zones** for structured command history
-- **History search** with fuzzy matching
-- **Professional shell** out-of-the-box (.profile, .bashrc, .inputrc)
-- **DocumentsProvider** — browse terminal files from any Android file manager
-- **Extra keys** optimized for developers (pipe, dash, Ctrl, Alt, arrows)
-- **Shift+Enter** for multiline input (Claude Code, Gemini CLI)
-- **XDG compliant** directory structure
-- **AI-first** — TERM_PROGRAM=novaterm, truecolor, large scrollback
-- **OEM battery optimization** guides for Xiaomi, Samsung, Huawei, etc.
+| Category | Features |
+|----------|----------|
+| **Terminal** | Truecolor, 10K scrollback, bracketed paste, Unicode/emoji, OSC 52 clipboard |
+| **AI** | Shift+Enter (CSI 13;2u), OSC 133 semantic prompts, OSC 9 notifications, TERM_PROGRAM detection |
+| **Sessions** | Swipe tabs, rename, close confirmation, SQLite block store, CAS dedup |
+| **Shell** | Professional .profile/.bashrc/.inputrc, XDG dirs, storage symlinks |
+| **UX** | History search, clickable URLs/IPs/paths, smart notifications, OEM battery guides |
+| **Security** | MCP approval manager, blocked commands, localhost-only, no telemetry |
 
 ## Architecture
 
 ```
 app/                    Kotlin + Compose — UI, Service, ViewModel
 core/
-  bootstrap/            Bootstrap installer (JNI + extraction)
-  common/               Contracts, models, utilities
-  config/               DataStore preferences
-  session/              Session management + SQLite persistence
-  terminal-emulator/    VT parser, grid, PTY JNI (from Termux, Apache 2.0)
-  terminal-view/        Canvas renderer, gestures (from Termux, Apache 2.0)
+  bootstrap/            First-launch package extraction (bash, apt, coreutils)
+  common/               Shared contracts and models
+  session/              Session lifecycle, Rust JNI bridge, SQLite persistence
+  terminal-emulator/    VT parser + PTY JNI (from Termux, Apache 2.0)
+  terminal-view/        Canvas renderer + gestures (from Termux, Apache 2.0)
+  mcp/                  AI agent protocol server (6 tools)
+  llm/                  On-device LLM (Gemma 4 E2B, GGUF)
 feature/
-  terminal/             Terminal UI, extra keys, URL detection, color palettes
-  settings/             Preferences, color scheme picker, onboarding
-  oem-compat/           OEM detection + battery optimization
+  terminal/             Terminal UI, extra keys, entity detection, color palettes
+  settings/             Preferences, color scheme picker, model download
+  oem-compat/           OEM detection + battery optimization guides
+rust-core/              Cargo workspace — 4 crates, 160 tests
+  novaterm-vt/          VT parser (alacritty_terminal 0.25.1)
+  novaterm-bridge/      JNI bridge (23 exports)
+  novaterm-pty/         Safe Rust PTY (replaces C)
+  novaterm-renderer/    GPU renderer (wgpu 29, Vulkan compute shaders)
 ```
 
 ## Build
 
-Requires Android SDK with NDK 29. Target SDK 35, compile SDK 36.
-
 ```bash
+# Debug APK
 ./gradlew assembleDebug
+
+# Tests (Kotlin — 270+ tests)
 ./gradlew test
+
+# Rust tests (160 tests)
+cd rust-core && cargo test --workspace
+
+# Rust with Vulkan GPU
+./build-android.sh --release --vulkan
 ```
 
-## Target
+### Requirements
 
-- **minSdk 30** (Android 11)
-- **arm64-v8a only** — optimized for modern flagships
-- **Vulkan 1.1+** required (Phase 2 GPU rendering)
+- Android SDK (compileSdk 36, minSdk 30)
+- JDK 17
+- Rust 1.80+ (for rust-core)
+- NDK 27+ (for cross-compilation)
+
+### Building on Termux
+
+NovaTerm can be built directly on Android:
+
+```bash
+# Rust compiles natively (no cargo-ndk needed)
+cd rust-core && cargo build -p novaterm-bridge --features gpu --release
+
+# Full APK (requires aapt2 ARM64 package)
+pkg install aapt2
+./gradlew assembleDebug
+```
 
 ## Roadmap
 
-- **Phase 1**: Functional terminal with bootstrap + Termux packages *(current)*
-- **Phase 2**: Vulkan GPU renderer + Rust core (alacritty/vte)
-- **Phase 3**: AI integration (LiteRT-LM + NPU + MCP servers)
-- **Phase 4**: Desktop mode (Android 16 APIs) + plugin system
+- [x] **Phase 1** — Functional terminal with bootstrap + Termux packages
+- [x] **Phase 2a** — Rust core (4 crates, 160 tests, JNI bridge)
+- [x] **Phase 2b** — Vulkan GPU renderer (wgpu compute shaders)
+- [x] **Phase 3** — AI integration (MCP server, Gemma 4, predictions)
+- [ ] **Phase 4** — Desktop mode (Android 16+) + plugin system
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for our security policy and vulnerability reporting.
 
 ## License
 
