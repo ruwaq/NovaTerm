@@ -340,12 +340,20 @@ class TerminalService : Service() {
     private val saveRunnable = object : Runnable {
         override fun run() {
             if (isServiceDestroyed) return
-            if (_sessions.value.isNotEmpty()) {
-                saveSessionMetadata()
-            }
-            if (::predictionEngine.isInitialized) {
-                Thread { predictionEngine.save() }.apply { isDaemon = true }.start()
-            }
+            // Run ALL I/O off main thread to prevent ANR
+            Thread {
+                try {
+                    if (_sessions.value.isNotEmpty()) {
+                        saveSessionMetadata()
+                    }
+                    if (::predictionEngine.isInitialized) {
+                        predictionEngine.save()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Periodic save error", e)
+                }
+            }.apply { isDaemon = true }.start()
+
             if (!isServiceDestroyed) {
                 mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
             }
@@ -357,7 +365,7 @@ class TerminalService : Service() {
     }
 
     private fun stopPeriodicSave() {
-        mainHandler.removeCallbacks(saveRunnable)
+        mainHandler.removeCallbacksAndMessages(null)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

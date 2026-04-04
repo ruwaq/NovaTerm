@@ -315,7 +315,9 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                 onViewReady = { terminalView ->
                                     if (page == pagerState.settledPage) {
                                         service?.onScreenUpdated = {
-                                            val session = sessions.getOrNull(page)
+                                            // Read current page at callback time, not capture time
+                                            val currentPage = pagerState.settledPage
+                                            val session = sessions.getOrNull(currentPage)
                                             if (session != null && service?.useRustBackend == true) {
                                                 val engine = service?.getRustEngine(session.mHandle)
                                                 if (engine != null) {

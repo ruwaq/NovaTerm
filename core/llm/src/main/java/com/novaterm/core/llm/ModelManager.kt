@@ -129,17 +129,17 @@ class ModelManager(context: Context) {
      * Poll download progress. Call from a coroutine while UI is visible.
      * Returns when download completes, fails, or is cancelled.
      */
-    /** Maximum poll time: 24 hours. Prevents infinite loop if download stays paused. */
-    private val maxPollIterations = (24 * 60 * 60 * 1000L) / 500 // 24h at 500ms intervals
+    /** Maximum poll time: 4 hours. Uses wall clock to prevent hangs. */
+    private val maxPollDurationMs = 4 * 60 * 60 * 1000L
 
     suspend fun pollProgress() = withContext(Dispatchers.IO) {
         val downloadId = activeDownloadId
         if (downloadId == -1L) return@withContext
 
         val query = DownloadManager.Query().setFilterById(downloadId)
-        var iterations = 0L
+        val startTime = System.currentTimeMillis()
 
-        while (iterations++ < maxPollIterations) {
+        while (System.currentTimeMillis() - startTime < maxPollDurationMs) {
             val cursor = downloadManager.query(query)
             if (cursor == null || !cursor.moveToFirst()) {
                 cursor?.close()

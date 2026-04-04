@@ -169,26 +169,30 @@ class BlockStore(context: Context) {
         val hash = sha256(data)
         synchronized(lock) {
             if (closed) return null
-            val cursor = db.readableDatabase.rawQuery(
-                "SELECT ref_count FROM cas_blobs WHERE hash = ?",
-                arrayOf(hash),
-            )
-            val exists = cursor.use { it.moveToFirst() }
-
-            if (exists) {
-                db.writableDatabase.execSQL(
-                    "UPDATE cas_blobs SET ref_count = ref_count + 1 WHERE hash = ?",
+            try {
+                val exists = db.readableDatabase.rawQuery(
+                    "SELECT ref_count FROM cas_blobs WHERE hash = ?",
                     arrayOf(hash),
-                )
-            } else {
-                val values = ContentValues().apply {
-                    put("hash", hash)
-                    put("data", data)
-                    put("ref_count", 1)
-                    put("size_bytes", data.size)
-                    put("created_at", System.currentTimeMillis())
+                ).use { it.moveToFirst() }
+
+                if (exists) {
+                    db.writableDatabase.execSQL(
+                        "UPDATE cas_blobs SET ref_count = ref_count + 1 WHERE hash = ?",
+                        arrayOf(hash),
+                    )
+                } else {
+                    val values = ContentValues().apply {
+                        put("hash", hash)
+                        put("data", data)
+                        put("ref_count", 1)
+                        put("size_bytes", data.size)
+                        put("created_at", System.currentTimeMillis())
+                    }
+                    db.writableDatabase.insert("cas_blobs", null, values)
                 }
-                db.writableDatabase.insert("cas_blobs", null, values)
+            } catch (e: Exception) {
+                android.util.Log.e("BlockStore", "storeOutput failed for hash=$hash", e)
+                return null
             }
         }
         return hash
