@@ -1,0 +1,64 @@
+package com.novaterm.terminal;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+/**
+ * The interface for communication between {@link TerminalSession} and its client. It is used to
+ * send callbacks to the client when {@link TerminalSession} changes or for sending other
+ * back data to the client like logs.
+ */
+public interface TerminalSessionClient {
+
+    void onTextChanged(@NonNull TerminalSession changedSession);
+
+    void onTitleChanged(@NonNull TerminalSession changedSession);
+
+    void onSessionFinished(@NonNull TerminalSession finishedSession);
+
+    void onCopyTextToClipboard(@NonNull TerminalSession session, String text);
+
+    void onPasteTextFromClipboard(@Nullable TerminalSession session);
+
+    /**
+     * Get the current system clipboard text. Used by OSC 52 query to respond
+     * with clipboard contents. Returns null if clipboard is empty or unavailable.
+     */
+    @Nullable
+    default String getClipboardText() { return null; }
+
+    void onBell(@NonNull TerminalSession session);
+
+    void onColorsChanged(@NonNull TerminalSession session);
+
+    void onTerminalCursorStateChange(boolean state);
+
+    /** OSC 9: Desktop notification from terminal process (Claude Code, Codex). */
+    default void onOsc9Notification(@NonNull TerminalSession session, String text) {}
+
+    /** OSC 133: Semantic prompt marker (FinalTerm/Claude Code). */
+    default void onOsc133SemanticPrompt(@NonNull TerminalSession session, String params) {}
+
+    void setTerminalShellPid(@NonNull TerminalSession session, int pid);
+
+
+
+    Integer getTerminalCursorStyle();
+
+
+
+    void logError(String tag, String message);
+
+    void logWarn(String tag, String message);
+
+    void logInfo(String tag, String message);
+
+    void logDebug(String tag, String message);
+
+    void logVerbose(String tag, String message);
+
+    void logStackTraceWithMessage(String tag, String message, Exception e);
+
+    void logStackTrace(String tag, Exception e);
+
+}

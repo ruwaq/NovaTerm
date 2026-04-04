@@ -1,7 +1,7 @@
 #!/data/data/com.nvterm/files/usr/bin/bash
 # fix-dpkg-wrapper.sh — Fixes the dpkg wrapper for NovaTerm
 #
-# The dpkg wrapper intercepts .deb installs and patches com.termux -> com.nvterm
+# The dpkg wrapper intercepts .deb installs and patches com.nvterm -> com.nvterm
 # paths. The original wrapper had issues:
 #   1. Suppressed errors from dpkg-deb (2>/dev/null), hiding failures
 #   2. No logging to diagnose issues
@@ -36,9 +36,9 @@ echo "=== Step 2: Install improved dpkg wrapper ==="
 
 cat > "$DPKG_WRAPPER" << 'WRAPPER_EOF'
 #!/data/data/com.nvterm/files/usr/bin/sh
-# NovaTerm dpkg wrapper — patches com.termux paths in .deb files before install
+# NovaTerm dpkg wrapper — patches com.nvterm paths in .deb files before install
 # Real dpkg is at dpkg.real
-# com.termux (10 bytes) == com.nvterm (10 bytes) — safe for binary patching
+# com.nvterm (10 bytes) == com.nvterm (10 bytes) — safe for binary patching
 
 DPKG_DEB="/data/data/com.nvterm/files/usr/bin/dpkg-deb"
 DPKG_REAL="/data/data/com.nvterm/files/usr/bin/dpkg.real"
@@ -64,16 +64,16 @@ patch_deb() {
     return 1
   fi
 
-  # Rename directory tree: com.termux → com.nvterm
-  if [ -d "$tmp/pkg/data/data/com.termux" ]; then
+  # Rename directory tree: com.nvterm → com.nvterm
+  if [ -d "$tmp/pkg/data/data/com.nvterm" ]; then
     mkdir -p "$tmp/pkg/data/data/com.nvterm"
-    cp -a "$tmp/pkg/data/data/com.termux/." "$tmp/pkg/data/data/com.nvterm/"
-    rm -rf "$tmp/pkg/data/data/com.termux"
+    cp -a "$tmp/pkg/data/data/com.nvterm/." "$tmp/pkg/data/data/com.nvterm/"
+    rm -rf "$tmp/pkg/data/data/com.nvterm"
     log "  Moved directory tree"
   fi
 
   # Patch file contents — both dotted and slashed path forms
-  # com.termux and com.nvterm are same byte length (10), safe for binaries
+  # com.nvterm and com.nvterm are same byte length (10), safe for binaries
   find "$tmp/pkg" -type f | while IFS= read -r f; do
     if LC_ALL=C grep -qm1 "com\.termux\|com/termux" "$f" 2>/dev/null; then
       LC_ALL=C sed -i -e 's|com\.termux|com.nvterm|g' -e 's|com/termux|com/nvterm|g' "$f" 2>/dev/null

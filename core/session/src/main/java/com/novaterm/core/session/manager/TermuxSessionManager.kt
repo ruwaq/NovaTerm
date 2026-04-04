@@ -10,9 +10,9 @@ import com.novaterm.core.common.model.SessionStatus
 import com.novaterm.core.common.model.TerminalDimensions
 import com.novaterm.core.common.util.OpResult
 import com.novaterm.core.common.util.runCatchingOp
-import com.termux.terminal.TerminalEmulator
-import com.termux.terminal.TerminalSession
-import com.termux.terminal.TerminalSessionClient
+import com.novaterm.terminal.TerminalEmulator
+import com.novaterm.terminal.TerminalSession
+import com.novaterm.terminal.TerminalSessionClient
 import android.util.Log
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow

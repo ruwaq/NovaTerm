@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data/com.nvterm/files/usr/bin/bash
 # Build NovaTerm APK and open installer
 # Usage: ./scripts/build-and-install.sh [debug|release]
 

@@ -11,7 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
-import com.termux.terminal.TerminalSession
+import com.novaterm.terminal.TerminalSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -42,9 +42,9 @@ import com.novaterm.core.llm.ModelCatalog
 import com.novaterm.core.llm.ModelManager
 import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
-import com.termux.terminal.TerminalEmulator
-import com.termux.terminal.TerminalSession
-import com.termux.terminal.TerminalSessionClient
+import com.novaterm.terminal.TerminalEmulator
+import com.novaterm.terminal.TerminalSession
+import com.novaterm.terminal.TerminalSessionClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

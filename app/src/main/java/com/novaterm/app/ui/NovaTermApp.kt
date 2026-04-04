@@ -55,7 +55,7 @@ import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
 import com.novaterm.feature.terminal.ui.components.SuggestionBar
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
-import com.termux.view.TerminalView
+import com.novaterm.view.TerminalView
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

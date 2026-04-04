@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
 import com.novaterm.app.ui.theme.LocalNovaTermColors
-import com.termux.terminal.TerminalSession
+import com.novaterm.terminal.TerminalSession
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

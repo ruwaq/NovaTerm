@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.termux.view"
+    namespace = "com.novaterm.view"
     compileSdk = property("novaterm.compileSdk").toString().toInt()
 
     defaultConfig {

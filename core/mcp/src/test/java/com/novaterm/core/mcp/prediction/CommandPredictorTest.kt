@@ -272,7 +272,7 @@ class CommandPredictorTest {
     fun `CWD shortening groups similar paths`() {
         // Both resolve to "projects/novaterm" internally
         predictor.learn("cargo build", cwd = "/home/user/projects/novaterm")
-        predictor.learn("cargo test", cwd = "/data/data/com.termux/files/home/projects/novaterm")
+        predictor.learn("cargo test", cwd = "/data/data/com.nvterm/files/home/projects/novaterm")
 
         val predictions = predictor.predict(cwd = "/any/prefix/projects/novaterm")
         val commands = predictions.map { it.command }

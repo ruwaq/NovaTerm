@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data/com.nvterm/files/usr/bin/bash
 # NovaTerm - Build libnovaterm.so for Android
 #
 # Supports two modes:
@@ -50,7 +50,7 @@ done
 
 # Detect environment
 IS_TERMUX=false
-if [[ -d "/data/data/com.termux" ]] && [[ "$(uname -m)" == "aarch64" ]]; then
+if [[ -d "/data/data/com.nvterm" ]] && [[ "$(uname -m)" == "aarch64" ]]; then
     IS_TERMUX=true
 fi
 

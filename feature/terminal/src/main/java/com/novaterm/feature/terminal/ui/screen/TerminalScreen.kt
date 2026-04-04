@@ -36,12 +36,12 @@ import com.novaterm.feature.terminal.color.TerminalPalettes
 import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
 import com.novaterm.feature.terminal.url.EntityConfirmDialog
 import com.novaterm.feature.terminal.url.UrlDetector
-import com.termux.terminal.TerminalColors
-import com.termux.terminal.TerminalEmulator
-import com.termux.terminal.TerminalSession
-import com.termux.terminal.TextStyle
-import com.termux.view.TerminalView
-import com.termux.view.TerminalViewClient
+import com.novaterm.terminal.TerminalColors
+import com.novaterm.terminal.TerminalEmulator
+import com.novaterm.terminal.TerminalSession
+import com.novaterm.terminal.TextStyle
+import com.novaterm.view.TerminalView
+import com.novaterm.view.TerminalViewClient
 
 private const val TAG = "NovaTerm"
 

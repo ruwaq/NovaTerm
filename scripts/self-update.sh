@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data/com.nvterm/files/usr/bin/bash
 # NovaTerm Self-Update — build and install from within the terminal
 #
 # Usage: ./scripts/self-update.sh [--skip-build] [--rust] [--release]

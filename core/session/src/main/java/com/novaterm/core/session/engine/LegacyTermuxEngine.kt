@@ -4,9 +4,9 @@ import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.contract.TerminalEngineFactory
 import com.novaterm.core.common.model.CursorPosition
 import com.novaterm.core.common.model.TerminalDimensions
-import com.termux.terminal.TerminalEmulator
-import com.termux.terminal.TerminalSession
-import com.termux.terminal.TextStyle
+import com.novaterm.terminal.TerminalEmulator
+import com.novaterm.terminal.TerminalSession
+import com.novaterm.terminal.TextStyle
 
 /**
  * Terminal engine wrapping the existing Java TerminalEmulator (Termux).
