@@ -7,6 +7,8 @@
     <string name="url_dialog_cancel">Cancel</string>
     <string name="url_copied">Copied</string>
     <string name="url_cannot_open">Cannot open URL</string>
+    <string name="entity_dialog_title_ip">Open address?</string>
+    <string name="entity_dialog_title_path">File path detected</string>
 
     <!-- Extra keys tooltips -->
     <string name="tooltip_ctrl">Hold to modify next key (e.g., CTRL+C)</string>

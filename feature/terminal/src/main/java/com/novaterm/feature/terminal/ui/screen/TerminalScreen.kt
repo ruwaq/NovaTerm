@@ -33,7 +33,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novaterm.feature.terminal.color.TerminalPalettes
 import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
-import com.novaterm.feature.terminal.url.UrlConfirmDialog
+import com.novaterm.feature.terminal.url.EntityConfirmDialog
 import com.novaterm.feature.terminal.url.UrlDetector
 import com.termux.terminal.TerminalColors
 import com.termux.terminal.TerminalEmulator
@@ -75,7 +75,7 @@ fun TerminalScreen(
     modifier: Modifier = Modifier,
 ) {
     // URL detection state
-    var detectedUrl by remember { mutableStateOf<String?>(null) }
+    var detectedEntity by remember { mutableStateOf<UrlDetector.Entity?>(null) }
 
     // Semantic zone tracker for OSC 133 (prompt/input/output markers)
     val zoneTracker = remember { SemanticZoneTracker() }
@@ -87,7 +87,7 @@ fun TerminalScreen(
             altActive = altActive,
             backIsEscape = backIsEscape,
             onModifiersConsumed = onModifiersConsumed,
-            onUrlDetected = { url -> detectedUrl = url },
+            onEntityDetected = { entity -> detectedEntity = entity },
             onTabAcceptSuggestion = onTabAcceptSuggestion,
         )
     }
@@ -98,7 +98,7 @@ fun TerminalScreen(
     viewClient.altActive = altActive
     viewClient.backIsEscape = backIsEscape
     viewClient.onModifiersConsumed = onModifiersConsumed
-    viewClient.onUrlDetected = { url -> detectedUrl = url }
+    viewClient.onEntityDetected = { entity -> detectedEntity = entity }
     viewClient.onTabAcceptSuggestion = onTabAcceptSuggestion
 
     // Reference to the native view for imperative updates.
@@ -249,11 +249,11 @@ fun TerminalScreen(
         }
     }
 
-    // URL confirmation dialog
-    detectedUrl?.let { url ->
-        UrlConfirmDialog(
-            url = url,
-            onDismiss = { detectedUrl = null },
+    // Entity confirmation dialog (URL, IP address, file path)
+    detectedEntity?.let { entity ->
+        EntityConfirmDialog(
+            entity = entity,
+            onDismiss = { detectedEntity = null },
         )
     }
 }
@@ -291,7 +291,7 @@ private class NovaTermViewClient(
     @Volatile var altActive: Boolean,
     @Volatile var backIsEscape: Boolean,
     var onModifiersConsumed: () -> Unit,
-    var onUrlDetected: (String) -> Unit = {},
+    var onEntityDetected: (UrlDetector.Entity) -> Unit = {},
     var onTabAcceptSuggestion: (() -> String?)? = null,
     var terminalView: TerminalView? = null,
 ) : TerminalViewClient {
@@ -344,9 +344,9 @@ private class NovaTermViewClient(
                 val rowText = screen.getSelectedText(0, row, emulator.mColumns, row)?.trim()
 
                 if (rowText != null) {
-                    val url = UrlDetector.findUrlAt(rowText, col)
-                    if (url != null) {
-                        onUrlDetected(url)
+                    val entity = UrlDetector.findEntityAt(rowText, col)
+                    if (entity != null) {
+                        onEntityDetected(entity)
                         return
                     }
                 }

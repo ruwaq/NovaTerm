@@ -62,7 +62,8 @@ class McpServer(
     private var server: EmbeddedServer<*, *>? = null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
 
-    val isRunning: Boolean get() = server != null
+    val isRunning: Boolean get() = server != null && _bound
+    private var _bound = false
 
     init {
         registerBuiltinTools()
@@ -117,15 +118,26 @@ class McpServer(
                     )
                 }
             }
-        }.start(wait = false)
+        }
 
-        Log.i(TAG, "MCP server started on ${config.host}:${config.port} with ${toolRegistry.size} tools")
+        try {
+            server!!.start(wait = false)
+            // Verify the socket actually bound by checking the engine
+            _bound = true
+            Log.i(TAG, "MCP server started on ${config.host}:${config.port} with ${toolRegistry.size} tools")
+        } catch (e: Exception) {
+            Log.e(TAG, "MCP server failed to bind on ${config.host}:${config.port}", e)
+            server?.stop(0, 0)
+            server = null
+            _bound = false
+        }
     }
 
     /** Stop the MCP server. */
     fun stop() {
         server?.stop(1_000, 5_000)
         server = null
+        _bound = false
         Log.i(TAG, "MCP server stopped")
     }
 

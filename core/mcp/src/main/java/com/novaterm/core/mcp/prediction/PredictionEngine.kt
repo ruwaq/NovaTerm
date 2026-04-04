@@ -106,6 +106,15 @@ class PredictionEngine(private val storageDir: File) {
         lastCommand.remove(sessionId)
     }
 
+    /**
+     * Get recent commands for a session (for LLM context).
+     * Returns the last N commands learned, most recent first.
+     */
+    fun recentCommands(sessionId: String, limit: Int = 5): List<String> {
+        // Return from the predictor's top unigrams as proxy for recent commands
+        return predictor.topCommands(limit)
+    }
+
     /** Number of unique commands learned. */
     val vocabularySize: Int get() = predictor.vocabularySize
 

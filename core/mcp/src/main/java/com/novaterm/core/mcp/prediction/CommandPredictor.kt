@@ -180,6 +180,14 @@ class CommandPredictor {
     /** Total commands learned. */
     val totalLearned: Int get() = synchronized(lock) { totalCommands }
 
+    /** Get top N most frequent commands (for LLM context). */
+    fun topCommands(limit: Int = 5): List<String> = synchronized(lock) {
+        unigrams.entries
+            .sortedByDescending { it.value }
+            .take(limit)
+            .map { it.key }
+    }
+
     /** Clear all learned data. */
     fun clear() {
         synchronized(lock) {

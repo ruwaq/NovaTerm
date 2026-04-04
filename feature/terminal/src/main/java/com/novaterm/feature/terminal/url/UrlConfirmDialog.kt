@@ -26,67 +26,120 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Confirmation dialog shown before opening a URL detected in terminal output.
- * Shows the domain prominently and the full URL for verification.
- * Offers: Open in browser, Copy to clipboard, Cancel.
+ * Confirmation dialog for detected entities: URLs, IP addresses, file paths.
+ * Actions adapt based on entity type:
+ * - URL: Open in browser + Copy
+ * - IP_ADDRESS: Open as HTTP + Copy
+ * - FILE_PATH: Copy to clipboard
  *
  * Security: prevents blind navigation to potentially malicious URLs
  * that could be injected into terminal output.
+ */
+@Composable
+fun EntityConfirmDialog(
+    entity: UrlDetector.Entity,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val value = entity.value
+
+    val (title, displayLabel) = when (entity.type) {
+        UrlDetector.Entity.Type.URL -> {
+            val domain = try { Uri.parse(value).host ?: value } catch (_: Exception) { value }
+            Pair(stringResource(R.string.url_dialog_title), domain)
+        }
+        UrlDetector.Entity.Type.IP_ADDRESS -> {
+            Pair(stringResource(R.string.entity_dialog_title_ip), value)
+        }
+        UrlDetector.Entity.Type.FILE_PATH -> {
+            Pair(stringResource(R.string.entity_dialog_title_path), value)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(
+                    text = displayLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (displayLabel != value) {
+                    Text(
+                        text = value,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            when (entity.type) {
+                UrlDetector.Entity.Type.URL -> {
+                    TextButton(onClick = {
+                        openUrl(context, value)
+                        onDismiss()
+                    }) {
+                        Text(stringResource(R.string.url_dialog_open))
+                    }
+                }
+                UrlDetector.Entity.Type.IP_ADDRESS -> {
+                    TextButton(onClick = {
+                        // Open as HTTP — most common use case for tapping an IP
+                        val httpUrl = if (value.startsWith("http")) value else "http://$value"
+                        openUrl(context, httpUrl)
+                        onDismiss()
+                    }) {
+                        Text(stringResource(R.string.url_dialog_open))
+                    }
+                }
+                UrlDetector.Entity.Type.FILE_PATH -> {
+                    // File paths: primary action is copy (can't open arbitrary files from terminal)
+                    TextButton(onClick = {
+                        copyToClipboard(context, value)
+                        onDismiss()
+                    }) {
+                        Text(stringResource(R.string.url_dialog_copy))
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            Row {
+                // Copy is always available as secondary action (except FILE_PATH where it's primary)
+                if (entity.type != UrlDetector.Entity.Type.FILE_PATH) {
+                    TextButton(onClick = {
+                        copyToClipboard(context, value)
+                        onDismiss()
+                    }) {
+                        Text(stringResource(R.string.url_dialog_copy))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.url_dialog_cancel))
+                }
+            }
+        },
+    )
+}
+
+/**
+ * Legacy dialog — delegates to [EntityConfirmDialog] with URL type.
  */
 @Composable
 fun UrlConfirmDialog(
     url: String,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val domain = try {
-        Uri.parse(url).host ?: url
-    } catch (_: Exception) {
-        url
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.url_dialog_title)) },
-        text = {
-            Column {
-                Text(
-                    text = domain,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = url,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                openUrl(context, url)
-                onDismiss()
-            }) {
-                Text(stringResource(R.string.url_dialog_open))
-            }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = {
-                    copyToClipboard(context, url)
-                    onDismiss()
-                }) {
-                    Text(stringResource(R.string.url_dialog_copy))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.url_dialog_cancel))
-                }
-            }
-        },
+    EntityConfirmDialog(
+        entity = UrlDetector.Entity(UrlDetector.Entity.Type.URL, url),
+        onDismiss = onDismiss,
     )
 }
 
@@ -98,8 +151,8 @@ private fun openUrl(context: Context, url: String) {
     }
 }
 
-private fun copyToClipboard(context: Context, url: String) {
+private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+    clipboard.setPrimaryClip(ClipData.newPlainText("NovaTerm", text))
     Toast.makeText(context, context.getString(R.string.url_copied), Toast.LENGTH_SHORT).show()
 }

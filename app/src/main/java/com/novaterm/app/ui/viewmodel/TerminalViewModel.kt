@@ -252,17 +252,44 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             _suggestion.value = null
             return
         }
-        // Run prediction off main thread to avoid jank with large vocabularies
         viewModelScope.launch(Dispatchers.Default) {
             val sessionIndex = _currentSessionIndex.value
             val sessionId = "session_$sessionIndex"
             val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
+
+            // Try N-gram prediction first (fast, no model needed)
             val predictions = svc.predictionEngine.predict(
                 sessionId = sessionId,
                 cwd = cwd,
                 maxResults = 1,
             )
-            _suggestion.value = predictions.firstOrNull()?.command
+            val ngramResult = predictions.firstOrNull()?.command
+
+            if (ngramResult != null) {
+                _suggestion.value = ngramResult
+                return@launch
+            }
+
+            // Fallback to LLM if enabled and ready (slower but smarter)
+            val llm = svc.llmEngine
+            if (llm != null && llm.state.value == com.novaterm.core.llm.LlmState.READY) {
+                try {
+                    val recentCommands = svc.predictionEngine.recentCommands(sessionId, limit = 5)
+                    val context = com.novaterm.core.llm.TerminalContext(
+                        recentCommands = recentCommands.map { cmd ->
+                            com.novaterm.core.llm.CommandEntry(command = cmd)
+                        },
+                        cwd = cwd,
+                    )
+                    val llmSuggestion = llm.suggest(context)
+                    _suggestion.value = llmSuggestion?.command
+                } catch (e: Exception) {
+                    // LLM failed — no suggestion, not a big deal
+                    _suggestion.value = null
+                }
+            } else {
+                _suggestion.value = null
+            }
         }
     }
 
