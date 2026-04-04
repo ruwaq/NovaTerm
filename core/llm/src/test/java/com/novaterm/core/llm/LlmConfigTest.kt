@@ -19,6 +19,7 @@ class LlmConfigTest {
         assertEquals(500, config.maxOutputChars)
         assertEquals(5_000L, config.inferenceTimeoutMs)
         assertEquals(4, config.numThreads)
+        assertEquals(ModelCatalog.ModelFamily.GEMMA4, config.modelFamily)
     }
 
     @Test
@@ -29,13 +30,13 @@ class LlmConfigTest {
 
     @Test
     fun `modelExists returns false for nonexistent path`() {
-        val config = LlmConfig(modelPath = "/nonexistent/model.tflite")
+        val config = LlmConfig(modelPath = "/nonexistent/model.gguf")
         assertFalse(config.modelExists)
     }
 
     @Test
     fun `modelExists returns true for existing file`() {
-        val tmp = File.createTempFile("test_model", ".tflite")
+        val tmp = File.createTempFile("test_model", ".gguf")
         try {
             val config = LlmConfig(modelPath = tmp.absolutePath)
             assertTrue(config.modelExists)
@@ -45,10 +46,12 @@ class LlmConfigTest {
     }
 
     @Test
-    fun `constants are reasonable`() {
-        assertEquals(200, LlmConfig.MODEL_SIZE_MB)
-        assertEquals(400, LlmConfig.MODEL_RAM_MB)
+    fun `constants reflect Gemma 4 E2B`() {
+        assertEquals(1500, LlmConfig.MODEL_SIZE_MB)
+        assertEquals(1800, LlmConfig.MODEL_RAM_MB)
         assertTrue(LlmConfig.MODEL_URL.contains("huggingface"))
+        assertTrue(LlmConfig.MODEL_URL.contains("gemma-4"))
+        assertTrue(LlmConfig.DEFAULT_MODEL_NAME.contains("gemma-4"))
         assertTrue(LlmConfig.DEFAULT_MODEL_NAME.endsWith(".gguf"))
     }
 }

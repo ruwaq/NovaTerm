@@ -66,7 +66,7 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
 
             _state.value = LlmState.INFERRING
             try {
-                val prompt = PromptBuilder.buildSuggestionPrompt(context)
+                val prompt = PromptBuilder.buildSuggestionPrompt(context, config.modelFamily)
                 val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
                     b.generate(prompt, config.maxTokens, config.temperature)
                 }
@@ -96,7 +96,7 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
 
             _state.value = LlmState.INFERRING
             try {
-                val prompt = PromptBuilder.buildExplanationPrompt(input, context)
+                val prompt = PromptBuilder.buildExplanationPrompt(input, context, config.modelFamily)
                 val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
                     b.generate(prompt, config.maxTokens * 2, config.temperature)
                 }

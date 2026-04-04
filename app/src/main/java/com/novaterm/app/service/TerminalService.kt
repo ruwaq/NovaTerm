@@ -38,6 +38,7 @@ import com.novaterm.core.session.persistence.SessionStore
 import com.novaterm.core.llm.GemmaEngine
 import com.novaterm.core.llm.LlmConfig
 import com.novaterm.core.llm.LlmEngine
+import com.novaterm.core.llm.ModelCatalog
 import com.novaterm.core.llm.ModelManager
 import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
@@ -289,8 +290,12 @@ class TerminalService : Service() {
         if (!llmEnabled || !modelManager.isModelReady()) return
 
         val modelPath = modelManager.getModelPath() ?: return
+        val selectedModel = modelManager.getSelectedModel()
         try {
-            val config = LlmConfig(modelPath = modelPath)
+            val config = LlmConfig(
+                modelPath = modelPath,
+                modelFamily = selectedModel?.family ?: ModelCatalog.ModelFamily.GEMMA4,
+            )
             val engine = GemmaEngine(config)
             // Initialize on daemon thread — only assign llmEngine AFTER successful init
             Thread {

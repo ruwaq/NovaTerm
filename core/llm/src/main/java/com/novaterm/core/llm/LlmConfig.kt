@@ -23,21 +23,23 @@ data class LlmConfig(
     val inferenceTimeoutMs: Long = 5_000,
     /** Number of CPU threads for inference. */
     val numThreads: Int = 4,
+    /** Model family for prompt format selection. */
+    val modelFamily: ModelCatalog.ModelFamily = ModelCatalog.ModelFamily.GEMMA4,
 ) {
     /** Whether a model file exists at the configured path. */
     val modelExists: Boolean get() = modelPath.isNotBlank() && File(modelPath).exists()
 
     companion object {
         /** Default model filename (user downloads this). */
-        const val DEFAULT_MODEL_NAME = "gemma-3-270m-it-Q4_K_M.gguf"
+        const val DEFAULT_MODEL_NAME = "gemma-4-E2B-it-Q4_K_M.gguf"
 
         /** Approximate model size for download UI (Q4_K_M quantization). */
-        const val MODEL_SIZE_MB = 200
+        const val MODEL_SIZE_MB = 1500
 
         /** Approximate RAM usage when loaded. */
-        const val MODEL_RAM_MB = 400
+        const val MODEL_RAM_MB = 1800
 
-        /** Model download URL — GGUF Q4_K_M from ggml-org (official conversions). */
-        const val MODEL_URL = "https://huggingface.co/ggml-org/gemma-3-270m-GGUF/resolve/main/gemma-3-270m-it-Q4_K_M.gguf"
+        /** Model download URL — GGUF Q4_K_M from Unsloth. */
+        const val MODEL_URL = "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
     }
 }

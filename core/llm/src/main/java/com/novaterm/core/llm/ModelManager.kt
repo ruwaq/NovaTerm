@@ -222,6 +222,9 @@ class ModelManager(context: Context) {
     /** Check if a model is ready to use. */
     fun isModelReady(): Boolean = getModelPath() != null
 
+    /** Get the currently selected model info. */
+    fun getSelectedModel(): ModelCatalog.ModelInfo? = ModelCatalog.findById(selectedModelId)
+
     companion object {
         private const val TAG = "ModelManager"
     }

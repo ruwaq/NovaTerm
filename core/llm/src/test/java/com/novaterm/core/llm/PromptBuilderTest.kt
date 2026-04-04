@@ -63,13 +63,33 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `suggestion prompt follows Gemma format`() {
+    fun `suggestion prompt follows Gemma 4 format with system prompt`() {
         val context = TerminalContext()
-        val prompt = PromptBuilder.buildSuggestionPrompt(context)
+        val prompt = PromptBuilder.buildSuggestionPrompt(context, ModelCatalog.ModelFamily.GEMMA4)
+
+        assertTrue(prompt.contains("<start_of_turn>system\n"))
+        assertTrue(prompt.contains("<start_of_turn>user\n"))
+        assertTrue(prompt.endsWith("<start_of_turn>model\n"))
+    }
+
+    @Test
+    fun `suggestion prompt follows Gemma 3 format without system prompt`() {
+        val context = TerminalContext()
+        val prompt = PromptBuilder.buildSuggestionPrompt(context, ModelCatalog.ModelFamily.GEMMA)
 
         assertTrue(prompt.startsWith("<start_of_turn>user\n"))
+        assertTrue(!prompt.contains("<start_of_turn>system"))
         assertTrue(prompt.endsWith("<start_of_turn>model\n"))
-        assertTrue(prompt.contains("<end_of_turn>"))
+    }
+
+    @Test
+    fun `suggestion prompt follows ChatML format for Qwen`() {
+        val context = TerminalContext()
+        val prompt = PromptBuilder.buildSuggestionPrompt(context, ModelCatalog.ModelFamily.QWEN)
+
+        assertTrue(prompt.contains("<|im_start|>system"))
+        assertTrue(prompt.contains("<|im_start|>user"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
     }
 
     @Test
@@ -79,7 +99,7 @@ class PromptBuilderTest {
 
         assertNotNull(prompt)
         assertTrue(prompt.isNotBlank())
-        assertTrue(prompt.contains("Suggest the next shell command"))
+        assertTrue(prompt.contains("Suggest the next command"))
     }
 
     // ── Explanation prompt ──────────────────────────────────
@@ -94,10 +114,10 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `explanation prompt follows Gemma format`() {
-        val prompt = PromptBuilder.buildExplanationPrompt("ls", TerminalContext())
+    fun `explanation prompt follows Gemma 4 format`() {
+        val prompt = PromptBuilder.buildExplanationPrompt("ls", TerminalContext(), ModelCatalog.ModelFamily.GEMMA4)
 
-        assertTrue(prompt.startsWith("<start_of_turn>user\n"))
+        assertTrue(prompt.contains("<start_of_turn>system"))
         assertTrue(prompt.endsWith("<start_of_turn>model\n"))
     }
 
