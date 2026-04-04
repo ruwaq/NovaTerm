@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import com.novaterm.app.R
@@ -24,8 +26,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,11 +44,16 @@ import kotlinx.coroutines.launch
  * Simulates a system boot with real progress interleaved with feature tips.
  * The entire screen uses monospace font on the terminal background color
  * to feel like part of the terminal experience, not a generic loading screen.
+ *
+ * @param installer The bootstrap installer instance.
+ * @param onComplete Called when bootstrap finishes. Receives `true` if packages
+ *        were extracted successfully, `false` if bootstrap failed (shell will
+ *        fall back to /system/bin/sh).
  */
 @Composable
 fun BootstrapScreen(
     installer: BootstrapInstaller,
-    onComplete: () -> Unit,
+    onComplete: (success: Boolean) -> Unit,
 ) {
     val state by installer.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -52,6 +61,7 @@ fun BootstrapScreen(
     // Boot log lines that appear sequentially
     val bootLines = remember { mutableStateListOf<BootLine>() }
     val tipIndex = remember { mutableIntStateOf(0) }
+    var showErrorActions by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         // Start with branding
@@ -107,7 +117,13 @@ fun BootstrapScreen(
             bootLines.add(BootLine("[ok] Ready.", LineType.ACCENT))
             delay(500)
 
-            onComplete()
+            onComplete(true)
+        } else {
+            // Bootstrap failed — show error with retry + continue options
+            bootLines.add(BootLine("", LineType.BLANK))
+            bootLines.add(BootLine("[!!] Package extraction failed", LineType.ERROR))
+            bootLines.add(BootLine("[!!] Shell will use /system/bin/sh", LineType.ERROR))
+            showErrorActions = true
         }
     }
 
@@ -116,7 +132,6 @@ fun BootstrapScreen(
         when (val s = state) {
             is BootstrapInstaller.State.Extracting -> {
                 val pct = (s.progress * 100).toInt()
-                // Update or add extraction progress line
                 val existingIdx = bootLines.indexOfLast { it.type == LineType.PROGRESS }
                 val line = BootLine("[>>] Extracting packages... $pct%", LineType.PROGRESS)
                 if (existingIdx >= 0) {
@@ -131,6 +146,7 @@ fun BootstrapScreen(
             is BootstrapInstaller.State.Error -> {
                 bootLines.add(BootLine("", LineType.BLANK))
                 bootLines.add(BootLine("[!!] ${s.message}", LineType.ERROR))
+                showErrorActions = true
             }
             else -> {}
         }
@@ -150,16 +166,32 @@ fun BootstrapScreen(
             }
         }
 
-        // Error retry button
-        if (state is BootstrapInstaller.State.Error) {
+        // Error actions: Retry + Continue without packages
+        if (showErrorActions) {
             Spacer(Modifier.height(16.dp))
-            Button(onClick = {
-                bootLines.clear()
-                scope.launch {
-                    if (installer.install()) onComplete()
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(onClick = {
+                    showErrorActions = false
+                    bootLines.clear()
+                    scope.launch {
+                        val retrySuccess = installer.install()
+                        if (retrySuccess) {
+                            onComplete(true)
+                        } else {
+                            showErrorActions = true
+                        }
+                    }
+                }) {
+                    Text(stringResource(R.string.action_retry))
                 }
-            }) {
-                Text(stringResource(R.string.action_retry))
+                OutlinedButton(onClick = {
+                    // Continue without packages — shell falls back to /system/bin/sh
+                    onComplete(false)
+                }) {
+                    Text(stringResource(R.string.action_continue_without))
+                }
             }
         }
     }

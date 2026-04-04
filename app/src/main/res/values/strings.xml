@@ -69,6 +69,7 @@
 
     <!-- General -->
     <string name="action_retry">Retry</string>
+    <string name="action_continue_without">Continue anyway</string>
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="boot_restore_failed">Session restore failed. Tap to open.</string>
 </resources>
