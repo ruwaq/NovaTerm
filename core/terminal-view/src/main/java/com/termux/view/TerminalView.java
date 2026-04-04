@@ -1507,11 +1507,11 @@ public final class TerminalView extends View {
                     mCursorVisible = !mCursorVisible;
                     em.setCursorBlinkState(mCursorVisible);
                     // Only invalidate the cursor cell region, not the entire screen.
-                    int cursorX = em.getCursorCol() * mRenderer.mFontWidth;
-                    int cursorY = (em.getCursorRow() + mTopRow + em.getScreen().getActiveRows() - em.mRows)
-                                  * mRenderer.mFontLineSpacing;
+                    int cursorX = (int) (em.getCursorCol() * mRenderer.mFontWidth);
+                    int cursorY = (int) ((em.getCursorRow() + mTopRow + em.getScreen().getActiveRows() - em.mRows)
+                                  * mRenderer.mFontLineSpacing);
                     invalidate(cursorX, cursorY,
-                        cursorX + mRenderer.mFontWidth, cursorY + mRenderer.mFontLineSpacing);
+                        cursorX + (int) mRenderer.mFontWidth, cursorY + (int) mRenderer.mFontLineSpacing);
                 }
             } finally {
                 // Recall the Runnable after mBlinkRate milliseconds to toggle the blink state

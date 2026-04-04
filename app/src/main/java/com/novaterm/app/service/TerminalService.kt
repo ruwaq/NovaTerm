@@ -45,6 +45,9 @@ import com.novaterm.core.session.persistence.db.BlockStore
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -316,7 +319,7 @@ class TerminalService : Service() {
             )
             val engine = GemmaEngine(config)
             // Initialize on IO dispatcher — only assign llmEngine AFTER successful init
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val success = engine.initialize()
                     if (success) {
