@@ -77,7 +77,7 @@ public final class TerminalSession extends TerminalOutput {
     // ── Constructor args (deferred init via updateSize) ─────
 
     private final String mShellPath;
-    private final String mCwd;
+    private volatile String mCwd;
     private final String[] mArgs;
     private final String[] mEnv;
     private final Integer mTranscriptRows;
@@ -333,6 +333,21 @@ public final class TerminalSession extends TerminalOutput {
     @Override
     public void onColorsChanged() {
         mClient.onColorsChanged(this);
+    }
+
+    @Override
+    public void onOsc7WorkingDirectory(String path) {
+        mCwd = path;
+    }
+
+    @Override
+    public void onOsc9Notification(String text) {
+        mClient.onOsc9Notification(this, text);
+    }
+
+    @Override
+    public void onOsc133SemanticPrompt(String params) {
+        mClient.onOsc133SemanticPrompt(this, params);
     }
 
     // ── Static handler (prevents memory leak) ───────────────

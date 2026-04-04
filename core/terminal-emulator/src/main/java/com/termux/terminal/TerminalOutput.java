@@ -29,4 +29,13 @@ public abstract class TerminalOutput {
 
     public abstract void onColorsChanged();
 
+    /** OSC 7: Shell reports current working directory. */
+    public void onOsc7WorkingDirectory(String path) {}
+
+    /** OSC 9: Desktop notification request (iTerm2/Claude Code/Codex). */
+    public void onOsc9Notification(String text) {}
+
+    /** OSC 133: Semantic prompt marker (FinalTerm/Claude Code). */
+    public void onOsc133SemanticPrompt(String params) {}
+
 }

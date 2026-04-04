@@ -866,6 +866,13 @@ public final class TerminalView extends View {
             return super.onKeyDown(keyCode, event);
         }
 
+        // Shift+Enter → CSI 13;2u (Kitty Keyboard Protocol).
+        // Critical for Claude Code multiline input and other AI CLIs.
+        if (keyCode == KeyEvent.KEYCODE_ENTER && event.isShiftPressed()) {
+            mTermSession.write("\033[13;2u");
+            return true;
+        }
+
         final int metaState = event.getMetaState();
         final boolean controlDown = event.isCtrlPressed() || mClient.readControlKey();
         final boolean leftAltDown = (metaState & KeyEvent.META_ALT_LEFT_ON) != 0 || mClient.readAltKey();

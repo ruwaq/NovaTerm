@@ -204,6 +204,22 @@ class TerminalService : Service() {
         override fun onColorsChanged(session: TerminalSession) {}
         override fun onTerminalCursorStateChange(state: Boolean) {}
 
+        override fun onOsc9Notification(session: TerminalSession, text: String?) {
+            if (text.isNullOrEmpty()) return
+            // Convert OSC 9 to Android notification (used by Claude Code, Codex CLI)
+            val app = application as? NovaTermApp ?: return
+            if (!app.appLifecycle.isInForeground.value) {
+                sendOsc9Notification(text)
+            }
+        }
+
+        override fun onOsc133SemanticPrompt(session: TerminalSession, params: String?) {
+            if (params.isNullOrEmpty()) return
+            // OSC 133 markers: A=prompt, B=command, C=output, D;exitcode=done
+            // Logged for now — SemanticZoneTracker in TerminalScreen handles the UI side
+            Log.d(TAG, "OSC 133: $params")
+        }
+
         override fun setTerminalShellPid(session: TerminalSession, pid: Int) {
             Log.d(TAG, "Shell PID set: $pid")
         }
@@ -622,6 +638,24 @@ class TerminalService : Service() {
         manager.notify(NOTIFICATION_BELL, notification)
     }
 
+    private fun sendOsc9Notification(text: String) {
+        val contentIntent = PendingIntent.getActivity(
+            this, NOTIFICATION_OSC9,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("NovaTerm")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .build()
+        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        manager.notify(NOTIFICATION_OSC9, notification)
+    }
+
     private fun buildNotification(): Notification {
         val contentIntent = PendingIntent.getActivity(
             this, 0,
@@ -806,6 +840,7 @@ class TerminalService : Service() {
         private const val REQ_NEW_SESSION = 2
         private const val REQ_TOGGLE_WAKELOCK = 3
         private const val NOTIFICATION_BELL = 1338
+        private const val NOTIFICATION_OSC9 = 1340
         private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 

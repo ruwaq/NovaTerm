@@ -144,11 +144,12 @@ public final class TerminalEmulator {
     private int mCellWidthPixels, mCellHeightPixels;
 
     /** The number of terminal transcript rows that can be scrolled back to.
-     *  MAX reduced from 50000 to 10000 to limit memory (~10-20MB/tab vs 50-80MB/tab).
-     *  For users who need more scrollback, consider piping to files. */
+     *  AI CLIs (Claude Code, Gemini CLI, Aider) generate massive output.
+     *  Default 10000 lines handles multi-hour sessions. Max 50000 for power users.
+     *  Memory: ~20-40MB/tab at 10000 lines, acceptable on 8GB+ devices. */
     public static final int TERMINAL_TRANSCRIPT_ROWS_MIN = 100;
-    public static final int TERMINAL_TRANSCRIPT_ROWS_MAX = 10000;
-    public static final int DEFAULT_TERMINAL_TRANSCRIPT_ROWS = 2000;
+    public static final int TERMINAL_TRANSCRIPT_ROWS_MAX = 50000;
+    public static final int DEFAULT_TERMINAL_TRANSCRIPT_ROWS = 10000;
 
 
     /* The supported terminal cursor styles. */
@@ -2220,7 +2221,31 @@ public final class TerminalEmulator {
                 mColors.reset(TextStyle.COLOR_INDEX_FOREGROUND + (value - 110));
                 mSession.onColorsChanged();
                 break;
+            case 7: // OSC 7 — Set working directory (file:// URI).
+                // Used by shells to report CWD changes. AI CLIs like OpenCode read this.
+                // Format: OSC 7 ; file://hostname/path ST
+                if (textParameter.startsWith("file://")) {
+                    int pathStart = textParameter.indexOf('/', 7); // skip file://
+                    if (pathStart >= 0) {
+                        String cwd = textParameter.substring(pathStart);
+                        mSession.onOsc7WorkingDirectory(cwd);
+                    }
+                }
+                break;
+            case 9: // OSC 9 — Desktop notification (iTerm2/Codex/Claude Code).
+                // Format: OSC 9 ; text ST
+                if (!textParameter.isEmpty()) {
+                    mSession.onOsc9Notification(textParameter);
+                }
+                break;
             case 119: // Reset highlight color.
+                break;
+            case 133: // OSC 133 — Semantic prompt markers (FinalTerm/Claude Code).
+                // Format: OSC 133 ; A/B/C/D ST
+                // A=prompt start, B=command start, C=output start, D=command finished;exitcode
+                if (!textParameter.isEmpty()) {
+                    mSession.onOsc133SemanticPrompt(textParameter);
+                }
                 break;
             default:
                 unknownParameter(value);

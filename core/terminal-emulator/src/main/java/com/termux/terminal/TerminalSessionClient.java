@@ -26,6 +26,12 @@ public interface TerminalSessionClient {
 
     void onTerminalCursorStateChange(boolean state);
 
+    /** OSC 9: Desktop notification from terminal process (Claude Code, Codex). */
+    default void onOsc9Notification(@NonNull TerminalSession session, String text) {}
+
+    /** OSC 133: Semantic prompt marker (FinalTerm/Claude Code). */
+    default void onOsc133SemanticPrompt(@NonNull TerminalSession session, String params) {}
+
     void setTerminalShellPid(@NonNull TerminalSession session, int pid);
 
 
