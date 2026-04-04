@@ -5,12 +5,14 @@
 // into a complete GPU rendering pipeline.
 //
 // Architecture (Zutty pattern):
-//   1. GlyphAtlas rasterizes glyphs on CPU -> 2048x2048 RGBA bitmap
+//   1. GlyphAtlas rasterizes glyphs on CPU -> RGBA bitmap (size adapts to GPU)
 //   2. CellBufferManager packs cell data into a GPU storage buffer
 //   3. Compute shader: one invocation per cell, copies glyph from atlas
 //   4. Output texture is copied to surface texture, then presented
 //
-// Target: 120 FPS, <4ms input latency, 1-2 draw calls on Dimensity 9400
+// Multi-GPU: Adapts to Adreno, Mali, PowerVR, Xclipse, and software renderers.
+// Handles surface loss/recovery, vendor-specific present modes, and adaptive
+// atlas sizing based on GPU max texture dimension.
 
 #[cfg(feature = "vulkan")]
 use crate::atlas::{GlyphAtlas, ATLAS_HEIGHT, ATLAS_WIDTH};
@@ -19,7 +21,7 @@ use crate::gpu::atlas_texture::AtlasTexture;
 #[cfg(feature = "vulkan")]
 use crate::gpu::buffers::{CellBufferManager, UniformBufferManager, Uniforms};
 #[cfg(feature = "vulkan")]
-use crate::gpu::context::{GpuContext, GpuError};
+use crate::gpu::context::{GpuContext, GpuError, GpuInfo};
 #[cfg(feature = "vulkan")]
 use crate::gpu::pipeline::TerminalPipeline;
 #[cfg(feature = "vulkan")]
@@ -50,32 +52,60 @@ pub struct VulkanRenderer {
     font_size: f32,
     grid_rows: u32,
     grid_cols: u32,
+    /// Actual atlas dimensions (may be smaller than ATLAS_WIDTH/HEIGHT on weaker GPUs)
+    atlas_w: u32,
+    atlas_h: u32,
+    /// Consecutive render failures for fallback decisions
+    render_errors: u32,
 }
+
+/// Max consecutive render errors before signaling caller to fall back.
+#[cfg(feature = "vulkan")]
+const MAX_RENDER_ERRORS: u32 = 10;
 
 #[cfg(feature = "vulkan")]
 impl VulkanRenderer {
     /// Create a new VulkanRenderer. Initializes GPU context, pipeline,
     /// atlas, and pre-rasterizes ASCII glyphs.
+    ///
+    /// Adapts atlas size to the GPU's max texture dimension.
     pub fn new() -> Result<Self, GpuError> {
         let ctx = GpuContext::new()?;
+
+        // Adapt atlas size to GPU capabilities.
+        // Default is 2048x2048 but weaker GPUs may only support smaller textures.
+        let gpu_max_tex = ctx.max_texture_2d();
+        let atlas_w = ATLAS_WIDTH.min(gpu_max_tex);
+        let atlas_h = ATLAS_HEIGHT.min(gpu_max_tex);
+
+        if atlas_w < ATLAS_WIDTH || atlas_h < ATLAS_HEIGHT {
+            log::warn!(
+                "GPU max texture {}px < default {}px, using {}x{} atlas",
+                gpu_max_tex,
+                ATLAS_WIDTH,
+                atlas_w,
+                atlas_h,
+            );
+        }
+
         let pipeline = TerminalPipeline::new(&ctx.device);
         let mut atlas = GlyphAtlas::new(32.0);
         atlas.pre_rasterize_ascii();
 
-        let atlas_texture = AtlasTexture::new(&ctx.device, &ctx.queue, ATLAS_WIDTH, ATLAS_HEIGHT);
+        let atlas_texture = AtlasTexture::new(&ctx.device, &ctx.queue, atlas_w, atlas_h);
 
         // Upload full atlas bitmap after pre-rasterization
-        atlas_texture.upload_full(&ctx.queue, atlas.bitmap(), ATLAS_WIDTH, ATLAS_HEIGHT);
+        atlas_texture.upload_full(&ctx.queue, atlas.bitmap(), atlas_w, atlas_h);
         atlas.clear_dirty();
 
         let cell_buffer = CellBufferManager::new(&ctx.device, DEFAULT_ROWS, DEFAULT_COLS);
         let uniform_buffer = UniformBufferManager::new(&ctx.device);
 
         log::info!(
-            "VulkanRenderer created: GPU={}, atlas={}x{}, {} ASCII glyphs cached",
-            ctx.adapter_name(),
-            ATLAS_WIDTH,
-            ATLAS_HEIGHT,
+            "VulkanRenderer created: {} atlas={}x{}, {} ASCII glyphs cached",
+            ctx.info.summary(),
+            atlas_w,
+            atlas_h,
             atlas.cached_count(),
         );
 
@@ -92,6 +122,9 @@ impl VulkanRenderer {
             font_size: 32.0,
             grid_rows: DEFAULT_ROWS,
             grid_cols: DEFAULT_COLS,
+            atlas_w,
+            atlas_h,
+            render_errors: 0,
         })
     }
 
@@ -108,6 +141,7 @@ impl VulkanRenderer {
         let surface = unsafe { AndroidSurface::attach(&self.ctx, native_window, width, height)? };
         self.surface = Some(surface);
         self.create_output_texture(width, height);
+        self.render_errors = 0;
         log::info!("VulkanRenderer surface attached: {}x{}", width, height);
         Ok(())
     }
@@ -117,6 +151,7 @@ impl VulkanRenderer {
         self.output_texture = None;
         self.output_view = None;
         self.surface = None;
+        self.render_errors = 0;
         log::info!("VulkanRenderer surface detached");
     }
 
@@ -124,10 +159,13 @@ impl VulkanRenderer {
     /// Returns true if frame was presented, false if surface is unavailable.
     pub fn render_frame(&mut self, snapshot: &GridSnapshot) -> bool {
         // 1. Must have a surface
-        let surface = match self.surface.as_ref() {
-            Some(s) if s.is_attached() => s,
-            _ => return false,
-        };
+        let has_surface = self
+            .surface
+            .as_ref()
+            .is_some_and(|s| s.is_attached() && !s.is_errored());
+        if !has_surface {
+            return false;
+        }
 
         // Update grid dimensions from snapshot
         self.grid_rows = snapshot.rows.max(1) as u32;
@@ -145,7 +183,7 @@ impl VulkanRenderer {
             self.atlas_texture.upload_dirty(
                 &self.ctx.queue,
                 self.atlas.bitmap(),
-                ATLAS_WIDTH,
+                self.atlas_w,
                 dirty,
             );
             self.atlas.clear_dirty();
@@ -153,14 +191,14 @@ impl VulkanRenderer {
 
         // 4. Update uniforms
         let (cell_w, cell_h) = self.atlas.cell_metrics();
-        let (out_w, out_h) = surface.size();
+        let (out_w, out_h) = self.surface.as_ref().unwrap().size();
         let uniforms = Uniforms {
             cell_width: cell_w,
             cell_height: cell_h,
             grid_cols: self.grid_cols,
             grid_rows: self.grid_rows,
-            atlas_width: ATLAS_WIDTH as f32,
-            atlas_height: ATLAS_HEIGHT as f32,
+            atlas_width: self.atlas_w as f32,
+            atlas_height: self.atlas_h as f32,
             output_width: out_w,
             output_height: out_h,
             cursor_row: snapshot.cursor.row,
@@ -170,11 +208,22 @@ impl VulkanRenderer {
         };
         self.uniform_buffer.update(&self.ctx.queue, &uniforms);
 
-        // 5. Get current surface texture
-        let surface_texture = match self.surface.as_ref().unwrap().get_current_texture() {
+        // 5. Get current surface texture (with recovery)
+        let surface_texture = match self
+            .surface
+            .as_mut()
+            .unwrap()
+            .get_current_texture(&self.ctx)
+        {
             Some(tex) => tex,
             None => {
-                log::warn!("VulkanRenderer: surface texture unavailable");
+                self.render_errors += 1;
+                if self.render_errors > MAX_RENDER_ERRORS {
+                    log::error!(
+                        "VulkanRenderer: {} consecutive render failures, suggest fallback",
+                        self.render_errors,
+                    );
+                }
                 return false;
             }
         };
@@ -203,7 +252,7 @@ impl VulkanRenderer {
         );
 
         // 8. Encode and present (surface_texture consumed by present())
-        crate::gpu::frame::encode_and_present(
+        let presented = crate::gpu::frame::encode_and_present(
             &self.ctx.device,
             &self.ctx.queue,
             &self.pipeline,
@@ -212,7 +261,15 @@ impl VulkanRenderer {
             surface_texture,
             self.grid_cols,
             self.grid_rows,
-        )
+        );
+
+        if presented {
+            self.render_errors = 0;
+        } else {
+            self.render_errors += 1;
+        }
+
+        presented
     }
 
     /// Resize the surface and recreate the output texture.
@@ -235,6 +292,11 @@ impl VulkanRenderer {
         log::info!("VulkanRenderer destroyed");
     }
 
+    /// Get detailed GPU information for diagnostics.
+    pub fn gpu_info(&self) -> &GpuInfo {
+        &self.ctx.info
+    }
+
     /// Get the GPU adapter name for diagnostics.
     pub fn adapter_name(&self) -> String {
         self.ctx.adapter_name()
@@ -242,7 +304,14 @@ impl VulkanRenderer {
 
     /// Check if a surface is currently attached.
     pub fn has_surface(&self) -> bool {
-        self.surface.as_ref().is_some_and(|s| s.is_attached())
+        self.surface
+            .as_ref()
+            .is_some_and(|s| s.is_attached() && !s.is_errored())
+    }
+
+    /// Check if renderer has exceeded error threshold and should fall back.
+    pub fn should_fallback(&self) -> bool {
+        self.render_errors > MAX_RENDER_ERRORS
     }
 
     // -- private helpers --
@@ -280,8 +349,12 @@ impl Renderer for VulkanRenderer {
         if (self.atlas.font_size() - config.font_size).abs() > 0.1 {
             self.atlas = GlyphAtlas::new(config.font_size);
             self.atlas.pre_rasterize_ascii();
-            self.atlas_texture
-                .upload_full(&self.ctx.queue, self.atlas.bitmap(), ATLAS_WIDTH, ATLAS_HEIGHT);
+            self.atlas_texture.upload_full(
+                &self.ctx.queue,
+                self.atlas.bitmap(),
+                self.atlas_w,
+                self.atlas_h,
+            );
             self.atlas.clear_dirty();
         }
     }

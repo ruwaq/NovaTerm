@@ -38,4 +38,14 @@ internal object NativeRenderer {
 
     /** Destroy GPU renderer and all resources. */
     external fun nativeDestroyGpu(handle: Long)
+
+    /**
+     * Get GPU info as pipe-delimited string:
+     * "name|vendor|driver|backend|device_type|max_tex|max_ssbo|max_invocations"
+     * Returns null if handle is invalid.
+     */
+    external fun nativeGetGpuInfo(handle: Long): String?
+
+    /** Check if renderer recommends falling back to software rendering. */
+    external fun nativeShouldFallback(handle: Long): Boolean
 }

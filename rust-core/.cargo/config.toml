@@ -6,11 +6,11 @@
 # Solo necesitamos esto si compilamos sin cargo-ndk
 # linker = "aarch64-linux-android30-clang"
 
-# Runner para tests via ADB (opcional)
-runner = "cargo ndk-runner"
+# Runner para tests via ADB (solo cross-compile, no aplica en Termux)
+# runner = "cargo ndk-runner"
 
 [target.armv7-linux-androideabi]
-runner = "cargo ndk-runner"
+# runner = "cargo ndk-runner"
 
 [env]
 # Defaults para cargo-ndk (pueden override con env vars)

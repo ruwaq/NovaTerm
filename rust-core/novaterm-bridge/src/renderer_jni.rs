@@ -2,6 +2,7 @@
 // Package: com.novaterm.core.session.engine  Class: NativeRenderer
 //
 // Manages VulkanRenderer lifecycle from Kotlin via JNI handles.
+// Includes GPU diagnostics (vendor, name, capabilities) for multi-GPU support.
 
 #[cfg(feature = "gpu")]
 use crate::renderer_map;
@@ -10,7 +11,7 @@ use crate::session_map;
 #[cfg(feature = "gpu")]
 use jni::objects::{JClass, JObject};
 #[cfg(feature = "gpu")]
-use jni::sys::{jboolean, jint, jlong, JNI_FALSE, JNI_TRUE};
+use jni::sys::{jboolean, jint, jlong, jstring, JNI_FALSE, JNI_TRUE};
 #[cfg(feature = "gpu")]
 use jni::EnvUnowned;
 #[cfg(feature = "gpu")]
@@ -98,7 +99,9 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
         });
 
         // Release the native window reference (wgpu Surface holds its own ref)
-        unsafe { ANativeWindow_release(native_window); }
+        unsafe {
+            ANativeWindow_release(native_window);
+        }
 
         if attached != Some(true) {
             log::error!("NativeRenderer: attach failed for handle={}", handle);
@@ -183,4 +186,75 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
         renderer_map::destroy(handle as u64);
         log::info!("NativeRenderer destroyed: handle={}", handle);
     });
+}
+
+/// Get GPU information as a pipe-delimited string:
+/// "name|vendor|driver|backend|device_type|max_tex|max_ssbo|max_invocations"
+///
+/// Returns null if handle is invalid.
+#[cfg(feature = "gpu")]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nativeGetGpuInfo<
+    'local,
+>(
+    mut env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    handle: jlong,
+) -> jstring {
+    let result = panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let info_str = renderer_map::with_renderer(handle as u64, |r| {
+            let info = r.gpu_info();
+            format!(
+                "{}|{}|{}|{}|{}|{}|{}|{}",
+                info.name,
+                info.vendor,
+                info.driver,
+                info.backend,
+                info.device_type,
+                info.max_texture_2d,
+                info.max_storage_buffer,
+                info.max_workgroup_invocations,
+            )
+        });
+
+        match info_str {
+            Some(s) => {
+                let mut jstr: jstring = std::ptr::null_mut();
+                let _ = env.with_env(|e| -> Result<(), jni::errors::Error> {
+                    match e.new_string(&s) {
+                        Ok(js) => {
+                            jstr = js.into_raw();
+                        }
+                        Err(err) => {
+                            log::error!("Failed to create Java string: {}", err);
+                        }
+                    }
+                    Ok(())
+                });
+                jstr
+            }
+            None => std::ptr::null_mut(),
+        }
+    }));
+    result.unwrap_or(std::ptr::null_mut())
+}
+
+/// Check if the renderer recommends falling back to software rendering.
+/// Returns JNI_TRUE if too many consecutive render errors have occurred.
+#[cfg(feature = "gpu")]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nativeShouldFallback(
+    _env: EnvUnowned,
+    _class: JClass,
+    handle: jlong,
+) -> jboolean {
+    let result = panic::catch_unwind(|| {
+        let should = renderer_map::with_renderer(handle as u64, |r| r.should_fallback());
+        if should == Some(true) {
+            JNI_TRUE
+        } else {
+            JNI_FALSE
+        }
+    });
+    result.unwrap_or(JNI_FALSE)
 }
