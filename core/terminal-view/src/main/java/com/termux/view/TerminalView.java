@@ -525,15 +525,20 @@ public final class TerminalView extends View {
             }
         }
 
-        if (!skipScrolling && mTopRow != 0) {
-            // Scroll down if not already there.
-            if (mTopRow < -3) {
-                // Awaken scroll bars only if scrolling a noticeable amount
-                // - we do not want visible scroll bars during normal typing
-                // of one row at a time.
-                awakenScrollBars();
+        if (!skipScrolling) {
+            if (mTopRow == 0) {
+                // User is at the bottom — stay at the bottom as new output arrives.
+                // This is the normal auto-scroll behavior.
+            } else {
+                // User has scrolled up to read history — do NOT yank them to the
+                // bottom. New output grows below the viewport. Auto-scroll resumes
+                // when the user scrolls back to bottom or types a key.
+                // Adjust mTopRow to compensate for new lines pushed into scrollback,
+                // keeping the viewport on the same content.
+                int rowShift = mEmulator.getScrollCounter();
+                int minTopRow = -mEmulator.getScreen().getActiveTranscriptRows();
+                mTopRow = Math.max(minTopRow, mTopRow - rowShift);
             }
-            mTopRow = 0;
         }
 
         mEmulator.clearScrollCounter();
@@ -852,6 +857,16 @@ public final class TerminalView extends View {
         if (mEmulator == null) return true;
         if (isSelectingText()) {
             stopTextSelectionMode();
+        }
+
+        // Snap to bottom on keyboard input (standard terminal behavior).
+        // Modifier-only keys and pure navigation (PgUp/PgDn) are excluded
+        // so the user can browse history without snapping.
+        if (mTopRow != 0 && !isModifierOnlyKey(keyCode)
+                && keyCode != KeyEvent.KEYCODE_PAGE_UP
+                && keyCode != KeyEvent.KEYCODE_PAGE_DOWN) {
+            mTopRow = 0;
+            invalidate();
         }
 
         if (mClient.onKeyDown(keyCode, event, mTermSession)) {
@@ -1204,6 +1219,16 @@ public final class TerminalView extends View {
     /** Returns true if the terminal is scrolled up (not showing the current output). */
     public boolean isScrolledUp() {
         return mTopRow < 0;
+    }
+
+    /** Returns true if the keyCode is a modifier-only key (Shift, Ctrl, Alt, Meta). */
+    private static boolean isModifierOnlyKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT
+            || keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
+            || keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT
+            || keyCode == KeyEvent.KEYCODE_META_LEFT || keyCode == KeyEvent.KEYCODE_META_RIGHT
+            || keyCode == KeyEvent.KEYCODE_CAPS_LOCK || keyCode == KeyEvent.KEYCODE_NUM_LOCK
+            || keyCode == KeyEvent.KEYCODE_FUNCTION;
     }
 
     /**
