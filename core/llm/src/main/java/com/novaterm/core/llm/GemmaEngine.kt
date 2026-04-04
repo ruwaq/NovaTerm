@@ -32,28 +32,33 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
 
     private var backend: InferenceBackend? = null
 
+    /** Guards against concurrent initialization. */
+    private val initMutex = Mutex()
+
     override suspend fun initialize(): Boolean = withContext(Dispatchers.IO) {
-        if (_state.value == LlmState.READY) return@withContext true
+        initMutex.withLock {
+            if (_state.value == LlmState.READY) return@withContext true
 
-        _state.value = LlmState.LOADING
+            _state.value = LlmState.LOADING
 
-        if (!config.modelExists) {
-            Log.w(TAG, "Model not found: ${config.modelPath}")
-            _state.value = LlmState.MODEL_NOT_FOUND
-            return@withContext false
-        }
+            if (!config.modelExists) {
+                Log.w(TAG, "Model not found: ${config.modelPath}")
+                _state.value = LlmState.MODEL_NOT_FOUND
+                return@withContext false
+            }
 
-        try {
-            val b = LiteRtBackend(java.io.File(config.modelPath), config.numThreads)
-            b.load()
-            backend = b
-            _state.value = LlmState.READY
-            Log.i(TAG, "Gemma model loaded: ${config.modelPath}")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model", e)
-            _state.value = LlmState.ERROR
-            false
+            try {
+                val b = LiteRtBackend(java.io.File(config.modelPath), config.numThreads)
+                b.load()
+                backend = b
+                _state.value = LlmState.READY
+                Log.i(TAG, "Gemma model loaded: ${config.modelPath}")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load model", e)
+                _state.value = LlmState.ERROR
+                false
+            }
         }
     }
 

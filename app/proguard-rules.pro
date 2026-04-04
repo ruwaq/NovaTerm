@@ -61,6 +61,13 @@
 # Compose compiler handles most of this, but keep @Composable metadata
 -keep class androidx.compose.runtime.** { *; }
 
+# === LiteRT (on-device LLM inference, loaded via reflection) ===
+-keep class com.google.ai.edge.litert.** { *; }
+-keepclassmembers class com.google.ai.edge.litert.** {
+    public <methods>;
+    public <fields>;
+}
+
 # === Ktor (MCP server) ===
 # java.lang.management not available on Android
 -dontwarn java.lang.management.ManagementFactory

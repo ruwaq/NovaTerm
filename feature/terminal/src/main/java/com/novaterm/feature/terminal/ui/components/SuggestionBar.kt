@@ -62,8 +62,8 @@ fun SuggestionBar(
                 .padding(horizontal = 8.dp, vertical = 2.dp)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, dragAmount ->
-                        // Swipe down to dismiss
-                        if (dragAmount > 20f) onDismiss()
+                        // Swipe down to dismiss (60f threshold avoids accidental triggers)
+                        if (dragAmount > 60f) onDismiss()
                     }
                 },
             verticalAlignment = Alignment.CenterVertically,
@@ -92,7 +92,7 @@ fun SuggestionBar(
             // Keyboard hint
             Text(
                 text = "Tab ↵",
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
             )

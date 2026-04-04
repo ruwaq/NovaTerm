@@ -75,20 +75,20 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, service) {
-        service?.bellEnabled = preferences.bellEnabled
-        service?.useRustBackend = preferences.useRustBackend
+        service?.bellEnabled?.set(preferences.bellEnabled)
+        service?.useRustBackend?.set(preferences.useRustBackend)
     }
 
     // Sync MCP preferences to service and start/stop server
     LaunchedEffect(preferences.mcpEnabled, preferences.mcpPort, service) {
-        service?.mcpEnabled = preferences.mcpEnabled
-        service?.mcpPort = preferences.mcpPort
+        service?.mcpEnabled?.set(preferences.mcpEnabled)
+        service?.mcpPort?.set(preferences.mcpPort)
         service?.startMcpServerIfEnabled()
     }
 
     // Sync LLM preference — only loads model when user enables it
     LaunchedEffect(preferences.llmEnabled, service) {
-        service?.llmEnabled = preferences.llmEnabled
+        service?.llmEnabled?.set(preferences.llmEnabled)
         service?.updateLlmState()
     }
 
@@ -277,6 +277,11 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                 // space, pushing terminal content to the middle of the screen.
             ) {
                 if (sessions.isNotEmpty()) {
+                    // Clear onScreenUpdated callback when this composable leaves
+                    androidx.compose.runtime.DisposableEffect(service) {
+                        onDispose { service?.onScreenUpdated = null }
+                    }
+
                     HorizontalPager(
                         state = pagerState,
                         userScrollEnabled = false,
@@ -318,7 +323,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                             // Read current page at callback time, not capture time
                                             val currentPage = pagerState.settledPage
                                             val session = sessions.getOrNull(currentPage)
-                                            if (session != null && service?.useRustBackend == true) {
+                                            if (session != null && service?.useRustBackend?.get() == true) {
                                                 val engine = service?.getRustEngine(session.mHandle)
                                                 if (engine != null) {
                                                     val grid = engine.getGrid()
@@ -362,8 +367,9 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
 
     // ── History search ───────────────────────────────────────
     if (showHistory) {
-        val blocks = remember(service, pagerState.currentPage) {
-            service?.blockStore?.getRecentBlocks("session_${pagerState.currentPage}")
+        val sessionId = remember(pagerState.currentPage) { "session_${pagerState.currentPage}" }
+        val blocks = remember(service, sessionId) {
+            service?.blockStore?.getRecentBlocks(sessionId)
                 ?.map { block ->
                     HistoryEntry(
                         command = block.command, cwd = block.cwd,

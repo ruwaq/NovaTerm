@@ -55,30 +55,38 @@ public final class TerminalView extends View {
     public TerminalEmulator mEmulator;
 
     // ── Rust backend (Phase 2) ──────────────────────────────
-    /** When non-null, rendering uses this grid instead of mEmulator. */
-    private volatile int[] mRustGrid;
-    private volatile int mRustGridRows;
-    private volatile int mRustGridCols;
-    private volatile int mRustCursorRow;
-    private volatile int mRustCursorCol;
-    private volatile int mRustCursorShape = 2; // Beam default
-    private volatile boolean mRustCursorVisible = true;
+    /** Immutable snapshot of the Rust grid state — avoids race conditions
+     *  from volatile fields being written non-atomically. */
+    static final class RustGridSnapshot {
+        final int[] grid;
+        final int rows, cols, cursorRow, cursorCol, cursorShape;
+        final boolean cursorVisible;
+        RustGridSnapshot(int[] grid, int rows, int cols,
+                         int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible) {
+            this.grid = grid; this.rows = rows; this.cols = cols;
+            this.cursorRow = cursorRow; this.cursorCol = cursorCol;
+            this.cursorShape = cursorShape; this.cursorVisible = cursorVisible;
+        }
+    }
+
+    /** When non-null, rendering uses this grid instead of mEmulator.
+     *  Single volatile reference ensures atomic publish of all grid fields. */
+    private volatile RustGridSnapshot mRustGridSnapshot;
 
     /** Set the Rust grid data for rendering. Call from main thread. */
     public void setRustGrid(int[] grid, int rows, int cols,
                             int cursorRow, int cursorCol, int cursorShape, boolean cursorVisible) {
-        mRustGrid = grid;
-        mRustGridRows = rows;
-        mRustGridCols = cols;
-        mRustCursorRow = cursorRow;
-        mRustCursorCol = cursorCol;
-        mRustCursorShape = cursorShape;
-        mRustCursorVisible = cursorVisible;
+        if (grid != null && grid.length != rows * cols * 4) {
+            clearRustGrid(); // Dimension mismatch — fall back to Java renderer
+            return;
+        }
+        mRustGridSnapshot = new RustGridSnapshot(grid, rows, cols,
+            cursorRow, cursorCol, cursorShape, cursorVisible);
     }
 
     /** Clear Rust grid — falls back to Java emulator rendering. */
     public void clearRustGrid() {
-        mRustGrid = null;
+        mRustGridSnapshot = null;
     }
 
     public TerminalRenderer mRenderer;
@@ -1109,16 +1117,16 @@ public final class TerminalView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        final int[] rustGrid = mRustGrid;
-        if (rustGrid != null && mRenderer != null) {
-            // Phase 2: Render from Rust backend grid
+        final RustGridSnapshot snap = mRustGridSnapshot;
+        if (snap != null && snap.grid != null && mRenderer != null) {
+            // Phase 2: Render from Rust backend grid (atomic snapshot)
             canvas.drawColor(0xFF282828); // Gruvbox dark bg
             int[] sel = mDefaultSelectors;
             if (mTextSelectionCursorController != null) {
                 mTextSelectionCursorController.getSelectors(sel);
             }
-            mRenderer.renderFromGrid(rustGrid, mRustGridRows, mRustGridCols,
-                mRustCursorRow, mRustCursorCol, mRustCursorShape, mRustCursorVisible,
+            mRenderer.renderFromGrid(snap.grid, snap.rows, snap.cols,
+                snap.cursorRow, snap.cursorCol, snap.cursorShape, snap.cursorVisible,
                 canvas, 0, sel[0], sel[1], sel[2], sel[3]);
             renderTextSelection();
         } else if (mEmulator == null) {
@@ -1494,15 +1502,16 @@ public final class TerminalView extends View {
 
         public void run() {
             try {
-                if (mEmulator != null) {
-                    // Toggle the blink state and then invalidate() the view so
-                    // that onDraw() is called, which then calls TerminalRenderer.render()
-                    // which checks with TerminalEmulator.shouldCursorBeVisible() to decide whether
-                    // to draw the cursor or not
+                final TerminalEmulator em = mEmulator; // Snapshot to avoid race
+                if (em != null && mRenderer != null) {
                     mCursorVisible = !mCursorVisible;
-                    //mClient.logVerbose(LOG_TAG, "Toggling cursor blink state to " + mCursorVisible);
-                    mEmulator.setCursorBlinkState(mCursorVisible);
-                    invalidate();
+                    em.setCursorBlinkState(mCursorVisible);
+                    // Only invalidate the cursor cell region, not the entire screen.
+                    int cursorX = em.getCursorCol() * mRenderer.mFontWidth;
+                    int cursorY = (em.getCursorRow() + mTopRow + em.getScreen().getActiveRows() - em.mRows)
+                                  * mRenderer.mFontLineSpacing;
+                    invalidate(cursorX, cursorY,
+                        cursorX + mRenderer.mFontWidth, cursorY + mRenderer.mFontLineSpacing);
                 }
             } finally {
                 // Recall the Runnable after mBlinkRate milliseconds to toggle the blink state

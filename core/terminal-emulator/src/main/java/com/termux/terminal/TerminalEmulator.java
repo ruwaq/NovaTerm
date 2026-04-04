@@ -2225,10 +2225,15 @@ public final class TerminalEmulator {
                 // Used by shells to report CWD changes. AI CLIs like OpenCode read this.
                 // Format: OSC 7 ; file://hostname/path ST
                 if (textParameter.startsWith("file://")) {
-                    int pathStart = textParameter.indexOf('/', 7); // skip file://
-                    if (pathStart >= 0) {
-                        String cwd = textParameter.substring(pathStart);
-                        mSession.onOsc7WorkingDirectory(cwd);
+                    int pathStart = textParameter.indexOf('/', 7); // skip file://host
+                    if (pathStart > 0) { // Must be > 0, not >= 0 (indexOf returns -1 if absent)
+                        try {
+                            String cwd = java.net.URLDecoder.decode(
+                                textParameter.substring(pathStart), "UTF-8");
+                            mSession.onOsc7WorkingDirectory(cwd);
+                        } catch (Exception e) {
+                            // Malformed URL encoding — ignore silently
+                        }
                     }
                 }
                 break;
@@ -2687,6 +2692,10 @@ public final class TerminalEmulator {
 
     /** If DECSET 2004 is set, prefix paste with "\033[200~" and suffix with "\033[201~". */
     public void paste(String text) {
+        // Limit paste size to 1MB to prevent OOM on huge clipboard content.
+        if (text.length() > 1_000_000) {
+            text = text.substring(0, 1_000_000);
+        }
         // First: Always remove escape key and C1 control characters [0x80,0x9F]:
         text = text.replaceAll("(\u001B|[\u0080-\u009F])", "");
         // Second: Replace all newlines (\n) or CRLF (\r\n) with carriage returns (\r).

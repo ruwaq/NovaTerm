@@ -25,19 +25,17 @@ pub fn create_backend(rows: u32, cols: u32) -> u64 {
 }
 
 /// Execute a closure with mutable access to a backend.
-/// Returns None if the handle is invalid.
+/// Returns None if the handle is invalid or the lock is contended.
 ///
-/// Safety note on deadlock: This acquires BACKENDS.read() then mutex.lock().
-/// destroy_backend() acquires BACKENDS.write(). parking_lot's RwLock is
-/// write-preferring, so read→write on the same thread would deadlock.
-/// NEVER call destroy_backend() from within a with_backend() closure.
+/// Uses try_read + try_lock to prevent deadlock: if destroy_backend() holds
+/// a write lock (or is waiting for one), we return None instead of blocking.
 pub fn with_backend<F, R>(handle: u64, f: F) -> Option<R>
 where
     F: FnOnce(&mut AlacrittyBackend) -> R,
 {
-    let backends = BACKENDS.read();
+    let backends = BACKENDS.try_read()?;
     let mutex = backends.get(&handle)?;
-    let mut backend = mutex.lock();
+    let mut backend = mutex.try_lock()?;
     Some(f(&mut backend))
 }
 

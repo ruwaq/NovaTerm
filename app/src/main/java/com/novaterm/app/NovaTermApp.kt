@@ -69,6 +69,8 @@ class NovaTermApp : Application() {
         ).apply {
             description = getString(R.string.notification_channel_service_desc)
             setShowBadge(false)
+            enableVibration(false)
+            setSound(null, null)
         }
 
         val alertsChannel = NotificationChannel(

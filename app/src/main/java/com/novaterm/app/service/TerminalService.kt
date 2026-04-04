@@ -102,14 +102,14 @@ class TerminalService : Service() {
         private set
     var llmEngine: LlmEngine? = null
         private set
-    @Volatile var llmEnabled: Boolean = false
+    val llmEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
 
-    // ── Preferences bridge ──────────────────────────────────
+    // ── Preferences bridge (atomic for cross-thread safety) ──
 
-    @Volatile var bellEnabled: Boolean = true
-    @Volatile var useRustBackend: Boolean = false
-    @Volatile var mcpEnabled: Boolean = false
-    @Volatile var mcpPort: Int = McpServerConfig.DEFAULT_PORT
+    val bellEnabled = java.util.concurrent.atomic.AtomicBoolean(true)
+    val useRustBackend = java.util.concurrent.atomic.AtomicBoolean(false)
+    val mcpEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
+    val mcpPort = java.util.concurrent.atomic.AtomicInteger(McpServerConfig.DEFAULT_PORT)
 
     // ── Rust engine instances (Phase 2) ────────────────────
 
@@ -142,7 +142,7 @@ class TerminalService : Service() {
 
         override fun onTextChanged(changedSession: TerminalSession) {
             // Phase 2 validation: log Rust engine state on every screen update
-            if (useRustBackend) {
+            if (useRustBackend.get()) {
                 validateRustEngine(changedSession)
             }
 
@@ -177,13 +177,15 @@ class TerminalService : Service() {
         override fun onPasteTextFromClipboard(session: TerminalSession?) {
             val clip = clipboardManager.primaryClip
             if (clip != null && clip.itemCount > 0) {
-                val text = clip.getItemAt(0).coerceToText(this@TerminalService)
-                session?.write(text.toString())
+                val text = clip.getItemAt(0).coerceToText(this@TerminalService).toString()
+                // Use the emulator's paste() method which handles bracketed paste mode
+                // (DECSET 2004: wraps with ESC[200~ / ESC[201~) and strips C1 controls.
+                session?.emulator?.paste(text)
             }
         }
 
         override fun onBell(session: TerminalSession) {
-            if (!bellEnabled) return
+            if (!bellEnabled.get()) return
 
             val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
@@ -278,18 +280,18 @@ class TerminalService : Service() {
         mcpServer?.stop()
         mcpServer = null
 
-        if (!mcpEnabled) return
+        if (!mcpEnabled.get()) return
 
         try {
             val config = McpServerConfig(
                 enabled = true,
-                port = mcpPort,
+                port = mcpPort.get(),
             )
             val bridge = ServiceMcpBridge()
             val server = McpServer(config, bridge)
             server.start()
             mcpServer = server
-            Log.i(TAG, "MCP server started on port $mcpPort")
+            Log.i(TAG, "MCP server started on port ${mcpPort.get()}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start MCP server", e)
         }
@@ -303,7 +305,7 @@ class TerminalService : Service() {
         llmEngine?.release()
         llmEngine = null
 
-        if (!llmEnabled || !modelManager.isModelReady()) return
+        if (!llmEnabled.get() || !modelManager.isModelReady()) return
 
         val modelPath = modelManager.getModelPath() ?: return
         val selectedModel = modelManager.getSelectedModel()
@@ -313,24 +315,22 @@ class TerminalService : Service() {
                 modelFamily = selectedModel?.family ?: ModelCatalog.ModelFamily.GEMMA4,
             )
             val engine = GemmaEngine(config)
-            // Initialize on daemon thread — only assign llmEngine AFTER successful init
-            Thread {
+            // Initialize on IO dispatcher — only assign llmEngine AFTER successful init
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 try {
-                    kotlinx.coroutines.runBlocking {
-                        val success = engine.initialize()
-                        if (success) {
-                            llmEngine = engine
-                            Log.i(TAG, "LLM engine initialized successfully")
-                        } else {
-                            Log.w(TAG, "LLM initialization failed")
-                            engine.release()
-                        }
+                    val success = engine.initialize()
+                    if (success) {
+                        llmEngine = engine
+                        Log.i(TAG, "LLM engine initialized successfully")
+                    } else {
+                        Log.w(TAG, "LLM initialization failed")
+                        engine.release()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "LLM initialization error", e)
                     engine.release()
                 }
-            }.apply { isDaemon = true }.start()
+            }
             Log.i(TAG, "LLM engine loading in background...")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create LLM engine", e)
@@ -457,7 +457,7 @@ class TerminalService : Service() {
             Log.i(TAG, "Session created: pid=${session.pid} running=${session.isRunning}")
 
             // Attach Rust VT engine if enabled (Phase 2 dual-run mode)
-            if (useRustBackend) {
+            if (useRustBackend.get()) {
                 try {
                     val factory = rustEngineFactory ?: RustEngine.Factory().also { rustEngineFactory = it }
                     val engine = factory.create(TerminalDimensions(rows = 24, columns = 80))

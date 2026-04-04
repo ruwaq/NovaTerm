@@ -83,8 +83,7 @@ pub struct ChildSetup {
     _argv_storage: Vec<CString>,
     /// `KEY=VALUE` pairs as CStrings.
     env_storage: Vec<CString>,
-    /// NULL-terminated envp array (used for potential future `posix_spawn` path).
-    #[allow(dead_code)]
+    /// NULL-terminated envp array passed to execve().
     envp_ptrs: Vec<*const libc::c_char>,
 }
 
@@ -304,17 +303,11 @@ pub fn create_subprocess(
             // Close all other fds (including master via O_CLOEXEC, but be safe).
             close_fds_except(-1);
 
-            // Clear environment and set new variables.
-            libc::clearenv();
-            for cstr in &setup.env_storage {
-                libc::putenv(cstr.as_ptr() as *mut libc::c_char);
-            }
-
             // Change directory.
             libc::chdir(setup.cwd.as_ptr());
 
-            // Exec the shell.
-            libc::execv(setup.shell.as_ptr(), setup.argv_ptrs.as_ptr());
+            // Exec the shell with pre-built envp (avoids putenv dangling pointers).
+            libc::execve(setup.shell.as_ptr(), setup.argv_ptrs.as_ptr(), setup.envp_ptrs.as_ptr());
 
             // If execv returns, exit with error code.
             libc::_exit(127);

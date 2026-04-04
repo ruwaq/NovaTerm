@@ -30,6 +30,9 @@ impl ByteBuffer {
     fn is_empty(&self) -> bool {
         self.data.lock().is_empty()
     }
+    fn len(&self) -> usize {
+        self.data.lock().len()
+    }
 }
 
 /// Complete terminal session: PTY + VT parser + I/O threads.
@@ -74,6 +77,11 @@ impl RustSession {
         }
 
         // Reader: PTY → read_buffer
+        // Set O_NONBLOCK so read() won't hang when the child exits and we set alive=false.
+        unsafe {
+            let flags = libc::fcntl(reader_raw, libc::F_GETFL);
+            libc::fcntl(reader_raw, libc::F_SETFL, flags | libc::O_NONBLOCK);
+        }
         let rb = read_buffer.clone();
         let ar = alive.clone();
         thread::Builder::new()
@@ -83,8 +91,13 @@ impl RustSession {
                 let mut buf = [0u8; 8192];
                 while ar.load(Ordering::Relaxed) {
                     match file.read(&mut buf) {
-                        Ok(0) | Err(_) => break,
+                        Ok(0) => break,
                         Ok(n) => rb.push(&buf[..n]),
+                        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            // No data available yet — sleep briefly to avoid busy-spin
+                            thread::park_timeout(std::time::Duration::from_millis(1));
+                        }
+                        Err(_) => break,
                     }
                 }
             })
@@ -136,8 +149,13 @@ impl RustSession {
         n
     }
 
-    pub fn write(&self, data: &[u8]) {
+    pub fn write(&self, data: &[u8]) -> bool {
+        // Backpressure: reject writes if buffer exceeds 256KB to prevent OOM.
+        if self.write_buffer.len() > 256 * 1024 {
+            return false;
+        }
         self.write_buffer.push(data);
+        true
     }
 
     pub fn pid(&self) -> i32 {
