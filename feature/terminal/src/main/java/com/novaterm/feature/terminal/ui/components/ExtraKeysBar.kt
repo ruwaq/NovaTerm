@@ -341,8 +341,8 @@ private fun ExtraKeyButton(
     val buttonContent: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .height(44.dp)
-                .widthIn(min = 44.dp)
+                .height(48.dp)
+                .widthIn(min = 48.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(bgColor)
                 .semantics(mergeDescendants = true) {

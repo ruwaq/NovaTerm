@@ -105,9 +105,9 @@ fun HistorySearchSheet(
 
         // Apply sort and limit
         result = if (newestFirst) {
-            result.takeLast(100).reversed()
+            result.takeLast(500).reversed()
         } else {
-            result.take(100)
+            result.take(500)
         }
 
         result

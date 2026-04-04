@@ -64,58 +64,44 @@ fun BootstrapScreen(
     var showErrorActions by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        // Start with branding
+        // Consistent 100ms rhythm — fast but readable
         bootLines.add(BootLine("NovaTerm v${com.novaterm.app.BuildConfig.VERSION_NAME}", LineType.HEADER))
-        delay(200)
+        delay(100)
         bootLines.add(BootLine("Next-gen Android terminal", LineType.DIM))
-        delay(300)
+        delay(100)
         bootLines.add(BootLine("", LineType.BLANK))
 
-        // Boot sequence
         bootLines.add(BootLine("[ok] Terminal core loaded", LineType.OK))
-        delay(200)
+        delay(100)
         bootLines.add(BootLine("[ok] Gruvbox Ember theme applied", LineType.OK))
-        delay(150)
+        delay(100)
         bootLines.add(BootLine("[ok] 7 color schemes available", LineType.OK))
-        delay(200)
+        delay(100)
 
-        // First tip
         bootLines.add(BootLine("", LineType.BLANK))
         bootLines.add(BootLine("  tip: swipe tabs to switch sessions", LineType.TIP))
-        delay(400)
-        bootLines.add(BootLine("", LineType.BLANK))
+        delay(100)
 
         // Start the actual install
         val success = installer.installIfNeeded()
 
         if (success) {
             bootLines.add(BootLine("[ok] Packages extracted", LineType.OK))
-            delay(150)
+            delay(80)
             bootLines.add(BootLine("[ok] bash, apt, coreutils ready", LineType.OK))
-            delay(200)
+            delay(80)
+            bootLines.add(BootLine("[ok] Shell environment configured", LineType.OK))
+            delay(80)
+            bootLines.add(BootLine("[ok] Session persistence active", LineType.OK))
+            delay(80)
 
-            // Second tip
             bootLines.add(BootLine("", LineType.BLANK))
             bootLines.add(BootLine("  tip: long-press extra keys for popups", LineType.TIP))
-            delay(300)
-            bootLines.add(BootLine("", LineType.BLANK))
-
-            bootLines.add(BootLine("[ok] Shell environment configured", LineType.OK))
-            delay(150)
-            bootLines.add(BootLine("[ok] Session persistence active", LineType.OK))
-            delay(200)
-
-            // Features showcase
-            bootLines.add(BootLine("", LineType.BLANK))
-            bootLines.add(BootLine("  ✓ Clickable URLs in output", LineType.FEATURE))
-            bootLines.add(BootLine("  ✓ Smart notifications", LineType.FEATURE))
-            bootLines.add(BootLine("  ✓ Command history search", LineType.FEATURE))
-            bootLines.add(BootLine("  ✓ Crash-safe session restore", LineType.FEATURE))
-            delay(400)
+            delay(100)
 
             bootLines.add(BootLine("", LineType.BLANK))
             bootLines.add(BootLine("[ok] Ready.", LineType.ACCENT))
-            delay(500)
+            delay(300)
 
             onComplete(true)
         } else {

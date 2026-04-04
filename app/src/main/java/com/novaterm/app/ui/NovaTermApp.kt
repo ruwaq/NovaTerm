@@ -227,6 +227,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                 sessions[safeIndex].write(accepted)
                             }
                         },
+                        onDismiss = { viewModel.dismissSuggestion() },
                     )
 
                     AnimatedVisibility(

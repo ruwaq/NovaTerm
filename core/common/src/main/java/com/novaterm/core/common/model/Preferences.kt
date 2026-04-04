@@ -22,7 +22,7 @@ data class TerminalConfig(
 
     companion object {
         const val DEFAULT_FONT_SIZE = 12
-        val FONT_SIZE_RANGE = 6..48
+        val FONT_SIZE_RANGE = 8..32
         val SCROLLBACK_RANGE = 0..100_000
     }
 }
