@@ -81,7 +81,7 @@ class SymlinksParserTest {
     }
 
     @Test
-    fun `real termux symlinks format`() {
+    fun `real bootstrap symlinks format`() {
         // Actual entries from a Termux bootstrap SYMLINKS.txt
         val content = """
             dash←bin/sh

@@ -6,7 +6,7 @@ import com.novaterm.core.common.model.TerminalDimensions
 /**
  * Strangler Fig interface for terminal emulation backends.
  *
- * Phase 1 (current): LegacyTermuxEngine wraps Java TerminalEmulator
+ * Phase 1 (current): LegacyEngine wraps Java TerminalEmulator
  * Phase 2 (migration): RustEngine wraps Rust alacritty_terminal via JNI
  *
  * The SessionManager owns PTY lifecycle. The engine only handles

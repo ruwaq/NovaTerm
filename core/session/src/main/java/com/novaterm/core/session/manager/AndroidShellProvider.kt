@@ -167,14 +167,18 @@ class AndroidShellProvider(
             android.util.Log.w("NovaTerm", "LD_PRELOAD forced (File.exists failed): $fallback")
         }
 
-        // Termux-exec environment (tells termux-exec where the app lives)
+        // NovaTerm environment — our own vars (preferred by future NovaTerm packages)
+        env["NOVATERM__ROOTFS"] = rootDir
+        env["NOVATERM__PREFIX"] = prefix
+        env["NOVATERM_APP__DATA_DIR"] = context.applicationInfo.dataDir
+
+        // Termux-exec compatibility — required by termux-exec LD_PRELOAD and
+        // any Termux packages that read these vars at runtime.
+        // Keep these until we have our own package repo with NovaTerm paths.
         env["TERMUX__ROOTFS"] = rootDir
         env["TERMUX__PREFIX"] = prefix
         env["TERMUX_APP__DATA_DIR"] = context.applicationInfo.dataDir
-        // Legacy data dir path (some Android versions use /data/data/, others /data/user/0/)
         env["TERMUX_APP__LEGACY_DATA_DIR"] = "/data/data/${context.packageName}"
-        // Force termux-exec to use system linker for ALL binaries under our prefix.
-        // This overrides compiled-in defaults that may still reference com.termux.
         env["TERMUX_EXEC__SYSTEM_LINKER_EXEC__MODE"] = "enable"
 
         System.getenv("ANDROID_DATA")?.let { env["ANDROID_DATA"] = it }

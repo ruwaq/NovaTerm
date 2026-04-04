@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests the SessionEvent flow contract used by TermuxSessionManager.
+ * Tests the SessionEvent flow contract used by SessionManager.
  * Uses channels directly to verify the event protocol without needing
  * a real TerminalSession (which requires Android PTY).
  */

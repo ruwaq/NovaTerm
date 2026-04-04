@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Unlike [RustEngine] (which only handles VT parsing, with PTY in Java),
  * this engine manages EVERYTHING in Rust via [NativeSession]:
- * - PTY fork/exec (replaces termux.c)
+ * - PTY fork/exec (replaces legacy C PTY)
  * - Reader/writer daemon threads
  * - VT parsing (alacritty_terminal)
  * - Grid state

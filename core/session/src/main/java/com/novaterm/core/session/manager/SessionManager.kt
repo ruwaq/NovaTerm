@@ -22,14 +22,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.concurrent.atomic.AtomicInteger
 
-class TermuxSessionManager(
+class SessionManager(
     private val shellProvider: ShellProvider,
     private val transcriptRows: Int = TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
     private val engineFactory: TerminalEngineFactory? = null,
 ) : SessionManager {
 
     companion object {
-        private const val TAG = "TermuxSessionManager"
+        private const val TAG = "SessionManager"
     }
 
     private val nextId = AtomicInteger(1)
@@ -71,7 +71,7 @@ class TermuxSessionManager(
         val resolvedCwd = cwd ?: shellProvider.defaultWorkingDirectory()
         val envArray = shellProvider.buildEnvironment(env)
 
-        val termuxSession = TerminalSession(
+        val ptySession = TerminalSession(
             resolvedShell,
             resolvedCwd,
             arrayOf(resolvedShell),
@@ -85,7 +85,7 @@ class TermuxSessionManager(
             try {
                 val dims = TerminalDimensions(rows = 24, columns = 80)
                 val eng = factory.create(dims)
-                termuxSession.setRawByteInterceptor { data, length ->
+                ptySession.setRawByteInterceptor { data, length ->
                     try {
                         eng.processBytes(data.copyOf(length))
                     } catch (e: Exception) {
@@ -102,7 +102,7 @@ class TermuxSessionManager(
 
         val managed = ManagedSession(
             id = id,
-            termuxSession = termuxSession,
+            ptySession = ptySession,
             initialCwd = resolvedCwd,
             engine = engine,
         )
@@ -131,13 +131,13 @@ class TermuxSessionManager(
 
         // Clean up Rust engine resources
         managed.engine?.destroy()
-        managed.termuxSession.setRawByteInterceptor(null)
+        managed.ptySession.setRawByteInterceptor(null)
 
-        val exitCode = if (managed.termuxSession.isRunning) {
-            managed.termuxSession.finishIfRunning()
+        val exitCode = if (managed.ptySession.isRunning) {
+            managed.ptySession.finishIfRunning()
             null
         } else {
-            managed.termuxSession.exitStatus
+            managed.ptySession.exitStatus
         }
 
         publishState()
@@ -169,27 +169,27 @@ class TermuxSessionManager(
     }
 
     override fun writeToSession(sessionId: Int, data: ByteArray) {
-        getManaged(sessionId)?.termuxSession?.write(data, 0, data.size)
+        getManaged(sessionId)?.ptySession?.write(data, 0, data.size)
     }
 
     override fun resizeSession(sessionId: Int, dimensions: TerminalDimensions) {
         val managed = getManaged(sessionId) ?: return
-        managed.termuxSession.updateSize(dimensions.columns, dimensions.rows, 0, 0)
+        managed.ptySession.updateSize(dimensions.columns, dimensions.rows, 0, 0)
         managed.engine?.resize(dimensions)
     }
 
     override fun sendSignal(sessionId: Int, signal: Int) {
-        getManaged(sessionId)?.termuxSession?.let { session ->
+        getManaged(sessionId)?.ptySession?.let { session ->
             android.os.Process.sendSignal(session.pid, signal)
         }
     }
 
-    fun getTermuxSession(sessionId: Int): TerminalSession? =
-        getManaged(sessionId)?.termuxSession
+    fun getSession(sessionId: Int): TerminalSession? =
+        getManaged(sessionId)?.ptySession
 
-    fun getTermuxSessionByIndex(index: Int): TerminalSession? {
+    fun getSessionByIndex(index: Int): TerminalSession? {
         val entries = synchronized(lock) { sessionMap.entries.toList() }
-        return entries.getOrNull(index)?.value?.termuxSession
+        return entries.getOrNull(index)?.value?.ptySession
     }
 
     fun sessionCount(): Int = synchronized(lock) { sessionMap.size }
@@ -206,12 +206,12 @@ class TermuxSessionManager(
         }
         sessions.forEach { managed ->
             managed.engine?.destroy()
-            managed.termuxSession.setRawByteInterceptor(null)
-            val exitCode = if (managed.termuxSession.isRunning) {
-                managed.termuxSession.finishIfRunning()
+            managed.ptySession.setRawByteInterceptor(null)
+            val exitCode = if (managed.ptySession.isRunning) {
+                managed.ptySession.finishIfRunning()
                 null
             } else {
-                managed.termuxSession.exitStatus
+                managed.ptySession.exitStatus
             }
             // Channel.UNLIMITED never returns failure, safe to ignore result
             _events.trySend(SessionEvent.Destroyed(managed.id, exitCode))
@@ -232,7 +232,7 @@ class TermuxSessionManager(
     private fun publishState() {
         val entries = synchronized(lock) { sessionMap.entries.toList() }
         _sessions.value = entries.map { (_, managed) ->
-            val ts = managed.termuxSession
+            val ts = managed.ptySession
             val isRunning = ts.isRunning
             SessionInfo(
                 id = managed.id,
@@ -248,7 +248,7 @@ class TermuxSessionManager(
 
 private data class ManagedSession(
     val id: Int,
-    val termuxSession: TerminalSession,
+    val ptySession: TerminalSession,
     val initialCwd: String,
     val engine: TerminalEngine? = null,
 )

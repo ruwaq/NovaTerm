@@ -18,7 +18,7 @@ import com.novaterm.terminal.TextStyle
  * In the legacy path, PTY bytes flow through TerminalSession's internal
  * threads, so processBytes() is a no-op here.
  */
-class LegacyTermuxEngine(
+class LegacyEngine(
     private val session: TerminalSession,
 ) : TerminalEngine {
 
@@ -99,7 +99,7 @@ class LegacyTermuxEngine(
     override fun drainPtyWrites(): ByteArray? = null
 
     override fun destroy() {
-        // Session lifecycle managed by TermuxSessionManager
+        // Session lifecycle managed by SessionManager
     }
 
     companion object {
