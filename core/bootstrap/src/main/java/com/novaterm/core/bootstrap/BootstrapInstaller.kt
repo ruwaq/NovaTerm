@@ -379,13 +379,12 @@ class BootstrapInstaller(private val context: Context) {
     // ── Permissions ───────────────────────────────────
 
     private fun setExecutePermissions(prefix: File) {
-        // Directories that contain executable files
+        // Directories that contain executable files (walked recursively)
         val execDirs = listOf("bin", "libexec", "lib/apt/methods")
         for (dir in execDirs) {
             val d = File(prefix, dir)
             if (!d.isDirectory) continue
-            d.listFiles()?.forEach { file ->
-                // Set +x on files AND symlinks (File.isFile returns false for symlinks)
+            d.walkTopDown().forEach { file ->
                 if (file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) {
                     file.setExecutable(true, true)  // owner-only
                     file.setReadable(true, true)
