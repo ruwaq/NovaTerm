@@ -277,19 +277,15 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                 // space, pushing terminal content to the middle of the screen.
             ) {
                 if (sessions.isNotEmpty()) {
-                    // Clear onScreenUpdated callback when this composable leaves
-                    androidx.compose.runtime.DisposableEffect(service) {
-                        onDispose { service?.onScreenUpdated = null }
-                    }
-
                     HorizontalPager(
                         state = pagerState,
                         userScrollEnabled = false,
                         modifier = Modifier.fillMaxSize(),
                     ) { page ->
                         if (page in sessions.indices) {
+                            val session = sessions[page]
                             TerminalScreen(
-                                session = sessions[page],
+                                session = session,
                                 fontSize = preferences.fontSize,
                                 colorScheme = preferences.colorScheme,
                                 keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
@@ -318,34 +314,38 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                     if (page == pagerState.settledPage) jumpToPrompt = nav
                                 },
                                 onViewReady = { terminalView ->
-                                    if (page == pagerState.settledPage) {
-                                        service?.onScreenUpdated = {
-                                            // Read current page at callback time, not capture time
-                                            val currentPage = pagerState.settledPage
-                                            val session = sessions.getOrNull(currentPage)
-                                            if (session != null && service?.useRustBackend?.get() == true) {
-                                                val engine = service?.getRustEngine(session.mHandle)
-                                                if (engine != null) {
-                                                    val grid = engine.getGrid()
-                                                    val cursor = engine.getCursor()
-                                                    if (grid != null) {
-                                                        val dims = engine.getDimensions()
-                                                        terminalView.setRustGrid(
-                                                            grid, dims.rows, dims.columns,
-                                                            cursor.row, cursor.column,
-                                                            2, true,
-                                                        )
-                                                    }
+                                    // Register per-session callback so ALL tabs get updates
+                                    val handle = session.mHandle
+                                    service?.registerScreenCallback(handle) {
+                                        if (service?.useRustBackend?.get() == true) {
+                                            val engine = service?.getRustEngine(handle)
+                                            if (engine != null) {
+                                                val grid = engine.getGrid()
+                                                val cursor = engine.getCursor()
+                                                if (grid != null) {
+                                                    val dims = engine.getDimensions()
+                                                    terminalView.setRustGrid(
+                                                        grid, dims.rows, dims.columns,
+                                                        cursor.row, cursor.column,
+                                                        2, true,
+                                                    )
                                                 }
-                                            } else {
-                                                terminalView.clearRustGrid()
                                             }
-                                            terminalView.onScreenUpdated()
+                                        } else {
+                                            terminalView.clearRustGrid()
                                         }
+                                        terminalView.onScreenUpdated()
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize(),
                             )
+
+                            // Unregister callback when this page leaves composition
+                            androidx.compose.runtime.DisposableEffect(session.mHandle) {
+                                onDispose {
+                                    service?.unregisterScreenCallback(session.mHandle)
+                                }
+                            }
                         }
                     }
                 } else {

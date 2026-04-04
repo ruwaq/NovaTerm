@@ -5,6 +5,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.novaterm.app.R
 import com.novaterm.app.ui.theme.LocalNovaTermColors
@@ -63,7 +67,7 @@ fun RenameSessionDialog(
     onRename: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text = currentName
+    var text by remember { mutableStateOf(currentName) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_rename_session_title)) },

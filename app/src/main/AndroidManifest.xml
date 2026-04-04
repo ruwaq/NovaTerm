@@ -21,6 +21,13 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- Permission that third-party apps must hold to send RUN_COMMAND intents -->
+    <permission
+        android:name="com.nvterm.permission.RUN_COMMAND"
+        android:protectionLevel="dangerous"
+        android:label="Run commands in NovaTerm"
+        android:description="@string/permission_run_command_description" />
+
     <application
         android:name=".NovaTermApp"
         android:allowBackup="false"
@@ -43,11 +50,33 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Allow other apps to run commands in NovaTerm -->
+            <intent-filter>
+                <action android:name="com.nvterm.RUN_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Deep linking via nvterm:// URI scheme -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nvterm" />
+            </intent-filter>
+
+            <!-- Receive shared text from other apps -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <service
             android:name=".service.TerminalService"
-            android:exported="false"
+            android:exported="true"
+            android:permission="com.nvterm.permission.RUN_COMMAND"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"

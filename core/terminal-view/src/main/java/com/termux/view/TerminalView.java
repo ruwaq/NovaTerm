@@ -244,12 +244,20 @@ public final class TerminalView extends View {
                 if (!mScroller.isFinished()) return true;
 
                 final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
-                // 0.8 balances responsiveness with control. Lower = sluggish, higher = overshoots.
-                float SCALE = 0.8f;
+                // 0.35 gives smooth, controllable scrolling on touch screens.
+                // Higher values cause the view to fly to the top/bottom of scrollback.
+                float SCALE = 0.35f;
+                // Clamp velocity to prevent extreme flings that jump thousands of lines
+                float clampedVelocity = Math.max(-6000f, Math.min(6000f, velocityY));
                 if (mouseTrackingAtStartOfFling) {
-                    mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
+                    mScroller.fling(0, 0, 0, -(int) (clampedVelocity * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
                 } else {
-                    mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
+                    // Cap fling range: max 3 screenfuls in either direction from current position
+                    int maxFlingRows = mEmulator.mRows * 3;
+                    int transcriptRows = mEmulator.getScreen().getActiveTranscriptRows();
+                    int minRow = Math.max(-transcriptRows, mTopRow - maxFlingRows);
+                    int maxRow = Math.min(0, mTopRow + maxFlingRows);
+                    mScroller.fling(0, mTopRow, 0, -(int) (clampedVelocity * SCALE), 0, 0, minRow, maxRow);
                 }
 
                 // Use postOnAnimation to sync with vsync (60/120 Hz) for smooth animation.
@@ -300,7 +308,9 @@ public final class TerminalView extends View {
                 }
             }
         });
+        // Higher friction (3x default) for smoother, more controllable scrollback on touch
         mScroller = new OverScroller(context);
+        mScroller.setFriction(android.view.ViewConfiguration.getScrollFriction() * 3f);
         mEdgeGlowTop = new EdgeEffect(context);
         mEdgeGlowBottom = new EdgeEffect(context);
         // Match Material3 overscroll color (subtle, not jarring)

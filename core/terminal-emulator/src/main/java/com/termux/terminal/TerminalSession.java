@@ -326,6 +326,11 @@ public final class TerminalSession extends TerminalOutput {
     }
 
     @Override
+    public String getClipboardText() {
+        return mClient.getClipboardText();
+    }
+
+    @Override
     public void onBell() {
         mClient.onBell(this);
     }

@@ -464,6 +464,18 @@ public final class TerminalBuffer {
         return allocateFullLineIfNecessary(externalToInternalRow(externalRow)).getStyle(column);
     }
 
+    /** Set an OSC 8 hyperlink URI for the cell at (column, row). Pass null to clear. */
+    public void setHyperlink(int column, int row, String uri) {
+        if (row < 0 || row >= mScreenRows || column < 0 || column >= mColumns) return;
+        allocateFullLineIfNecessary(externalToInternalRow(row)).setHyperlink(column, uri);
+    }
+
+    /** Get the OSC 8 hyperlink URI at (externalRow, column), or null if none. */
+    public String getHyperlink(int externalRow, int column) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        return (line != null) ? line.getHyperlink(column) : null;
+    }
+
     /** Support for http://vt100.net/docs/vt510-rm/DECCARA and http://vt100.net/docs/vt510-rm/DECCARA */
     public void setOrClearEffect(int bits, boolean setOrClear, boolean reverse, boolean rectangular, int leftMargin, int rightMargin, int top, int left,
                                  int bottom, int right) {

@@ -117,6 +117,11 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
             return ptr::null_mut();
         }
 
+        // Guard: unreasonable grid dimensions → return null (#11)
+        if snapshot.rows > 500 || snapshot.cols > 500 {
+            return ptr::null_mut();
+        }
+
         // Checked multiplication to avoid capacity overflow (#21)
         let cap = (snapshot.rows as usize)
             .checked_mul(snapshot.cols as usize)

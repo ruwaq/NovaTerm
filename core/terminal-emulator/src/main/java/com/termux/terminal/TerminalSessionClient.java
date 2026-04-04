@@ -20,6 +20,13 @@ public interface TerminalSessionClient {
 
     void onPasteTextFromClipboard(@Nullable TerminalSession session);
 
+    /**
+     * Get the current system clipboard text. Used by OSC 52 query to respond
+     * with clipboard contents. Returns null if clipboard is empty or unavailable.
+     */
+    @Nullable
+    default String getClipboardText() { return null; }
+
     void onBell(@NonNull TerminalSession session);
 
     void onColorsChanged(@NonNull TerminalSession session);

@@ -77,6 +77,9 @@ class MainActivity : ComponentActivity() {
             startTerminalService()
         }
 
+        // Handle the launching intent (RUN_COMMAND, SEND, VIEW nvterm://)
+        handleIncomingIntent(intent)
+
         setContent {
             val preferences = viewModel.preferences.collectAsState()
             val isDarkScheme = com.novaterm.core.common.model.ColorSchemes.isDark(preferences.value.colorScheme)
@@ -168,6 +171,72 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    /**
+     * Handle incoming intents from external apps:
+     * - RUN_COMMAND: execute a command in a new or existing session
+     * - SEND (text/plain): write shared text to the current session
+     * - VIEW (nvterm://): deep link, e.g. nvterm://run?cmd=ls
+     */
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+
+        when (intent.action) {
+            ACTION_RUN_COMMAND -> {
+                val command = intent.getStringExtra("command")
+                if (!command.isNullOrBlank()) {
+                    Log.i(TAG, "RUN_COMMAND intent: ${command.take(80)}")
+                    val cwd = intent.getStringExtra("cwd")
+                    val serviceIntent = Intent(this, TerminalService::class.java).apply {
+                        action = TerminalService.ACTION_RUN_COMMAND
+                        putExtra("command", command)
+                        if (!cwd.isNullOrBlank()) putExtra("cwd", cwd)
+                    }
+                    startForegroundService(serviceIntent)
+                }
+            }
+
+            Intent.ACTION_SEND -> {
+                if (intent.type == "text/plain") {
+                    val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    if (!sharedText.isNullOrBlank()) {
+                        Log.i(TAG, "SEND intent: ${sharedText.take(80)}")
+                        val serviceIntent = Intent(this, TerminalService::class.java).apply {
+                            action = TerminalService.ACTION_WRITE_INPUT
+                            putExtra("input", sharedText)
+                        }
+                        startForegroundService(serviceIntent)
+                    }
+                }
+            }
+
+            Intent.ACTION_VIEW -> {
+                val uri = intent.data
+                if (uri != null && uri.scheme == "nvterm") {
+                    Log.i(TAG, "VIEW intent: $uri")
+                    when (uri.host) {
+                        "run" -> {
+                            val cmd = uri.getQueryParameter("cmd")
+                            if (!cmd.isNullOrBlank()) {
+                                val serviceIntent = Intent(this, TerminalService::class.java).apply {
+                                    action = TerminalService.ACTION_RUN_COMMAND
+                                    putExtra("command", cmd)
+                                }
+                                startForegroundService(serviceIntent)
+                            }
+                        }
+                        // Future deep link paths can be added here
+                        else -> Log.w(TAG, "Unknown nvterm:// host: ${uri.host}")
+                    }
+                }
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         // Only bind if bootstrap is done — otherwise TerminalService creates
@@ -226,5 +295,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "NovaTerm"
+        private const val ACTION_RUN_COMMAND = "com.nvterm.RUN_COMMAND"
     }
 }

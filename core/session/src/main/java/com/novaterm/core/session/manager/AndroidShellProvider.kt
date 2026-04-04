@@ -120,6 +120,14 @@ class AndroidShellProvider(
         env["TERM_PROGRAM"] = "novaterm"
         env["TERM_PROGRAM_VERSION"] = appVersion
 
+        // Terminal dimensions: many CLI tools read LINES/COLUMNS before
+        // bash's checkwinsize can set them. Provide sensible defaults so
+        // tools like less, man, fzf, and column work correctly on launch.
+        // The actual size is set by the PTY ioctl (TIOCSWINSZ) and bash
+        // updates these via checkwinsize after the first command.
+        env["LINES"] = extraVars.getOrDefault("LINES", "40")
+        env["COLUMNS"] = extraVars.getOrDefault("COLUMNS", "120")
+
         // W^X bypass: termux-exec intercepts exec() calls and routes them
         // through /system/bin/linker64, which has permission to execute
         // binaries from the app's data directory. Required on Android 10+.

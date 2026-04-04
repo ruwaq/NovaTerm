@@ -41,8 +41,8 @@ fun StatusLine(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 3.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Prompt navigation: jump up

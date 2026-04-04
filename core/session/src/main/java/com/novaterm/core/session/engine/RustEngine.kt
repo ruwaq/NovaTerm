@@ -33,12 +33,14 @@ class RustEngine private constructor(
         NativeTerminal.nativeProcessBytes(h, data)
     }
 
+    @Synchronized
     override fun getGrid(): IntArray? {
         val h = validHandle()
         if (h < 0) return null
         return NativeTerminal.nativeGetGrid(h)
     }
 
+    @Synchronized
     override fun getCursor(): CursorPosition {
         val h = validHandle()
         if (h < 0) return CursorPosition(0, 0)
@@ -73,6 +75,7 @@ class RustEngine private constructor(
         NativeTerminal.nativeReset(h)
     }
 
+    @Synchronized
     override fun getDimensions(): TerminalDimensions {
         return TerminalDimensions(rows = rows, columns = cols)
     }
@@ -93,6 +96,7 @@ class RustEngine private constructor(
      * Atomically invalidate the handle, then destroy the native resource.
      * compareAndSet ensures only one thread performs the destroy.
      */
+    @Synchronized
     override fun destroy() {
         val h = handleRef.getAndSet(-1)
         if (h <= 0) return // Already destroyed or invalid

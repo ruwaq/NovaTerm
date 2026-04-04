@@ -36,15 +36,17 @@ class PreferencesRepository(context: Context) {
         prefs.edit().putBoolean("onboarding_completed", true).apply()
     }
 
+    @Synchronized
     fun update(newPrefs: TerminalPreferences) {
-        save(newPrefs)
         _preferences.value = newPrefs
+        save(newPrefs)
     }
 
+    @Synchronized
     fun resetToDefaults() {
         val defaults = TerminalPreferences()
-        save(defaults)
         _preferences.value = defaults
+        save(defaults)
     }
 
     private fun load(): TerminalPreferences {

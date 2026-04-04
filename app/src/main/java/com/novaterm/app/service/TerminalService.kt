@@ -47,6 +47,8 @@ import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +72,7 @@ class TerminalService : Service() {
 
     private val binder = LocalBinder()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // ── Core delegates ────────────────────────────────────
 
@@ -89,10 +92,24 @@ class TerminalService : Service() {
     val sessionCount: Int get() = _sessions.value.size
 
     /**
-     * Called by the UI to register a screen update callback.
-     * The callback MUST call TerminalView.onScreenUpdated().
-     * Thread-safe: always dispatched to main thread.
+     * Per-session screen update callbacks, keyed by session handle (mHandle).
+     * Each TerminalView registers its own callback so ALL tabs get updates,
+     * not just the last one created.
      */
+    private val screenUpdateCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
+
+    /** Register a screen update callback for a specific session. */
+    fun registerScreenCallback(sessionHandle: String, callback: () -> Unit) {
+        screenUpdateCallbacks[sessionHandle] = callback
+    }
+
+    /** Unregister a screen update callback (e.g., when tab is disposed). */
+    fun unregisterScreenCallback(sessionHandle: String) {
+        screenUpdateCallbacks.remove(sessionHandle)
+    }
+
+    // Legacy single callback — kept for backward compatibility during migration
+    @Deprecated("Use registerScreenCallback per session instead")
     var onScreenUpdated: (() -> Unit)? = null
 
     // ── MCP server ──────────────────────────────────────────
@@ -149,7 +166,10 @@ class TerminalService : Service() {
                 validateRustEngine(changedSession)
             }
 
-            val callback = onScreenUpdated ?: return
+            // Per-session callback: each tab gets its own update
+            val perSessionCallback = screenUpdateCallbacks[changedSession.mHandle]
+            // Fallback to legacy single callback
+            val callback = perSessionCallback ?: onScreenUpdated ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 callback()
             } else {
@@ -187,6 +207,14 @@ class TerminalService : Service() {
             }
         }
 
+        override fun getClipboardText(): String? {
+            val clip = clipboardManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                return clip.getItemAt(0).coerceToText(this@TerminalService).toString()
+            }
+            return null
+        }
+
         override fun onBell(session: TerminalSession) {
             if (!bellEnabled.get()) return
 
@@ -214,7 +242,7 @@ class TerminalService : Service() {
             // Convert OSC 9 to Android notification (used by Claude Code, Codex CLI)
             val app = application as? NovaTermApp ?: return
             if (!app.appLifecycle.isInForeground.value) {
-                sendOsc9Notification(text)
+                sendOsc9Notification(session, text)
             }
         }
 
@@ -319,7 +347,7 @@ class TerminalService : Service() {
             )
             val engine = GemmaEngine(config)
             // Initialize on IO dispatcher — only assign llmEngine AFTER successful init
-            CoroutineScope(Dispatchers.IO).launch {
+            serviceScope.launch {
                 try {
                     val success = engine.initialize()
                     if (success) {
@@ -343,8 +371,9 @@ class TerminalService : Service() {
     private val saveRunnable = object : Runnable {
         override fun run() {
             if (isServiceDestroyed) return
-            // Run ALL I/O off main thread to prevent ANR
-            Thread {
+            // Run on serviceScope (structured concurrency) instead of raw daemon
+            // threads that can be killed mid-write and corrupt the database
+            serviceScope.launch(Dispatchers.IO) {
                 try {
                     if (_sessions.value.isNotEmpty()) {
                         saveSessionMetadata()
@@ -355,7 +384,7 @@ class TerminalService : Service() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Periodic save error", e)
                 }
-            }.apply { isDaemon = true }.start()
+            }
 
             if (!isServiceDestroyed) {
                 mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
@@ -392,6 +421,37 @@ class TerminalService : Service() {
             ACTION_TOGGLE_WAKELOCK -> {
                 toggleWakeLock()
             }
+            ACTION_RUN_COMMAND -> {
+                val command = intent.getStringExtra("command")
+                if (!command.isNullOrBlank()) {
+                    val cwd = intent.getStringExtra("cwd")
+                    val session = if (!cwd.isNullOrBlank()) {
+                        createSessionInDir(cwd)
+                    } else {
+                        createSession()
+                    }
+                    if (session != null) {
+                        // Write the command followed by newline to execute it
+                        session.write(command + "\n")
+                        Log.i(TAG, "RUN_COMMAND: executed '${command.take(80)}' in session ${session.mHandle}")
+                    } else {
+                        Log.e(TAG, "RUN_COMMAND: failed to create session")
+                    }
+                }
+            }
+            ACTION_WRITE_INPUT -> {
+                val input = intent.getStringExtra("input")
+                if (!input.isNullOrBlank()) {
+                    val currentSessions = _sessions.value
+                    val session = currentSessions.lastOrNull() ?: createSession()
+                    if (session != null) {
+                        session.write(input)
+                        Log.i(TAG, "WRITE_INPUT: wrote ${input.length} chars to session ${session.mHandle}")
+                    } else {
+                        Log.e(TAG, "WRITE_INPUT: no session available")
+                    }
+                }
+            }
         }
         return START_STICKY
     }
@@ -407,6 +467,8 @@ class TerminalService : Service() {
 
     override fun onDestroy() {
         isServiceDestroyed = true
+        serviceScope.cancel()
+        screenUpdateCallbacks.clear()
         onScreenUpdated = null
         mcpServer?.stop()
         mcpServer = null
@@ -444,9 +506,15 @@ class TerminalService : Service() {
         return try {
             val shellCmd = shellProvider.shellCommand()
             val shell = shellCmd[0] // executable (linker64 or shell)
-            val env = shellProvider.buildEnvironment()
+            // Pass terminal dimensions so LINES/COLUMNS are set from launch.
+            // The exact size comes from the last known view dimensions;
+            // 40x120 are reasonable defaults if view hasn't measured yet.
+            val lastSession = _sessions.value.lastOrNull()
+            val rows = lastSession?.emulator?.mRows?.toString() ?: "40"
+            val cols = lastSession?.emulator?.mColumns?.toString() ?: "120"
+            val env = shellProvider.buildEnvironment(mapOf("LINES" to rows, "COLUMNS" to cols))
 
-            Log.i(TAG, "Creating session: cmd=${shellCmd.toList()} cwd=$cwd")
+            Log.i(TAG, "Creating session: cmd=${shellCmd.toList()} cwd=$cwd size=${rows}x${cols}")
 
             val session = TerminalSession(
                 shell,
@@ -503,14 +571,16 @@ class TerminalService : Service() {
     }
 
     fun removeSession(index: Int) {
+        val currentList = _sessions.value
+        if (index !in currentList.indices) return
+        val session = currentList[index]
+        // Clean up callbacks and engines BEFORE updating session list
+        screenUpdateCallbacks.remove(session.mHandle)
+        rustEngines.remove(session.mHandle)?.destroy()
+        session.setRawByteInterceptor(null)
+        session.finishIfRunning()
         _sessions.update { list ->
-            if (index !in list.indices) return@update list
-            val session = list[index]
-            // Cleanup Rust engine
-            rustEngines.remove(session.mHandle)?.destroy()
-            session.setRawByteInterceptor(null)
-            session.finishIfRunning()
-            list.filterIndexed { i, _ -> i != index }
+            list.filterIndexed { _, s -> s !== session }
         }
         updateNotification()
         updateBootReceiverState()
@@ -554,8 +624,8 @@ class TerminalService : Service() {
         val engine = rustEngines[session.mHandle] ?: return
         val emulator = session.emulator ?: return
 
-        // Throttle: only validate every 100th update to avoid log spam
-        if (++validationCount % 100 != 0L) return
+        // Throttle: only validate every 1000th update to avoid log spam
+        if (++validationCount % 1000 != 0L) return
 
         val javaCursorRow = emulator.cursorRow
         val javaCursorCol = emulator.cursorCol
@@ -649,22 +719,32 @@ class TerminalService : Service() {
         manager.notify(NOTIFICATION_BELL, notification)
     }
 
-    private fun sendOsc9Notification(text: String) {
+    private fun sendOsc9Notification(session: TerminalSession, text: String) {
+        // Include session title so the user knows which tab sent the notification.
+        val sessionTitle = session.title?.takeIf { it.isNotBlank() } ?: "Terminal"
+        // Use session-unique notification ID so multiple sessions don't overwrite each other.
+        val sessionIndex = _sessions.value.indexOf(session)
+        val notificationId = NOTIFICATION_OSC9 + (if (sessionIndex >= 0) sessionIndex else 0)
+
         val contentIntent = PendingIntent.getActivity(
-            this, NOTIFICATION_OSC9,
-            Intent(this, MainActivity::class.java),
+            this, notificationId,
+            Intent(this, MainActivity::class.java).apply {
+                // Navigate to the specific session tab when tapped
+                putExtra("session_index", sessionIndex)
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("NovaTerm")
+            .setContentTitle(sessionTitle)
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .build()
         val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(NOTIFICATION_OSC9, notification)
+        manager.notify(notificationId, notification)
     }
 
     private fun buildNotification(): Notification {
@@ -858,5 +938,7 @@ class TerminalService : Service() {
         const val ACTION_EXIT = "com.nvterm.action.EXIT"
         const val ACTION_NEW_SESSION = "com.nvterm.action.NEW_SESSION"
         const val ACTION_TOGGLE_WAKELOCK = "com.nvterm.action.TOGGLE_WAKELOCK"
+        const val ACTION_RUN_COMMAND = "com.nvterm.action.RUN_COMMAND"
+        const val ACTION_WRITE_INPUT = "com.nvterm.action.WRITE_INPUT"
     }
 }

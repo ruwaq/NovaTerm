@@ -388,25 +388,14 @@ private fun ExtraKeyButton(
                 .padding(horizontal = 6.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = key.label,
-                    color = fgColor,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
-                if (key.popup != null) {
-                    Text(
-                        text = key.popup,
-                        color = fgColor.copy(alpha = 0.4f),
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+            Text(
+                text = key.label,
+                color = fgColor,
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
         }
     }
 

@@ -52,7 +52,7 @@ class NovaTermApp : Application() {
                     throwable.printStackTrace(pw)
                 }
                 Log.i(TAG, "Crash log saved: ${crashFile.absolutePath}")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Failed to write crash log", e)
             }
             defaultHandler?.uncaughtException(thread, throwable)

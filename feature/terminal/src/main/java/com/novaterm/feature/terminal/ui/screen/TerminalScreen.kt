@@ -133,7 +133,7 @@ fun TerminalScreen(
         AndroidView(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 6.dp, vertical = 4.dp), // Balanced: readable without wasting columns
+            .padding(horizontal = 4.dp), // Minimal horizontal padding, no vertical gap
         factory = { context ->
             applyTerminalPalette(colorScheme)
 
@@ -341,6 +341,14 @@ private class NovaTermViewClient(
                 val screen = emulator.screen
                 val col = view.getCursorX(e.x).coerceIn(0, emulator.mColumns - 1)
                 val row = view.getCursorY(e.y) + view.topRow
+
+                // OSC 8 hyperlinks take highest priority (explicit from application)
+                val hyperlink = screen.getHyperlink(row, col)
+                if (hyperlink != null) {
+                    onEntityDetected(UrlDetector.Entity(UrlDetector.Entity.Type.URL, hyperlink))
+                    return
+                }
+
                 val rowText = screen.getSelectedText(0, row, emulator.mColumns, row)?.trim()
 
                 if (rowText != null) {
@@ -375,6 +383,20 @@ private class NovaTermViewClient(
             val accepted = onTabAcceptSuggestion?.invoke()
             if (!accepted.isNullOrEmpty()) {
                 session?.write(accepted)
+                return true
+            }
+        }
+        // Volume Up → Page Up escape sequence
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            if (terminalView?.hasFocus() == true) {
+                session?.write("\u001b[5~")
+                return true
+            }
+        }
+        // Volume Down → Page Down escape sequence
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (terminalView?.hasFocus() == true) {
+                session?.write("\u001b[6~")
                 return true
             }
         }

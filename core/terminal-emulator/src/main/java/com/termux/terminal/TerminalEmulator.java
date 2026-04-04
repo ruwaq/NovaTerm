@@ -284,6 +284,12 @@ public final class TerminalEmulator {
     private final byte[] mUtf8InputBuffer = new byte[4];
     private int mLastEmittedCodePoint = -1;
 
+    /**
+     * Current OSC 8 hyperlink URI. Non-null while inside an OSC 8 hyperlink region.
+     * Set by {@code ESC ] 8 ; params ; uri ST} and cleared by {@code ESC ] 8 ; ; ST}.
+     */
+    private String mCurrentHyperlinkUri;
+
     public final TerminalColors mColors = new TerminalColors();
 
     private static final String LOG_TAG = "TerminalEmulator";
@@ -2179,15 +2185,42 @@ public final class TerminalEmulator {
                     }
                 }
                 break;
-            case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
-                int startIndex = textParameter.indexOf(";") + 1;
-                try {
-                    String clipboardText = new String(Base64.decode(textParameter.substring(startIndex), 0), StandardCharsets.UTF_8);
-                    mSession.onCopyTextToClipboard(clipboardText);
-                } catch (Exception e) {
-                    Logger.logError(mClient, LOG_TAG, "OSC Manipulate selection, invalid string '" + textParameter + "");
+            case 52: { // Manipulate Selection Data — OSC 52 ; Pc ; Pd BEL/ST
+                // textParameter = "Pc;Pd" where Pc = selection target(s), Pd = base64 data or "?"
+                int semicolonIndex = textParameter.indexOf(";");
+                if (semicolonIndex < 0) {
+                    // Malformed: no semicolon separator between selection target and data.
+                    Logger.logError(mClient, LOG_TAG, "OSC 52: missing semicolon in '" + textParameter + "'");
+                    break;
+                }
+                String selectionTarget = textParameter.substring(0, semicolonIndex);
+                String encodedData = textParameter.substring(semicolonIndex + 1);
+
+                if ("?".equals(encodedData)) {
+                    // Query: respond with current clipboard contents encoded in base64.
+                    // Response: ESC ] 52 ; <target> ; <base64> BEL/ST
+                    String clipText = mSession.getClipboardText();
+                    if (clipText != null && !clipText.isEmpty()) {
+                        String encoded = Base64.encodeToString(clipText.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+                        mSession.write("\033]52;" + selectionTarget + ";" + encoded + bellOrStringTerminator);
+                    } else {
+                        // Empty clipboard — respond with empty payload.
+                        mSession.write("\033]52;" + selectionTarget + ";" + bellOrStringTerminator);
+                    }
+                } else if (encodedData.isEmpty()) {
+                    // Empty data: clear the selection (per xterm spec).
+                    mSession.onCopyTextToClipboard("");
+                } else {
+                    // Set: decode base64 and copy to clipboard.
+                    try {
+                        String clipboardText = new String(Base64.decode(encodedData, 0), StandardCharsets.UTF_8);
+                        mSession.onCopyTextToClipboard(clipboardText);
+                    } catch (Exception e) {
+                        Logger.logError(mClient, LOG_TAG, "OSC 52: invalid base64 in '" + textParameter + "'");
+                    }
                 }
                 break;
+            }
             case 104:
                 // "104;$c" → Reset Color Number $c. It is reset to the color specified by the corresponding X
                 // resource. Any number of c parameters may be given. These parameters correspond to the ANSI colors 0-7,
@@ -2233,6 +2266,31 @@ public final class TerminalEmulator {
                             mSession.onOsc7WorkingDirectory(cwd);
                         } catch (Exception e) {
                             // Malformed URL encoding — ignore silently
+                        }
+                    }
+                }
+                break;
+            case 8: // OSC 8 — Hyperlinks (iTerm2/VTE/kitty/foot).
+                // Format: OSC 8 ; params ; uri ST  (start link)
+                //         OSC 8 ; ; ST              (end link)
+                // After initial parsing, textParameter = "params;uri" or ";" (close).
+                {
+                    int semiIndex = textParameter.indexOf(';');
+                    if (semiIndex >= 0) {
+                        String uri = textParameter.substring(semiIndex + 1);
+                        if (uri.isEmpty()) {
+                            // End hyperlink
+                            mCurrentHyperlinkUri = null;
+                        } else {
+                            // Start hyperlink — validate scheme
+                            if (uri.startsWith("http://") || uri.startsWith("https://") ||
+                                uri.startsWith("ftp://") || uri.startsWith("file://") ||
+                                uri.startsWith("ssh://") || uri.startsWith("mailto:")) {
+                                mCurrentHyperlinkUri = uri;
+                            } else {
+                                // Unknown/unsafe scheme — ignore silently
+                                mCurrentHyperlinkUri = null;
+                            }
                         }
                     }
                 }
@@ -2593,6 +2651,11 @@ public final class TerminalEmulator {
         if (column < 0) column = 0;
         mScreen.setChar(column, mCursorRow, codePoint, getStyle());
 
+        // Apply OSC 8 hyperlink URI to the cell if inside a hyperlink region.
+        if (mCurrentHyperlinkUri != null) {
+            mScreen.setHyperlink(column, mCursorRow, mCurrentHyperlinkUri);
+        }
+
         if (autoWrap && displayWidth > 0)
             mAboutToAutoWrap = (mCursorCol == mRightMargin - displayWidth);
 
@@ -2667,6 +2730,7 @@ public final class TerminalEmulator {
         // XXX: Should we set terminal driver back to IUTF8 with termios?
         mUtf8Index = mUtf8ToFollow = 0;
         mApcArgs.setLength(0);
+        mCurrentHyperlinkUri = null;
 
         mColors.reset();
         mSession.onColorsChanged();

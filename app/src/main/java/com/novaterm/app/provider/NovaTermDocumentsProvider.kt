@@ -140,8 +140,9 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
             File(homeDir, docId)
         }
 
-        // Security: block symlinks pointing outside allowed paths.
-        // Allow: home directory and user-accessible storage paths.
+        // Security: resolve symlinks FIRST, then use the canonical path for ALL
+        // subsequent operations. This prevents TOCTOU races where a symlink
+        // could change between resolution and use.
         val canonical = file.canonicalFile
         val homeCanonical = homeDir.canonicalFile
         val homePath = homeCanonical.path + File.separator
@@ -152,8 +153,8 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
             throw FileNotFoundException("Access denied: $docId resolves outside home directory")
         }
 
-        if (!file.exists()) throw FileNotFoundException("File not found: $docId")
-        return file
+        if (!canonical.exists()) throw FileNotFoundException("File not found: $docId")
+        return canonical
     }
 
     private fun addFileRow(cursor: MatrixCursor, file: File) {

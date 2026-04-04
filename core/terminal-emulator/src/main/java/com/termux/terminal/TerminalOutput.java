@@ -24,6 +24,12 @@ public abstract class TerminalOutput {
     /** Notify the terminal client that text should be pasted from clipboard. */
     public abstract void onPasteTextFromClipboard();
 
+    /**
+     * Get the current clipboard text. Used by OSC 52 query ("?") to respond
+     * with base64-encoded clipboard contents. Returns null if unavailable.
+     */
+    public String getClipboardText() { return null; }
+
     /** Notify the terminal client that a bell character (ASCII 7, bell, BEL, \a, ^G)) has been received. */
     public abstract void onBell();
 

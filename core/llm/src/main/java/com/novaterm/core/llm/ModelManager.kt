@@ -141,17 +141,16 @@ class ModelManager(context: Context) {
 
         while (System.currentTimeMillis() - startTime < maxPollDurationMs) {
             val cursor = downloadManager.query(query)
-            if (cursor == null || !cursor.moveToFirst()) {
-                cursor?.close()
-                activeDownloadId = -1
-                refreshState()
-                return@withContext
-            }
+            val shouldReturn = cursor?.use { c ->
+                if (!c.moveToFirst()) {
+                    activeDownloadId = -1
+                    refreshState()
+                    return@withContext
+                }
 
-            cursor.use {
-                val status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-                val bytesDownloaded = it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                val totalBytes = it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                val status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                val bytesDownloaded = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                val totalBytes = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
 
                 val model = ModelCatalog.findById(selectedModelId) ?: ModelCatalog.DEFAULT
 
@@ -171,7 +170,7 @@ class ModelManager(context: Context) {
                         return@withContext
                     }
                     DownloadManager.STATUS_FAILED -> {
-                        val reason = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                        val reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         activeDownloadId = -1
                         _state.value = ModelState.Error("Download failed (reason=$reason)")
                         Log.e(TAG, "Download failed: reason=$reason")
@@ -186,6 +185,11 @@ class ModelManager(context: Context) {
                         )
                     }
                 }
+            }
+            if (cursor == null) {
+                activeDownloadId = -1
+                refreshState()
+                return@withContext
             }
 
             delay(500) // Poll every 500ms
