@@ -182,12 +182,31 @@ fun TerminalScreen(
                     tv.invalidate()
                 }
 
-                // Show keyboard automatically on first display
-                post {
-                    requestFocus()
-                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                        as? InputMethodManager
-                    imm?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                // Show keyboard reliably (Square Engineering pattern).
+                // Simple post{} can fail if window doesn't have focus yet.
+                requestFocus()
+                if (hasWindowFocus()) {
+                    post {
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                            as? InputMethodManager
+                        imm?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                    }
+                } else {
+                    val tv = this
+                    viewTreeObserver.addOnWindowFocusChangeListener(
+                        object : android.view.ViewTreeObserver.OnWindowFocusChangeListener {
+                            override fun onWindowFocusChanged(hasFocus: Boolean) {
+                                if (hasFocus) {
+                                    tv.post {
+                                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                                            as? InputMethodManager
+                                        imm?.showSoftInput(tv, InputMethodManager.SHOW_IMPLICIT)
+                                    }
+                                    tv.viewTreeObserver.removeOnWindowFocusChangeListener(this)
+                                }
+                            }
+                        }
+                    )
                 }
             }
         },
