@@ -383,7 +383,7 @@ class TerminalService : Service() {
                 modelPath = modelPath,
                 modelFamily = selectedModel?.family ?: ModelCatalog.ModelFamily.GEMMA4,
             )
-            val engine = GemmaEngine(config)
+            val engine = GemmaEngine(config, context = applicationContext)
             // Initialize on IO dispatcher — only assign llmEngine AFTER successful init
             serviceScope.launch {
                 try {

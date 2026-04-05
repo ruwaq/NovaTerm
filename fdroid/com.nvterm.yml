@@ -1,0 +1,53 @@
+Categories:
+  - System
+  - Development
+
+License: Apache-2.0
+
+AuthorName: NovaTerm
+AuthorEmail: hello@nvterm.dev
+AuthorWebSite: https://github.com/nvterm/NovaTerm
+
+SourceCode: https://github.com/nvterm/NovaTerm
+IssueTracker: https://github.com/nvterm/NovaTerm/issues
+Translation: https://github.com/nvterm/NovaTerm/discussions
+
+Name: NovaTerm - AI Terminal
+Summary: Rust-powered, GPU-accelerated, AI-native terminal for Android
+Description: |-
+  NovaTerm is the next-generation Android terminal emulator — Rust-powered,
+  GPU-accelerated, and AI-native. Runs on any Android 11+ phone.
+
+  '''Features:'''
+  * Rust core — VT parser (alacritty_terminal), safe PTY, 177+ tests
+  * GPU rendering — wgpu + Vulkan compute shaders, software fallback for all phones
+  * AI-native — MCP server, on-device LLM (Gemma/Qwen3), command suggestions
+  * Session persistence — SQLite + CAS dedup + boot restore
+  * 7 color schemes — Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula
+  * PiP floating terminal, voice input, history search
+  * Professional shell config out of the box
+  * Optimized for Claude Code, Gemini CLI, Aider
+
+  Terminal emulation core from Termux (Apache 2.0).
+
+RepoType: git
+Repo: https://github.com/nvterm/NovaTerm
+
+Builds:
+  - versionName: 0.3.1-alpha
+    versionCode: 4
+    commit: v0.3.1-alpha
+    subdir: app
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk
+    gradle:
+      - release
+    build:
+      - $$SDK$$/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018"
+    ndk: 27.2.12479018
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags v\d+\.\d+\.\d+.*
+CurrentVersion: 0.3.1-alpha
+CurrentVersionCode: 4

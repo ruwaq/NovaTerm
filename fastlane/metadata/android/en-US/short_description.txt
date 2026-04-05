@@ -1,0 +1,1 @@
+Rust-powered, GPU-accelerated, AI-native terminal emulator for Android.

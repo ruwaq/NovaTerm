@@ -1,5 +1,6 @@
 package com.novaterm.core.llm
 
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,12 +10,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 /**
- * On-device Gemma inference engine.
+ * On-device LLM inference engine supporting GGUF models via MediaPipe.
  *
  * Thread-safe: uses a [Mutex] to serialize inference calls
  * and protect state transitions from concurrent access.
+ *
+ * Backend selection:
+ * - GGUF models (.gguf) → [MediaPipeLlmBackend] (llama.cpp via MediaPipe)
+ * - TFLite models (.tflite) → [LiteRtBackend] (LiteRT interpreter)
  *
  * Lifecycle:
  * 1. User enables in Settings → [initialize] called
@@ -22,7 +28,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * 3. [suggest]/[explain] available (serialized via mutex)
  * 4. User disables or app destroyed → [release] called
  */
-class GemmaEngine(private val config: LlmConfig) : LlmEngine {
+class GemmaEngine(
+    private val config: LlmConfig,
+    private val context: Context? = null,
+) : LlmEngine {
 
     private val _state = MutableStateFlow(LlmState.IDLE)
     override val state: StateFlow<LlmState> = _state.asStateFlow()
@@ -48,11 +57,25 @@ class GemmaEngine(private val config: LlmConfig) : LlmEngine {
             }
 
             try {
-                val b = LiteRtBackend(java.io.File(config.modelPath), config.numThreads)
+                val modelFile = File(config.modelPath)
+                val b: InferenceBackend = when {
+                    // GGUF → MediaPipe (llama.cpp). Requires context from app module.
+                    config.modelPath.endsWith(".gguf", ignoreCase = true) && context != null ->
+                        MediaPipeLlmBackend(
+                            context = context,
+                            modelFile = modelFile,
+                            maxTokens = config.maxTokens,
+                            temperature = config.temperature,
+                            numThreads = config.numThreads,
+                        )
+                    // TFLite → LiteRT (legacy / fallback)
+                    else ->
+                        LiteRtBackend(modelFile, config.numThreads)
+                }
                 b.load()
                 backend = b
                 _state.value = LlmState.READY
-                Log.i(TAG, "Gemma model loaded: ${config.modelPath}")
+                Log.i(TAG, "LLM model loaded (${b.javaClass.simpleName}): ${config.modelPath}")
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load model", e)

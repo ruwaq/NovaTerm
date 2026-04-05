@@ -1,0 +1,11 @@
+v0.3.1-alpha
+
+• GPU renderer: Vulkan compute shaders via wgpu 29 (cross-compiled for arm64)
+• On-device LLM: GGUF models via MediaPipe (Gemma 4 E2B, Qwen3, SmolLM2)
+• MCP server: 10 tools for AI agents (run_command, file_read/write, session control)
+• TerminalUiState: reduced Compose recompositions (13 StateFlows → 1)
+• RunCommandTool: output-stabilization polling (~600ms vs 3s fixed delay)
+• Shell config moved to asset files (profile, bashrc, inputrc, shrc)
+• BlockStore: removed dead table, improved JSON type handling
+• DocumentsProvider: fixed path traversal in isChildDocument()
+• 177 Rust tests, 270+ Kotlin tests

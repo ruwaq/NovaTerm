@@ -134,6 +134,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
 
+    // On-device LLM inference (GGUF models via llama.cpp, optional feature)
+    implementation(libs.mediapipe.tasks.genai)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

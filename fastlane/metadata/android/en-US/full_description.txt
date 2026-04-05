@@ -1,0 +1,38 @@
+NovaTerm is the next-generation Android terminal emulator — Rust-powered, GPU-accelerated, and AI-native. It runs on any Android 11+ phone, from budget devices to flagships.
+
+<b>Why NovaTerm?</b>
+
+• Rust core — VT parser (alacritty_terminal), safe PTY, JNI bridge, 177+ tests
+• GPU rendering — wgpu + Vulkan compute shaders with software fallback for all phones
+• AI-native — MCP server for AI agents, API key management, one-tap Claude Code / Gemini CLI installer
+• On-device AI — Gemma / Qwen3 for command suggestions and error explanations, no cloud needed
+• Session persistence — SQLite + CAS dedup + boot restore
+• Professional shell config — .profile, .bashrc, .inputrc out of the box
+• 7 color schemes — Gruvbox (default), Catppuccin, Solarized, Monokai, Nord, Dracula + hot-reload
+• PiP mode — floating terminal overlay while multitasking
+• Voice input — on-device speech recognition for hands-free commands
+
+<b>Terminal Features</b>
+
+• Truecolor (24-bit color), up to 50K scrollback lines
+• Bracketed paste, Unicode/emoji, OSC 52 clipboard (64KB)
+• Synchronized output for AI streaming (DEC 2026)
+• Kitty Keyboard Protocol
+• OSC 133 semantic prompts for AI parsers
+• Clickable URLs, file paths, IPs, localhost ports
+• History search, extra keys bar, swipe tabs
+• Dynamic shortcuts (long-press app icon)
+
+<b>AI Developer Tools</b>
+
+• Optimized for Claude Code, Gemini CLI, Aider, OpenCode
+• Session presets — launch Claude Code / Gemini CLI with one tap
+• MCP server — AI agents can run commands, read files, control sessions
+• Secure API key storage (Anthropic, Google, OpenAI, OpenRouter)
+• TERM_PROGRAM=novaterm, COLORTERM=truecolor exported automatically
+
+<b>All Android 11+ Phones</b>
+
+Vulkan GPU renderer on supported devices, software fallback on all others. Works on Xiaomi, Samsung, Google, OnePlus, and more. No root required.
+
+Open source under Apache License 2.0. Terminal core from Termux (Apache 2.0).
