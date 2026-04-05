@@ -29,12 +29,14 @@ data class TerminalPreferences(
         const val EXTRA_KEYS_STYLE_VIM = "vim"
         const val EXTRA_KEYS_STYLE_DEV = "dev"
         const val EXTRA_KEYS_STYLE_MINIMAL = "minimal"
+        const val EXTRA_KEYS_STYLE_AI = "ai"
 
         val EXTRA_KEYS_STYLES = listOf(
             EXTRA_KEYS_STYLE_DEFAULT,
             EXTRA_KEYS_STYLE_VIM,
             EXTRA_KEYS_STYLE_DEV,
             EXTRA_KEYS_STYLE_MINIMAL,
+            EXTRA_KEYS_STYLE_AI,
         )
 
         const val DEFAULT_SCROLLBACK_LINES = 10000

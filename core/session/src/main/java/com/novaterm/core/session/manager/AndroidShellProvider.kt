@@ -120,6 +120,10 @@ class AndroidShellProvider(
         env["TERM_PROGRAM"] = "novaterm"
         env["TERM_PROGRAM_VERSION"] = appVersion
 
+        // AI coding tools — sensible defaults for touch-first terminal
+        env["CLAUDE_CODE_SCROLL_SPEED"] = "3"   // Touch-optimized scrolling
+        env["AIDER_DARK_MODE"] = "true"         // Matches NovaTerm's default Gruvbox dark theme
+
         // Terminal dimensions: many CLI tools read LINES/COLUMNS before
         // bash's checkwinsize can set them. Provide sensible defaults so
         // tools like less, man, fzf, and column work correctly on launch.

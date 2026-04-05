@@ -47,6 +47,8 @@
     <string name="settings_extra_keys_style_vim_desc">ESC prominent, :wq, navigation keys</string>
     <string name="settings_extra_keys_style_dev_desc">Brackets, parens, semicolons, pipes</string>
     <string name="settings_extra_keys_style_minimal_desc">Just CTRL, ALT, TAB, ESC, arrows</string>
+    <string name="settings_extra_keys_style_ai">AI Coding</string>
+    <string name="settings_extra_keys_style_ai_desc">Optimized for Claude Code, Gemini CLI, Aider</string>
 
     <!-- Back as ESC -->
     <string name="settings_back_is_escape">Back button sends ESC</string>

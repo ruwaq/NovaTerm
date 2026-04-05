@@ -563,6 +563,12 @@ public final class TerminalView extends View {
 
         mEmulator.clearScrollCounter();
 
+        // DEC private mode 2026: Synchronized Output.
+        // While BSU is active, defer invalidation to avoid flickering during rapid output.
+        // When ESU arrives (synchronized output becomes false), the next onScreenUpdated()
+        // call will flush everything in a single invalidate().
+        if (mEmulator.isSynchronizedOutput()) return;
+
         invalidate();
         if (mAccessibilityEnabled) setContentDescription(getText());
     }

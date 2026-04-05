@@ -120,6 +120,8 @@ private object Sequences {
     const val CTRL_R = "\u0012"
     const val CTRL_L = "\u000C"
     const val CTRL_Z = "\u001a"
+    const val CTRL_O = "\u000F"
+    const val CTRL_B = "\u0002"
 }
 
 // Layout organized by function zones:
@@ -214,11 +216,37 @@ private val MINIMAL_ROW_2 = listOf(
 )
 private val MINIMAL_ROWS = listOf(MINIMAL_ROW_1, MINIMAL_ROW_2)
 
+// ── AI layout ──────────────────────────────────────────────
+// Optimized for AI coding agents: Claude Code, Gemini CLI, Aider.
+// Ctrl+O (transcript) is a dedicated key — the most used shortcut in Claude Code.
+// Ctrl+B (scroll back) for reviewing long AI output on touch screens.
+private val AI_ROW_1 = listOf(
+    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
+    ExtraKey("^O", Sequences.CTRL_O, popup = "^L"),
+    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),
+    ExtraKey("|", popup = "&"),
+    ExtraKey("!", popup = "#"),
+    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
+    ExtraKey("^C", Sequences.CTRL_C, popup = "^D"),
+)
+private val AI_ROW_2 = listOf(
+    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
+    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
+    ExtraKey("^B", Sequences.CTRL_B, popup = "^F"),
+    ExtraKey("/", popup = "\\"),
+    ExtraKey("~", popup = "`"),
+    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
+    ExtraKey("^Z", Sequences.CTRL_Z, popup = "^\\"),
+    ExtraKey("⌨", code = "__KEYBOARD__"),
+)
+private val AI_ROWS = listOf(AI_ROW_1, AI_ROW_2)
+
 /** Returns the key layout rows for the given style name. */
 internal fun extraKeysRowsForStyle(style: String): List<List<ExtraKey>> = when (style) {
     "vim" -> VIM_ROWS
     "dev" -> DEV_ROWS
     "minimal" -> MINIMAL_ROWS
+    "ai" -> AI_ROWS
     else -> DEFAULT_ROWS
 }
 
@@ -367,6 +395,12 @@ private fun ExtraKeyRow(
                             "^C" -> currentOnKey(Sequences.CTRL_C)
                             "^R" -> currentOnKey(Sequences.CTRL_R)
                             "^Z" -> currentOnKey(Sequences.CTRL_Z)
+                            "^O" -> currentOnKey(Sequences.CTRL_O)
+                            "^B" -> currentOnKey(Sequences.CTRL_B)
+                            "^L" -> currentOnKey(Sequences.CTRL_L)
+                            "^D" -> currentOnKey(Sequences.CTRL_D)
+                            "^F" -> currentOnKey("\u0006")
+                            "^\\" -> currentOnKey("\u001c")
                             else -> currentOnKey(key.popup)
                         }
                     }

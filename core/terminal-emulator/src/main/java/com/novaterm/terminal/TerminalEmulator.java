@@ -92,7 +92,7 @@ public final class TerminalEmulator {
     private static final int MAX_ESCAPE_PARAMETERS = 32;
 
     /** Needs to be large enough to contain reasonable OSC 52 pastes. */
-    private static final int MAX_OSC_STRING_LENGTH = 8192;
+    private static final int MAX_OSC_STRING_LENGTH = 65536;
 
     /** DECSET 1 - application cursor keys. */
     private static final int DECSET_BIT_APPLICATION_CURSOR_KEYS = 1;
@@ -281,6 +281,9 @@ public final class TerminalEmulator {
 
     /** If automatic scrolling of terminal is disabled */
     private boolean mAutoScrollDisabled;
+
+    /** DEC private mode 2026 — Synchronized Output. When true, screen rendering is deferred until ESU. */
+    private boolean mSynchronizedOutput;
 
     private byte mUtf8ToFollow, mUtf8Index;
     private final byte[] mUtf8InputBuffer = new byte[4];
@@ -1366,6 +1369,11 @@ public final class TerminalEmulator {
             }
             case 2004:
                 // Bracketed paste mode - setting bit is enough.
+                break;
+            case 2026:
+                // Synchronized Output (https://gist.github.com/christianparpart/d8a62cc1ab659194571ec1860543f6aa).
+                // BSU (CSI ? 2026 h) defers rendering; ESU (CSI ? 2026 l) flushes.
+                mSynchronizedOutput = setting;
                 break;
             default:
                 unknownParameter(externalBit);
@@ -2703,6 +2711,11 @@ public final class TerminalEmulator {
         return mAutoScrollDisabled;
     }
 
+    /** Returns true when synchronized output (DEC private mode 2026) is active. */
+    public boolean isSynchronizedOutput() {
+        return mSynchronizedOutput;
+    }
+
     public void toggleAutoScrollDisabled() {
         mAutoScrollDisabled = !mAutoScrollDisabled;
     }
@@ -2738,6 +2751,8 @@ public final class TerminalEmulator {
         mUtf8Index = mUtf8ToFollow = 0;
         mApcArgs.setLength(0);
         mCurrentHyperlinkUri = null;
+
+        mSynchronizedOutput = false;
 
         mColors.reset();
         mSession.onColorsChanged();

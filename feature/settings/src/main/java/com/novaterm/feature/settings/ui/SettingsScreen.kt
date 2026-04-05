@@ -260,6 +260,7 @@ fun SettingsScreen(
                     TerminalPreferences.EXTRA_KEYS_STYLE_VIM -> stringResource(R.string.settings_extra_keys_style_vim)
                     TerminalPreferences.EXTRA_KEYS_STYLE_DEV -> stringResource(R.string.settings_extra_keys_style_dev)
                     TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL -> stringResource(R.string.settings_extra_keys_style_minimal)
+                    TerminalPreferences.EXTRA_KEYS_STYLE_AI -> stringResource(R.string.settings_extra_keys_style_ai)
                     else -> stringResource(R.string.settings_extra_keys_style_default)
                 }
 
@@ -301,6 +302,14 @@ fun SettingsScreen(
                         description = stringResource(R.string.settings_extra_keys_style_minimal_desc),
                         onClick = {
                             onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL))
+                            styleMenuExpanded = false
+                        },
+                    )
+                    ExtraKeysStyleOption(
+                        name = stringResource(R.string.settings_extra_keys_style_ai),
+                        description = stringResource(R.string.settings_extra_keys_style_ai_desc),
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(extraKeysStyle = TerminalPreferences.EXTRA_KEYS_STYLE_AI))
                             styleMenuExpanded = false
                         },
                     )
