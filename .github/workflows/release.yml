@@ -1,43 +1,123 @@
 name: Release
 
+# Builds a signed release APK and publishes a GitHub Release.
+# Triggered by pushing a version tag: git tag v0.3.0-alpha && git push --tags
+
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v0.3.0-alpha)'
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
-  build-release:
-    name: Build release APK
+  release:
+    name: Build & Publish Release APK
     runs-on: ubuntu-latest
+
     steps:
+      # ── Checkout ──────────────────────────────────────────
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          fetch-depth: 0
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # ── Java + Android ────────────────────────────────────
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: Run tests
-        run: ./gradlew test
+      - uses: android-actions/setup-android@v3
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
+      - uses: gradle/actions/setup-gradle@v4
 
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      # ── Signing keystore ──────────────────────────────────
+      - name: Decode and write keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/novaterm-release.jks"
+          cat > keystore.properties << EOF
+          storeFile=$RUNNER_TEMP/novaterm-release.jks
+          storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}
+          keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}
+          keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}
+          EOF
 
+      # ── Build signed release APK ──────────────────────────
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease --no-daemon -Pandroid.aapt2FromMavenOverride=
+
+      # ── Rename APK ────────────────────────────────────────
+      - name: Rename APK with version tag
+        id: apk
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          SRC=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          DEST="NovaTerm-${TAG}.apk"
+          cp "$SRC" "$DEST"
+          SHA=$(sha256sum "$DEST" | cut -d' ' -f1)
+          echo "$SHA  $DEST" > "${DEST}.sha256"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "APK: $DEST ($(ls -lh "$DEST" | awk '{print $5}')) SHA256: $SHA"
+
+      # ── Upload artifact ───────────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaTerm-${{ steps.apk.outputs.tag }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.path }}.sha256
+          retention-days: 90
+
+      # ── Changelog from git log ────────────────────────────
+      - name: Generate changelog
+        id: changelog
+        run: |
+          TAG="${{ steps.apk.outputs.tag }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          RANGE="${PREV_TAG:+${PREV_TAG}..HEAD}"
+          RANGE="${RANGE:-HEAD~20..HEAD}"
+          CHANGELOG=$(git log "$RANGE" --pretty=format:"- %s (%h)" --no-merges | head -50)
+          {
+            echo 'body<<CHANGELOG_EOF'
+            echo "## What's New in ${TAG}"
+            echo ""
+            echo "$CHANGELOG"
+            echo ""
+            echo "## Checksums"
+            echo "| File | SHA-256 |"
+            echo "|------|---------|"
+            echo "| \`NovaTerm-${TAG}.apk\` | \`${{ steps.apk.outputs.sha256 }}\` |"
+            echo ""
+            echo "## Requirements"
+            echo "- Android 11+ (API 30)"
+            echo "- arm64-v8a (all modern Android phones)"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Publish GitHub Release ────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "NovaTerm ${{ steps.version.outputs.VERSION }}"
-          generate_release_notes: true
-          draft: true
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: "NovaTerm ${{ steps.apk.outputs.tag }}"
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: ${{ contains(steps.apk.outputs.tag, 'alpha') || contains(steps.apk.outputs.tag, 'beta') }}
           files: |
-            app/build/outputs/apk/release/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.path }}.sha256
+          token: ${{ secrets.GH_PAT }}
