@@ -2,15 +2,20 @@ package com.novaterm.feature.settings.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -21,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,13 +45,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.novaterm.core.common.model.ColorSchemes
 import com.novaterm.core.llm.ModelCatalog
 import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.R
 import com.novaterm.feature.settings.data.TerminalPreferences
+import com.novaterm.feature.settings.model.AiTool
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +72,7 @@ fun SettingsScreen(
     onDownloadModel: (String) -> Unit = {},
     onCancelDownload: () -> Unit = {},
     onDeleteModel: () -> Unit = {},
+    onInstallAiTool: (String) -> Unit = {},
 ) {
     // Local slider state that follows external preference changes.
     var fontSize by remember(preferences.fontSize) {
@@ -448,6 +463,56 @@ fun SettingsScreen(
                 }
             }
 
+            // ── AI Tools ─────────────────────────────────────
+            Spacer(modifier = Modifier.height(4.dp))
+            SectionHeader(stringResource(R.string.settings_ai_tools))
+            Text(
+                text = stringResource(R.string.settings_ai_tools_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+
+            AiTool.ALL.forEach { tool ->
+                AiToolRow(
+                    tool = tool,
+                    onInstall = { onInstallAiTool(tool.installCommand) },
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // ── AI API Keys ──────────────────────────────────
+            SectionHeader(stringResource(R.string.settings_section_api_keys))
+
+            ApiKeyField(
+                label = stringResource(R.string.settings_api_key_anthropic),
+                value = preferences.anthropicApiKey,
+                onValueChange = { onPreferencesChanged(preferences.copy(anthropicApiKey = it)) },
+                onClear = { onPreferencesChanged(preferences.copy(anthropicApiKey = "")) },
+            )
+
+            ApiKeyField(
+                label = stringResource(R.string.settings_api_key_google),
+                value = preferences.googleApiKey,
+                onValueChange = { onPreferencesChanged(preferences.copy(googleApiKey = it)) },
+                onClear = { onPreferencesChanged(preferences.copy(googleApiKey = "")) },
+            )
+
+            ApiKeyField(
+                label = stringResource(R.string.settings_api_key_openai),
+                value = preferences.openaiApiKey,
+                onValueChange = { onPreferencesChanged(preferences.copy(openaiApiKey = it)) },
+                onClear = { onPreferencesChanged(preferences.copy(openaiApiKey = "")) },
+            )
+
+            ApiKeyField(
+                label = stringResource(R.string.settings_api_key_openrouter),
+                value = preferences.openrouterApiKey,
+                onValueChange = { onPreferencesChanged(preferences.copy(openrouterApiKey = it)) },
+                onClear = { onPreferencesChanged(preferences.copy(openrouterApiKey = "")) },
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // ── Reset ─────────────────────────────────────────────
@@ -621,6 +686,102 @@ private fun ToggleSettingRow(
         },
         modifier = Modifier.clickable { onCheckedChange(!checked) }
     )
+}
+
+/**
+ * Visual transformation that masks all characters except the last 4.
+ * "sk-abc123xyz" → "••••••••xyz" (dots for all but last 4).
+ */
+private class ApiKeyVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val original = text.text
+        val masked = if (original.length <= 4) {
+            original
+        } else {
+            "●".repeat(original.length - 4) + original.takeLast(4)
+        }
+        return TransformedText(
+            AnnotatedString(masked),
+            OffsetMapping.Identity,
+        )
+    }
+}
+
+/** A row displaying an AI tool with an Install button. */
+@Composable
+private fun AiToolRow(
+    tool: AiTool,
+    onInstall: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(stringResource(tool.nameResId)) },
+        supportingContent = {
+            Text(
+                stringResource(tool.descResId),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        trailingContent = {
+            OutlinedButton(onClick = onInstall) {
+                Text(stringResource(R.string.settings_install))
+            }
+        },
+    )
+}
+
+/** A text field for entering and displaying a masked API key with a clear button. */
+@Composable
+private fun ApiKeyField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    // Local editing state — only propagate on done/focus loss
+    var editingValue by remember(value) { mutableStateOf(value) }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        OutlinedTextField(
+            value = editingValue,
+            onValueChange = { editingValue = it },
+            label = { Text(label) },
+            placeholder = {
+                Text(
+                    if (value.isEmpty()) stringResource(R.string.settings_api_key_not_set)
+                    else stringResource(R.string.settings_api_key_hint)
+                )
+            },
+            visualTransformation = if (editingValue.isNotEmpty()) ApiKeyVisualTransformation()
+            else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    onValueChange(editingValue)
+                    focusManager.clearFocus()
+                }
+            ),
+            trailingIcon = {
+                if (editingValue.isNotEmpty()) {
+                    IconButton(onClick = {
+                        editingValue = ""
+                        onClear()
+                    }) {
+                        Icon(
+                            Icons.Outlined.Clear,
+                            contentDescription = stringResource(R.string.settings_api_key_clear),
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /** A dropdown menu item showing a style name and short description. */

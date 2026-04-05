@@ -78,6 +78,10 @@
     <string name="shortcut_new_session">New session</string>
     <string name="shortcut_new_session_long">Open a new terminal session</string>
     <string name="shortcut_session">Session %d</string>
+    <string name="shortcut_claude">Claude Code</string>
+    <string name="shortcut_claude_long">Launch Claude Code session</string>
+    <string name="shortcut_gemini">Gemini CLI</string>
+    <string name="shortcut_gemini_long">Launch Gemini CLI session</string>
 
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>

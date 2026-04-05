@@ -11,4 +11,30 @@
             android:targetPackage="com.nvterm"
             android:targetClass="com.novaterm.app.ui.MainActivity" />
     </shortcut>
+    <shortcut
+        android:shortcutId="preset_claude"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_send"
+        android:shortcutShortLabel="@string/shortcut_claude"
+        android:shortcutLongLabel="@string/shortcut_claude_long">
+        <intent
+            android:action="com.nvterm.LAUNCH_PRESET"
+            android:targetPackage="com.nvterm"
+            android:targetClass="com.novaterm.app.ui.MainActivity">
+            <extra android:name="preset" android:value="claude" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="preset_gemini"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_send"
+        android:shortcutShortLabel="@string/shortcut_gemini"
+        android:shortcutLongLabel="@string/shortcut_gemini_long">
+        <intent
+            android:action="com.nvterm.LAUNCH_PRESET"
+            android:targetPackage="com.nvterm"
+            android:targetClass="com.novaterm.app.ui.MainActivity">
+            <extra android:name="preset" android:value="gemini" />
+        </intent>
+    </shortcut>
 </shortcuts>

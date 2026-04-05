@@ -122,6 +122,15 @@ fun NovaTermApp(
             onDownloadModel = { modelId -> service?.modelManager?.startDownload(modelId) },
             onCancelDownload = { service?.modelManager?.cancelDownload() },
             onDeleteModel = { service?.modelManager?.deleteModel() },
+            onInstallAiTool = { command ->
+                // Write the install command to the active terminal session and switch back
+                val currentSessions = sessions
+                val idx = selectedTab.coerceIn(0, (currentSessions.size - 1).coerceAtLeast(0))
+                if (idx in currentSessions.indices) {
+                    currentSessions[idx].write(command + "\n")
+                }
+                viewModel.hideSettings()
+            },
         )
         return
     }

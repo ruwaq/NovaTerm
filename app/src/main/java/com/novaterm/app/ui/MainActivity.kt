@@ -254,6 +254,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            ACTION_LAUNCH_PRESET -> {
+                val preset = intent.getStringExtra("preset")
+                if (!preset.isNullOrBlank()) {
+                    Log.i(TAG, "LAUNCH_PRESET shortcut intent: preset=$preset")
+                    val serviceIntent = Intent(this, TerminalService::class.java).apply {
+                        action = TerminalService.ACTION_LAUNCH_PRESET
+                        putExtra("preset", preset)
+                    }
+                    startForegroundService(serviceIntent)
+                }
+            }
+
             ACTION_RUN_COMMAND -> {
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
@@ -418,5 +430,6 @@ class MainActivity : ComponentActivity() {
         private const val ACTION_RUN_COMMAND = "com.nvterm.RUN_COMMAND"
         private const val ACTION_NEW_SESSION = "com.nvterm.NEW_SESSION"
         private const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
+        private const val ACTION_LAUNCH_PRESET = "com.nvterm.LAUNCH_PRESET"
     }
 }

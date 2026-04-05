@@ -443,6 +443,14 @@ class TerminalService : Service() {
                     }
                 }
             }
+            ACTION_LAUNCH_PRESET -> {
+                val preset = intent.getStringExtra("preset")
+                if (!preset.isNullOrBlank()) {
+                    createPresetSession(preset)
+                } else {
+                    Log.w(TAG, "LAUNCH_PRESET: missing preset extra")
+                }
+            }
             ACTION_WRITE_INPUT -> {
                 val input = intent.getStringExtra("input")
                 if (!input.isNullOrBlank()) {
@@ -506,6 +514,27 @@ class TerminalService : Service() {
 
     fun createSession(): TerminalSession? {
         return createSessionInternal(shellProvider.defaultWorkingDirectory())
+    }
+
+    /**
+     * Create a new session and immediately execute a preset AI tool command.
+     * Supported presets: claude, gemini, aider, opencode.
+     */
+    fun createPresetSession(preset: String): TerminalSession? {
+        val command = PRESET_COMMANDS[preset.lowercase()]
+        if (command == null) {
+            Log.w(TAG, "Unknown preset: $preset")
+            return null
+        }
+        val session = createSession()
+        if (session != null) {
+            // Small delay to let the shell initialize before writing the command
+            mainHandler.postDelayed({
+                session.write(command + "\n")
+                Log.i(TAG, "LAUNCH_PRESET: started '$command' in session ${session.mHandle}")
+            }, 300)
+        }
+        return session
     }
 
     private fun createSessionInternal(cwd: String): TerminalSession? {
@@ -990,6 +1019,15 @@ class TerminalService : Service() {
         const val ACTION_WRITE_INPUT = "com.nvterm.action.WRITE_INPUT"
         const val ACTION_FLOAT = "com.nvterm.action.FLOAT"
         const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
+        const val ACTION_LAUNCH_PRESET = "com.nvterm.LAUNCH_PRESET"
         private const val MAX_DYNAMIC_SHORTCUTS = 4
+
+        /** Map of preset names to commands that should be executed in a new session. */
+        private val PRESET_COMMANDS = mapOf(
+            "claude" to "claude",
+            "gemini" to "gemini",
+            "aider" to "aider",
+            "opencode" to "opencode",
+        )
     }
 }

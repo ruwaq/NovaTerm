@@ -84,6 +84,31 @@
     <string name="settings_llm_model_ready">Model ready</string>
     <string name="settings_llm_delete">Delete model</string>
 
+    <!-- AI API Keys -->
+    <string name="settings_section_api_keys">AI API Keys</string>
+    <string name="settings_api_key_anthropic">Anthropic (Claude)</string>
+    <string name="settings_api_key_google">Google (Gemini)</string>
+    <string name="settings_api_key_openai">OpenAI</string>
+    <string name="settings_api_key_openrouter">OpenRouter</string>
+    <string name="settings_api_key_hint">sk-…</string>
+    <string name="settings_api_key_saved">Key saved</string>
+    <string name="settings_api_key_cleared">Key cleared</string>
+    <string name="settings_api_key_not_set">Not set</string>
+    <string name="settings_api_key_clear">Clear key</string>
+
+    <!-- AI Tools -->
+    <string name="settings_ai_tools">AI Tools</string>
+    <string name="settings_ai_tools_desc">Install AI coding assistants</string>
+    <string name="settings_install">Install</string>
+    <string name="settings_ai_tool_claude">Claude Code</string>
+    <string name="settings_ai_tool_claude_desc">Anthropic\'s AI coding assistant</string>
+    <string name="settings_ai_tool_gemini">Gemini CLI</string>
+    <string name="settings_ai_tool_gemini_desc">Google\'s AI coding assistant</string>
+    <string name="settings_ai_tool_aider">Aider</string>
+    <string name="settings_ai_tool_aider_desc">AI pair programming in the terminal</string>
+    <string name="settings_ai_tool_opencode">OpenCode</string>
+    <string name="settings_ai_tool_opencode_desc">Open-source AI coding assistant</string>
+
     <!-- Reset to defaults -->
     <string name="settings_reset_title">Reset to defaults</string>
     <string name="settings_reset_desc">Restore all settings to their original values</string>

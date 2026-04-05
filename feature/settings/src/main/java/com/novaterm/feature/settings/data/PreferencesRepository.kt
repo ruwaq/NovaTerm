@@ -23,6 +23,10 @@ data class TerminalPreferences(
     val mcpPort: Int = 8080,
     val llmEnabled: Boolean = false,
     val scrollbackLines: Int = DEFAULT_SCROLLBACK_LINES,
+    val anthropicApiKey: String = "",
+    val googleApiKey: String = "",
+    val openaiApiKey: String = "",
+    val openrouterApiKey: String = "",
 ) {
     companion object {
         const val EXTRA_KEYS_STYLE_DEFAULT = "default"
@@ -64,7 +68,11 @@ data class TerminalPreferences(
 class PreferencesRepository(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("novaterm_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    companion object {
+        const val PREFS_NAME = "novaterm_prefs"
+    }
 
     private val _preferences = MutableStateFlow(load())
     val preferences: StateFlow<TerminalPreferences> = _preferences.asStateFlow()
@@ -109,6 +117,10 @@ class PreferencesRepository(context: Context) {
             mcpPort = prefs.getInt("mcp_port", 8080),
             llmEnabled = prefs.getBoolean("llm_enabled", false),
             scrollbackLines = prefs.getInt("scrollback_lines", TerminalPreferences.DEFAULT_SCROLLBACK_LINES),
+            anthropicApiKey = prefs.getString("api_key_anthropic", "") ?: "",
+            googleApiKey = prefs.getString("api_key_google", "") ?: "",
+            openaiApiKey = prefs.getString("api_key_openai", "") ?: "",
+            openrouterApiKey = prefs.getString("api_key_openrouter", "") ?: "",
         )
     }
 
@@ -130,6 +142,10 @@ class PreferencesRepository(context: Context) {
             .putInt("mcp_port", p.mcpPort)
             .putBoolean("llm_enabled", p.llmEnabled)
             .putInt("scrollback_lines", p.scrollbackLines)
+            .putString("api_key_anthropic", p.anthropicApiKey)
+            .putString("api_key_google", p.googleApiKey)
+            .putString("api_key_openai", p.openaiApiKey)
+            .putString("api_key_openrouter", p.openrouterApiKey)
             .apply()
     }
 }

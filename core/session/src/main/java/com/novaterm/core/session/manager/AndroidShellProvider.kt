@@ -190,6 +190,28 @@ class AndroidShellProvider(
         System.getenv("ANDROID_ROOT")?.let { env["ANDROID_ROOT"] = it }
             ?: run { env["ANDROID_ROOT"] = "/system" }
 
+        // AI API keys — read from SharedPreferences, export as env vars
+        // so CLI tools (claude, gemini, aider, opencode) pick them up automatically.
+        // Keys are stored in app-private storage (Android sandbox protects them).
+        try {
+            val apiPrefs = context.getSharedPreferences("novaterm_prefs", Context.MODE_PRIVATE)
+            apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
+                env["ANTHROPIC_API_KEY"] = it
+            }
+            apiPrefs.getString("api_key_google", null)?.takeIf { it.isNotEmpty() }?.let {
+                env["GOOGLE_API_KEY"] = it
+                env["GEMINI_API_KEY"] = it
+            }
+            apiPrefs.getString("api_key_openai", null)?.takeIf { it.isNotEmpty() }?.let {
+                env["OPENAI_API_KEY"] = it
+            }
+            apiPrefs.getString("api_key_openrouter", null)?.takeIf { it.isNotEmpty() }?.let {
+                env["OPENROUTER_API_KEY"] = it
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("NovaTerm", "Failed to load API keys from preferences", e)
+        }
+
         env.putAll(extraVars)
 
         return env.map { "${it.key}=${it.value}" }.toTypedArray()
