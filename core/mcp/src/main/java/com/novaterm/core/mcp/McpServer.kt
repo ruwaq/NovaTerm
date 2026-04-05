@@ -130,7 +130,7 @@ class McpServer(
         }
 
         try {
-            server!!.start(wait = false)
+            server?.start(wait = false) ?: throw IllegalStateException("Server not initialized")
             // Verify the socket actually bound by checking the engine
             _bound = true
             Log.i(TAG, "MCP server started on ${config.host}:${config.port} with ${toolRegistry.size} tools")

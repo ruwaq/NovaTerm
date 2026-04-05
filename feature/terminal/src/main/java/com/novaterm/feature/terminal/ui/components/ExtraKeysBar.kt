@@ -398,8 +398,8 @@ private fun SplitPaneButton(
                         if (hapticEnabled) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
-                        if (hasSplitPanes && currentOnClose != null) {
-                            currentOnClose!!()
+                        if (hasSplitPanes) {
+                            currentOnClose?.invoke()
                         } else {
                             currentOnSplitV?.invoke()
                         }
@@ -609,7 +609,7 @@ private fun ExtraKeyButton(
                             if (shouldShowKeyTooltip && tooltipText != null) {
                                 scope.launch {
                                     tooltipState.show()
-                                    TooltipPreferences.incrementTooltipCount(context, key.tooltipKey!!)
+                                    key.tooltipKey?.let { TooltipPreferences.incrementTooltipCount(context, it) }
                                     delay(2500L) // Show for 2.5 seconds
                                     tooltipState.dismiss()
                                 }
