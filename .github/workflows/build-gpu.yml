@@ -18,6 +18,9 @@ on:
       - 'rust-core/**'
       - '.github/workflows/build-gpu.yml'
 
+permissions:
+  contents: write   # needed to commit libnovaterm.so back to the repo
+
 concurrency:
   group: gpu-${{ github.ref }}
   cancel-in-progress: true
