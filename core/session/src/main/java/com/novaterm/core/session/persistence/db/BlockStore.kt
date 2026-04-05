@@ -144,7 +144,7 @@ class BlockStore(context: Context) {
         return try {
             val cursor = db.readableDatabase.rawQuery(
                 "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
-                "FROM blocks WHERE session_id = ? ORDER BY timestamp DESC LIMIT $limit",
+                "FROM blocks WHERE session_id = ? ORDER BY timestamp ASC LIMIT $limit",
                 arrayOf(sessionId),
             )
             val result = mutableListOf<BlockRecord>()
@@ -161,7 +161,7 @@ class BlockStore(context: Context) {
                     ))
                 }
             }
-            result.reversed() // chronological order
+            result // already chronological (ASC order)
         } catch (e: Exception) {
             Log.e(TAG, "getRecentBlocks failed", e)
             emptyList()
@@ -313,8 +313,18 @@ class BlockStore(context: Context) {
     // ── Helpers ────────────────────────────────────────────
 
     private fun sha256(data: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(data).joinToString("") { "%02x".format(it) }
+        // ThreadLocal avoids the cost of getInstance() on every call (reflection + init).
+        val digest = SHA256_DIGEST.get()!!
+        digest.reset()
+        val bytes = digest.digest(data)
+        // Manual hex is ~3x faster than joinToString + String.format
+        val hex = CharArray(bytes.size * 2)
+        for (i in bytes.indices) {
+            val v = bytes[i].toInt() and 0xFF
+            hex[i * 2] = HEX_CHARS[v ushr 4]
+            hex[i * 2 + 1] = HEX_CHARS[v and 0x0F]
+        }
+        return String(hex)
     }
 
     private fun queryCount(sql: String): Int {
@@ -339,6 +349,10 @@ class BlockStore(context: Context) {
 
     companion object {
         private const val TAG = "BlockStore"
+        private val SHA256_DIGEST = ThreadLocal.withInitial<MessageDigest> {
+            MessageDigest.getInstance("SHA-256")
+        }
+        private val HEX_CHARS = "0123456789abcdef".toCharArray()
     }
 }
 

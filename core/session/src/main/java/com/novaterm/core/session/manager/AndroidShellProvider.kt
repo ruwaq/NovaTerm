@@ -205,7 +205,7 @@ class AndroidShellProvider(
         // so CLI tools (claude, gemini, aider, opencode) pick them up automatically.
         // Keys are encrypted with AES-256-GCM via Android Keystore.
         try {
-            val apiPrefs = getSecurePrefs()
+            val apiPrefs = securePrefs
             apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["ANTHROPIC_API_KEY"] = it
             }
@@ -229,12 +229,13 @@ class AndroidShellProvider(
     }
 
     /**
-     * Returns EncryptedSharedPreferences for API keys, with fallback
-     * to regular prefs if crypto initialization fails.
-     * Uses the same file name as PreferencesRepository.SECURE_PREFS_NAME.
+     * EncryptedSharedPreferences for API keys.
+     *
+     * Cached via `lazy` — MasterKey.Builder involves crypto initialization
+     * and must not be called on every session spawn.
      */
-    private fun getSecurePrefs(): SharedPreferences {
-        return try {
+    private val securePrefs: SharedPreferences by lazy {
+        try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
@@ -250,6 +251,7 @@ class AndroidShellProvider(
             context.getSharedPreferences(SECURE_PREFS_FALLBACK, Context.MODE_PRIVATE)
         }
     }
+
 
     override fun defaultWorkingDirectory(): String {
         val home = File(homeDir)

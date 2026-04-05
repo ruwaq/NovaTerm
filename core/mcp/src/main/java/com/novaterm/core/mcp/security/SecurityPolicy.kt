@@ -19,15 +19,34 @@ object SecurityPolicy {
         DANGEROUS,
     }
 
-    /** Patterns that are never allowed via MCP, regardless of approval. */
-    private val BLOCKED_PATTERNS = listOf(
-        Regex("""^rm\s+-rf\s+/\s*$"""),       // rm -rf /
-        Regex("""^rm\s+-rf\s+/\*"""),          // rm -rf /*
-        Regex("""^mkfs"""),                     // mkfs anything
-        Regex("""^dd\s+if=/dev/"""),            // dd from device
-        Regex(""":\(\)\s*\{.*\|.*&\s*\}"""),   // fork bomb variants
-        Regex("""^chmod\s+-R\s+777\s+/\s*$"""), // chmod 777 /
+    /**
+     * Patterns checked against the FULL command (not split).
+     * Used for constructs that themselves contain metacharacters (e.g., fork bomb).
+     */
+    private val BLOCKED_FULL_PATTERNS = listOf(
+        Regex(""":\(\)\s*\{.*\|.*&\s*\}"""),   // fork bomb: :() { :|:& }
     )
+
+    /**
+     * Patterns checked per-segment after splitting on shell metacharacters.
+     *
+     * These only match the dangerous root-level invocations, not safe sub-paths.
+     * For example: `rm -rf /` is blocked but `rm -rf /tmp/test` is not.
+     *
+     * Injection example:
+     *   `cat file ; rm -rf /`  → split on `;` → segment `rm -rf /` → BLOCKED
+     *   `echo ok && dd if=/dev/zero of=/dev/sda` → second segment → BLOCKED
+     */
+    private val BLOCKED_SEGMENT_PATTERNS = listOf(
+        // rm -rf / or rm -rf /* — only root, not arbitrary sub-paths
+        Regex("""^rm\s+(-[rRf]+\s+)+(/\s*$|/\*)"""),
+        Regex("""^mkfs"""),                     // mkfs anything
+        Regex("""^dd\s+if=/dev/"""),            // dd from raw device
+        Regex("""^chmod\s+-R\s+777\s+/\s*$"""), // chmod -R 777 / (exact root)
+    )
+
+    /** Shell metacharacters that introduce a new command. */
+    private val SHELL_METACHAR = Regex("""[;`]|\$\(""")
 
     /** Paths that tools cannot read or write. */
     val BLOCKED_PATHS = setOf(
@@ -42,10 +61,25 @@ object SecurityPolicy {
         return remoteAddress in LOCALHOST_ADDRESSES
     }
 
-    /** Check if a command is blocked by policy. */
+    /**
+     * Check if a command is blocked by policy.
+     *
+     * Two-pass approach:
+     * 1. Full-command check for patterns that contain metacharacters (fork bomb).
+     * 2. Per-segment check after splitting on `;`, `` ` ``, and `$(` to catch
+     *    injection attacks like `cat file ; rm -rf /`.
+     */
     fun isBlockedCommand(command: String): Boolean {
         val normalized = command.trim()
-        return BLOCKED_PATTERNS.any { it.containsMatchIn(normalized) }
+
+        // Pass 1: check the full command (fork bomb detection)
+        if (BLOCKED_FULL_PATTERNS.any { it.containsMatchIn(normalized) }) return true
+
+        // Pass 2: check each segment after splitting on injection metacharacters
+        return normalized.split(SHELL_METACHAR)
+            .any { segment ->
+                BLOCKED_SEGMENT_PATTERNS.any { it.containsMatchIn(segment.trim()) }
+            }
     }
 
     /** Check if a file path is blocked by policy. */

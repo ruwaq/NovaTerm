@@ -27,13 +27,27 @@ data class TerminalConfig(
     }
 }
 
-enum class ColorScheme(val displayName: String) {
-    GRUVBOX_DARK("Gruvbox Dark"),
-    GRUVBOX_LIGHT("Gruvbox Light"),
-    CATPPUCCIN_MOCHA("Catppuccin Mocha"),
-    MONOKAI("Monokai"),
-    DRACULA("Dracula"),
-    SOLARIZED_DARK("Solarized Dark"),
-    NORD("Nord"),
-    SYSTEM("System Dynamic"),
+/**
+ * Single source of truth for color scheme identity.
+ *
+ * [id] is the stable string key used in DataStore, TerminalPalettes, and
+ * ColorSchemes. [displayName] is the human-readable label. New schemes must
+ * be added here first, then implemented in TerminalPalettes.
+ */
+enum class ColorScheme(val displayName: String, val id: String) {
+    GRUVBOX_DARK("Gruvbox Dark", "gruvbox-dark"),
+    GRUVBOX_LIGHT("Gruvbox Light", "gruvbox-light"),
+    CATPPUCCIN_MOCHA("Catppuccin Mocha", "catppuccin-mocha"),
+    MONOKAI("Monokai", "monokai"),
+    DRACULA("Dracula", "dracula"),
+    SOLARIZED_DARK("Solarized Dark", "solarized-dark"),
+    NORD("Nord", "nord"),
+    SYSTEM("System Dynamic", "system"),
+    ;
+
+    companion object {
+        /** Lookup by [id], returns [GRUVBOX_DARK] for unknown IDs. */
+        fun fromId(id: String): ColorScheme =
+            entries.find { it.id == id } ?: GRUVBOX_DARK
+    }
 }

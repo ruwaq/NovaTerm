@@ -28,7 +28,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
@@ -193,20 +192,32 @@ fun TerminalScreen(
                     }
                 } else {
                     val tv = this
-                    viewTreeObserver.addOnWindowFocusChangeListener(
-                        object : android.view.ViewTreeObserver.OnWindowFocusChangeListener {
-                            override fun onWindowFocusChanged(hasFocus: Boolean) {
-                                if (hasFocus) {
-                                    tv.post {
-                                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                                            as? InputMethodManager
-                                        imm?.showSoftInput(tv, InputMethodManager.SHOW_IMPLICIT)
-                                    }
-                                    tv.viewTreeObserver.removeOnWindowFocusChangeListener(this)
+                    // Keep a reference so we can remove the listener in two cases:
+                    // 1. Focus gained (normal path) — removes itself immediately.
+                    // 2. View detached before focus — prevents the listener from
+                    //    leaking in multi-window / PiP / split-screen scenarios.
+                    val focusListener = object : android.view.ViewTreeObserver.OnWindowFocusChangeListener {
+                        override fun onWindowFocusChanged(hasFocus: Boolean) {
+                            if (hasFocus) {
+                                tv.post {
+                                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                                        as? InputMethodManager
+                                    imm?.showSoftInput(tv, InputMethodManager.SHOW_IMPLICIT)
                                 }
+                                tv.viewTreeObserver.removeOnWindowFocusChangeListener(this)
                             }
                         }
-                    )
+                    }
+                    viewTreeObserver.addOnWindowFocusChangeListener(focusListener)
+                    // Cleanup guard: remove listener if the view is detached before
+                    // it ever gains focus (e.g., composable leaves composition).
+                    addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(v: android.view.View) {}
+                        override fun onViewDetachedFromWindow(v: android.view.View) {
+                            v.viewTreeObserver.removeOnWindowFocusChangeListener(focusListener)
+                            v.removeOnAttachStateChangeListener(this)
+                        }
+                    })
                 }
             }
         },
