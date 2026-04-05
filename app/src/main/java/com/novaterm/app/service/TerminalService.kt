@@ -176,14 +176,16 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Only call screen update for the session that has a registered callback.
-            // Off-screen sessions (not visible in HorizontalPager) won't have callbacks,
-            // so this naturally skips invisible tabs — critical for multi-session performance.
-            val perSessionCallback = screenUpdateCallbacks[changedSession.mHandle] ?: return
+            // Prefer per-session callback (only invalidates the specific TerminalView).
+            // Fall back to legacy global callback for sessions without registered views
+            // (e.g., newly created session before HorizontalPager composes its page).
+            val callback = screenUpdateCallbacks[changedSession.mHandle]
+                ?: onScreenUpdated
+                ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
-                perSessionCallback()
+                callback()
             } else {
-                mainHandler.post(perSessionCallback)
+                mainHandler.post(callback)
             }
         }
 
