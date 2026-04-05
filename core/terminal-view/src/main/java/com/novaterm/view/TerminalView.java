@@ -362,12 +362,18 @@ public final class TerminalView extends View {
         mTopRow = 0;
 
         mTermSession = session;
-        mEmulator = null;
+        // Get emulator immediately — don't set null to avoid InputConnection race condition.
+        // commitText() silently discards input when mEmulator is null.
+        mEmulator = session.getEmulator();
         mCombiningAccent = 0;
 
-        updateSize();
+        // Reset synchronized output flag to prevent stuck screen updates.
+        // If previous session had BSU without ESU, this prevents permanent freeze.
+        if (mEmulator != null) {
+            mEmulator.setSynchronizedOutput(false);
+        }
 
-        // Wait with enabling the scrollbar until we have a terminal to get scroll position from.
+        updateSize();
         setVerticalScrollBarEnabled(true);
 
         return true;

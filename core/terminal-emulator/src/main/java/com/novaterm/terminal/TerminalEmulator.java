@@ -2799,6 +2799,11 @@ public final class TerminalEmulator {
         return mSynchronizedOutput;
     }
 
+    /** Force-reset synchronized output state. Used when switching sessions to prevent stuck screens. */
+    public void setSynchronizedOutput(boolean enabled) {
+        mSynchronizedOutput = enabled;
+    }
+
     public void toggleAutoScrollDisabled() {
         mAutoScrollDisabled = !mAutoScrollDisabled;
     }

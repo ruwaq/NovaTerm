@@ -191,26 +191,14 @@ fun TerminalScreen(
 
             // Attach new session when tab switches.
             if (view.currentSession != session) {
-                // CRITICAL: Invalidate InputConnection BEFORE attachSession().
-                // attachSession() sets mEmulator=null, which causes commitText()
-                // and deleteSurroundingText() to silently discard input.
-                // By restarting input first, the IME drops its cached InputConnection.
+                view.attachSession(session)
+                // Re-register onViewReady to ensure screen callback is active for new session
+                onViewReady?.invoke(view)
+                // Restart IME for the new session
                 val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
                     as? InputMethodManager
-                view.clearFocus()
+                view.requestFocus()
                 imm?.restartInput(view)
-
-                // Now safe to switch session (mEmulator will be null briefly)
-                view.attachSession(session)
-
-                // Restore focus and keyboard after session is attached
-                view.postDelayed({
-                    view.isFocusable = true
-                    view.isFocusableInTouchMode = true
-                    view.requestFocus()
-                    imm?.restartInput(view)
-                    imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
-                }, 100)
             }
 
             // Apply font size changes only when actually changed (avoids recreating TerminalRenderer).
