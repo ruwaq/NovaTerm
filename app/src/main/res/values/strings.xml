@@ -17,6 +17,7 @@
     <string name="action_settings">Settings</string>
     <string name="action_wake_lock_on">WL: ON</string>
     <string name="action_wake_lock_off">WL: OFF</string>
+    <string name="action_float">Float</string>
     <string name="action_search_history">Search history</string>
 
     <!-- Tabs -->
@@ -76,6 +77,7 @@
     <!-- Shortcuts -->
     <string name="shortcut_new_session">New session</string>
     <string name="shortcut_new_session_long">Open a new terminal session</string>
+    <string name="shortcut_session">Session %d</string>
 
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>

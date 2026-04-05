@@ -246,6 +246,14 @@ class MainActivity : ComponentActivity() {
                 startForegroundService(serviceIntent)
             }
 
+            ACTION_SWITCH_SESSION -> {
+                val sessionIndex = intent.getIntExtra("session_index", -1)
+                if (sessionIndex >= 0) {
+                    Log.i(TAG, "SWITCH_SESSION shortcut intent: index=$sessionIndex")
+                    viewModel.selectSession(sessionIndex)
+                }
+            }
+
             ACTION_RUN_COMMAND -> {
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
@@ -272,6 +280,11 @@ class MainActivity : ComponentActivity() {
                         startForegroundService(serviceIntent)
                     }
                 }
+            }
+
+            TerminalService.ACTION_FLOAT -> {
+                Log.i(TAG, "FLOAT action — entering PiP mode")
+                enterPipModeForced()
             }
 
             Intent.ACTION_VIEW -> {
@@ -319,6 +332,21 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
         if (!prefs.getBoolean("pip_on_leave", false)) return
 
+        try {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(3, 4)) // Portrait terminal ratio
+                .build()
+            enterPictureInPictureMode(params)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to enter PiP mode", e)
+        }
+    }
+
+    /**
+     * Force-enter PiP mode regardless of user settings.
+     * Used when the user explicitly taps the Float notification action.
+     */
+    private fun enterPipModeForced() {
         try {
             val params = PictureInPictureParams.Builder()
                 .setAspectRatio(Rational(3, 4)) // Portrait terminal ratio
@@ -389,5 +417,6 @@ class MainActivity : ComponentActivity() {
         private const val TAG = "NovaTerm"
         private const val ACTION_RUN_COMMAND = "com.nvterm.RUN_COMMAND"
         private const val ACTION_NEW_SESSION = "com.nvterm.NEW_SESSION"
+        private const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
     }
 }

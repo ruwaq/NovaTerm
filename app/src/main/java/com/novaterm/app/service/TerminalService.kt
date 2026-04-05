@@ -23,6 +23,9 @@ import com.novaterm.app.R
 import com.novaterm.app.ui.MainActivity
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import com.novaterm.app.receiver.BootReceiver
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.model.TerminalDimensions
@@ -477,6 +480,8 @@ class TerminalService : Service() {
         llmEngine = null
         stopPeriodicSave()
         saveSessionMetadata()
+        // Clear dynamic shortcuts since no sessions will be active
+        getSystemService(ShortcutManager::class.java)?.removeAllDynamicShortcuts()
         if (::predictionEngine.isInitialized) predictionEngine.save()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
@@ -761,10 +766,12 @@ class TerminalService : Service() {
             PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val wakeLockIntent = PendingIntent.getService(
-            this, REQ_TOGGLE_WAKELOCK,
-            Intent(this, TerminalService::class.java).setAction(ACTION_TOGGLE_WAKELOCK),
-            PendingIntent.FLAG_IMMUTABLE,
+        val floatIntent = PendingIntent.getActivity(
+            this, REQ_FLOAT,
+            Intent(this, MainActivity::class.java)
+                .setAction(ACTION_FLOAT)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
         val exitIntent = PendingIntent.getService(
@@ -774,7 +781,6 @@ class TerminalService : Service() {
         )
 
         val count = _sessions.value.size
-        val lockLabel = getString(if (isWakeLockHeld) R.string.action_wake_lock_on else R.string.action_wake_lock_off)
 
         return NotificationCompat.Builder(this, NovaTermApp.CHANNEL_SERVICE)
             .setContentTitle(getString(R.string.notification_title_running))
@@ -786,7 +792,7 @@ class TerminalService : Service() {
             .setPriority(if (isWakeLockHeld) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(android.R.drawable.ic_input_add, getString(R.string.action_new_session), newSessionIntent)
-            .addAction(android.R.drawable.ic_lock_lock, lockLabel, wakeLockIntent)
+            .addAction(android.R.drawable.ic_menu_crop, getString(R.string.action_float), floatIntent)
             .addAction(android.R.drawable.ic_delete, getString(R.string.action_exit), exitIntent)
             .build()
     }
@@ -794,6 +800,46 @@ class TerminalService : Service() {
     private fun updateNotification() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification())
+        updateDynamicShortcuts()
+    }
+
+    /**
+     * Update dynamic app shortcuts to reflect active terminal sessions.
+     * Each shortcut opens the app and switches to the corresponding session.
+     * Limited to [MAX_DYNAMIC_SHORTCUTS] (Android launcher limit is 4-5).
+     */
+    private fun updateDynamicShortcuts() {
+        val shortcutManager = getSystemService(ShortcutManager::class.java) ?: return
+        val currentSessions = _sessions.value
+
+        if (currentSessions.isEmpty()) {
+            shortcutManager.removeAllDynamicShortcuts()
+            return
+        }
+
+        val shortcuts = currentSessions
+            .take(MAX_DYNAMIC_SHORTCUTS)
+            .mapIndexed { index, session ->
+                val label = session.title?.takeIf { it.isNotBlank() }
+                    ?: getString(R.string.shortcut_session, index + 1)
+
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    action = ACTION_SWITCH_SESSION
+                    putExtra("session_index", index)
+                    // Flags required for shortcut intents
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+
+                ShortcutInfo.Builder(this, "session_$index")
+                    .setShortLabel(label)
+                    .setLongLabel(label)
+                    .setIcon(Icon.createWithResource(this, R.drawable.ic_notification))
+                    .setIntent(intent)
+                    .setRank(index)
+                    .build()
+            }
+
+        shortcutManager.dynamicShortcuts = shortcuts
     }
 
     // ── MCP bridge implementation ───────────────────────────
@@ -931,6 +977,7 @@ class TerminalService : Service() {
         private const val REQ_EXIT = 1
         private const val REQ_NEW_SESSION = 2
         private const val REQ_TOGGLE_WAKELOCK = 3
+        private const val REQ_FLOAT = 4
         private const val NOTIFICATION_BELL = 1338
         private const val NOTIFICATION_OSC9 = 1340
         private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
@@ -941,5 +988,8 @@ class TerminalService : Service() {
         const val ACTION_TOGGLE_WAKELOCK = "com.nvterm.action.TOGGLE_WAKELOCK"
         const val ACTION_RUN_COMMAND = "com.nvterm.action.RUN_COMMAND"
         const val ACTION_WRITE_INPUT = "com.nvterm.action.WRITE_INPUT"
+        const val ACTION_FLOAT = "com.nvterm.action.FLOAT"
+        const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
+        private const val MAX_DYNAMIC_SHORTCUTS = 4
     }
 }
