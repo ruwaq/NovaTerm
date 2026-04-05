@@ -88,11 +88,8 @@ class MainActivity : ComponentActivity() {
      * Write recognized speech text to the active terminal session.
      */
     private fun writeVoiceInputToSession(text: String) {
-        val sessions = viewModel.sessions.value
-        val index = viewModel.currentSessionIndex.value
-        if (index in sessions.indices) {
-            sessions[index].write(text)
-        }
+        val session = viewModel.sessions.value.getOrNull(viewModel.currentSessionIndex.value) ?: return
+        session.write(text)
     }
 
     /**
@@ -340,9 +337,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun enterPipModeIfEnabled() {
-        // Only enter PiP if user has enabled it in settings
+        // Only enter PiP if user has enabled it in settings and has active sessions
         val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
         if (!prefs.getBoolean("pip_on_leave", false)) return
+        if (viewModel.sessions.value.isEmpty()) return
 
         try {
             val params = PictureInPictureParams.Builder()

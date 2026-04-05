@@ -145,7 +145,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     // ── Pane management (built-in multiplexer) ────────────
 
     /** Per-tab pane managers. Key = tab index. Only populated for tabs with splits. */
-    private val _paneManagers = mutableMapOf<Int, PaneManager>()
+    private val _paneManagers = java.util.concurrent.ConcurrentHashMap<Int, PaneManager>()
 
     /** The pane layout for the current tab. Null = single pane (default). */
     private val _currentPaneLayout = MutableStateFlow<PaneNode?>(null)

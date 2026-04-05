@@ -440,7 +440,7 @@ class TerminalService : Service() {
     }
 
     private fun stopPeriodicSave() {
-        mainHandler.removeCallbacksAndMessages(null)
+        mainHandler.removeCallbacks(saveRunnable)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -571,11 +571,18 @@ class TerminalService : Service() {
         }
         val session = createSession()
         if (session != null) {
-            // Small delay to let the shell initialize before writing the command
+            // Delay to let the shell initialize before writing the command.
+            // 1000ms is safe for slow devices; fast devices are unaffected.
             mainHandler.postDelayed({
-                session.write(command + "\n")
-                Log.i(TAG, "LAUNCH_PRESET: started '$command' in session ${session.mHandle}")
-            }, 300)
+                if (session.isRunning) {
+                    session.write(command + "\n")
+                    Log.i(TAG, "LAUNCH_PRESET: started '$command' in session ${session.mHandle}")
+                } else {
+                    Log.w(TAG, "LAUNCH_PRESET: session died before command could be written")
+                }
+            }, 1000)
+        } else {
+            Log.e(TAG, "LAUNCH_PRESET: failed to create session for preset '$preset'")
         }
         return session
     }
@@ -657,6 +664,7 @@ class TerminalService : Service() {
         zoneTrackers.remove(session.mHandle)
         rustEngines.remove(session.mHandle)?.destroy()
         session.setRawByteInterceptor(null)
+        session.setResizeListener(null)
         session.finishIfRunning()
         _sessions.update { list ->
             list.filterIndexed { _, s -> s !== session }
