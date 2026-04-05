@@ -192,6 +192,14 @@ fun TerminalScreen(
             // Attach new session when tab switches.
             if (view.currentSession != session) {
                 view.attachSession(session)
+                // Force IME restart so keyboard input targets the new session.
+                // Without this, backspace and text input can stop working after switching tabs.
+                view.post {
+                    view.requestFocus()
+                    val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                        as? InputMethodManager
+                    imm?.restartInput(view)
+                }
             }
 
             // Apply font size changes only when actually changed (avoids recreating TerminalRenderer).
