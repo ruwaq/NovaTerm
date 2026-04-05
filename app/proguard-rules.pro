@@ -68,6 +68,21 @@
     public <fields>;
 }
 
+# === Kotlinx Serialization (used by Ktor/MCP JSON) ===
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class kotlinx.serialization.json.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.novaterm.**$$serializer { *; }
+-keepclassmembers class com.novaterm.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.novaterm.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
 # === Ktor (MCP server) ===
 # java.lang.management not available on Android
 -dontwarn java.lang.management.ManagementFactory

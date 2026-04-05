@@ -424,7 +424,7 @@ public final class TerminalSession extends TerminalOutput {
             field.set(result, fd);
         } catch (NoSuchFieldException | IllegalAccessException | IllegalArgumentException e) {
             Logger.logStackTraceWithMessage(client, LOG_TAG, "Error accessing FileDescriptor field", e);
-            System.exit(1);
+            throw new RuntimeException("Cannot wrap file descriptor — incompatible Android version", e);
         }
         return result;
     }

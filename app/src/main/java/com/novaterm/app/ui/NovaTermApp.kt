@@ -286,8 +286,8 @@ fun NovaTermApp(
                         suggestion = suggestion,
                         onAccept = { cmd ->
                             val accepted = viewModel.acceptSuggestion()
-                            if (accepted != null && safeIndex in sessions.indices) {
-                                sessions[safeIndex].write(accepted)
+                            if (accepted != null) {
+                                sessions.getOrNull(safeIndex)?.write(accepted)
                             }
                         },
                         onDismiss = { viewModel.dismissSuggestion() },
@@ -305,7 +305,7 @@ fun NovaTermApp(
                                     if ((code == "\t" || code == "\u001b[C") && suggestion != null) {
                                         val accepted = viewModel.acceptSuggestion()
                                         if (accepted != null) {
-                                            sessions[safeIndex].write(accepted)
+                                            sessions.getOrNull(safeIndex)?.write(accepted)
                                             return@ExtraKeysBar
                                         }
                                     }
@@ -315,9 +315,7 @@ fun NovaTermApp(
                                     } else {
                                         safeIndex
                                     }
-                                    if (targetIndex in sessions.indices) {
-                                        sessions[targetIndex].write(resolveKeyInput(code, ctrlActive, altActive))
-                                    }
+                                    sessions.getOrNull(targetIndex)?.write(resolveKeyInput(code, ctrlActive, altActive))
                                     viewModel.resetModifiers()
                                 }
                             },

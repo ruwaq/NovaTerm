@@ -62,24 +62,29 @@ class BlockStore(context: Context) {
 
     fun getSessions(): List<SessionRecord> {
         if (closed) return emptyList()
-        val cursor = db.readableDatabase.rawQuery(
-            "SELECT id, tab_index, tab_name, shell, cwd, created_at FROM sessions ORDER BY tab_index",
-            null,
-        )
-        val result = mutableListOf<SessionRecord>()
-        cursor.use {
-            while (it.moveToNext()) {
-                result.add(SessionRecord(
-                    id = it.getString(0),
-                    tabIndex = it.getInt(1),
-                    tabName = it.getString(2),
-                    shell = it.getString(3),
-                    cwd = it.getString(4),
-                    createdAt = it.getLong(5),
-                ))
+        return try {
+            val cursor = db.readableDatabase.rawQuery(
+                "SELECT id, tab_index, tab_name, shell, cwd, created_at FROM sessions ORDER BY tab_index",
+                null,
+            )
+            val result = mutableListOf<SessionRecord>()
+            cursor.use {
+                while (it.moveToNext()) {
+                    result.add(SessionRecord(
+                        id = it.getString(0),
+                        tabIndex = it.getInt(1),
+                        tabName = it.getString(2),
+                        shell = it.getString(3),
+                        cwd = it.getString(4),
+                        createdAt = it.getLong(5),
+                    ))
+                }
             }
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "getSessions failed", e)
+            emptyList()
         }
-        return result
     }
 
     fun deleteSession(sessionId: String) {
@@ -136,26 +141,31 @@ class BlockStore(context: Context) {
 
     fun getRecentBlocks(sessionId: String, limit: Int = 50): List<BlockRecord> {
         if (closed) return emptyList()
-        val cursor = db.readableDatabase.rawQuery(
-            "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
-            "FROM blocks WHERE session_id = ? ORDER BY timestamp DESC LIMIT $limit",
-            arrayOf(sessionId),
-        )
-        val result = mutableListOf<BlockRecord>()
-        cursor.use {
-            while (it.moveToNext()) {
-                result.add(BlockRecord(
-                    id = it.getString(0),
-                    timestamp = it.getLong(1),
-                    command = it.getString(2),
-                    exitCode = if (it.isNull(3)) null else it.getInt(3),
-                    durationMs = if (it.isNull(4)) null else it.getLong(4),
-                    cwd = it.getString(5),
-                    isAiGenerated = it.getInt(6) == 1,
-                ))
+        return try {
+            val cursor = db.readableDatabase.rawQuery(
+                "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
+                "FROM blocks WHERE session_id = ? ORDER BY timestamp DESC LIMIT $limit",
+                arrayOf(sessionId),
+            )
+            val result = mutableListOf<BlockRecord>()
+            cursor.use {
+                while (it.moveToNext()) {
+                    result.add(BlockRecord(
+                        id = it.getString(0),
+                        timestamp = it.getLong(1),
+                        command = it.getString(2),
+                        exitCode = if (it.isNull(3)) null else it.getInt(3),
+                        durationMs = if (it.isNull(4)) null else it.getLong(4),
+                        cwd = it.getString(5),
+                        isAiGenerated = it.getInt(6) == 1,
+                    ))
+                }
             }
+            result.reversed() // chronological order
+        } catch (e: Exception) {
+            Log.e(TAG, "getRecentBlocks failed", e)
+            emptyList()
         }
-        return result.reversed() // chronological order
     }
 
     // ── Content-Addressable Storage ───────────────────────
@@ -170,17 +180,12 @@ class BlockStore(context: Context) {
         synchronized(lock) {
             if (closed) return null
             try {
-                val exists = db.readableDatabase.rawQuery(
-                    "SELECT ref_count FROM cas_blobs WHERE hash = ?",
-                    arrayOf(hash),
-                ).use { it.moveToFirst() }
-
-                if (exists) {
-                    db.writableDatabase.execSQL(
-                        "UPDATE cas_blobs SET ref_count = ref_count + 1 WHERE hash = ?",
-                        arrayOf(hash),
-                    )
-                } else {
+                // Use INSERT OR IGNORE + UPDATE to avoid TOCTOU race condition.
+                // If another thread inserts the same hash between our check and insert,
+                // INSERT OR IGNORE safely no-ops, and the UPDATE bumps ref_count.
+                val wdb = db.writableDatabase
+                wdb.beginTransaction()
+                try {
                     val values = ContentValues().apply {
                         put("hash", hash)
                         put("data", data)
@@ -188,7 +193,20 @@ class BlockStore(context: Context) {
                         put("size_bytes", data.size)
                         put("created_at", System.currentTimeMillis())
                     }
-                    db.writableDatabase.insert("cas_blobs", null, values)
+                    val inserted = wdb.insertWithOnConflict(
+                        "cas_blobs", null, values,
+                        android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE,
+                    )
+                    if (inserted == -1L) {
+                        // Row already exists — bump reference count atomically
+                        wdb.execSQL(
+                            "UPDATE cas_blobs SET ref_count = ref_count + 1 WHERE hash = ?",
+                            arrayOf(hash),
+                        )
+                    }
+                    wdb.setTransactionSuccessful()
+                } finally {
+                    wdb.endTransaction()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("BlockStore", "storeOutput failed for hash=$hash", e)
@@ -200,12 +218,17 @@ class BlockStore(context: Context) {
 
     fun getOutput(hash: String): ByteArray? {
         if (closed) return null
-        val cursor = db.readableDatabase.rawQuery(
-            "SELECT data FROM cas_blobs WHERE hash = ?",
-            arrayOf(hash),
-        )
-        return cursor.use {
-            if (it.moveToFirst()) it.getBlob(0) else null
+        return try {
+            val cursor = db.readableDatabase.rawQuery(
+                "SELECT data FROM cas_blobs WHERE hash = ?",
+                arrayOf(hash),
+            )
+            cursor.use {
+                if (it.moveToFirst()) it.getBlob(0) else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getOutput failed", e)
+            null
         }
     }
 
@@ -239,21 +262,26 @@ class BlockStore(context: Context) {
 
     fun getSnapshot(sessionId: String): SnapshotRecord? {
         if (closed) return null
-        val cursor = db.readableDatabase.rawQuery(
-            "SELECT vt_data, cursor_row, cursor_col, rows, cols, updated_at FROM snapshots WHERE session_id = ?",
-            arrayOf(sessionId),
-        )
-        return cursor.use {
-            if (it.moveToFirst()) {
-                SnapshotRecord(
-                    vtData = it.getBlob(0),
-                    cursorRow = it.getInt(1),
-                    cursorCol = it.getInt(2),
-                    rows = it.getInt(3),
-                    cols = it.getInt(4),
-                    updatedAt = it.getLong(5),
-                )
-            } else null
+        return try {
+            val cursor = db.readableDatabase.rawQuery(
+                "SELECT vt_data, cursor_row, cursor_col, rows, cols, updated_at FROM snapshots WHERE session_id = ?",
+                arrayOf(sessionId),
+            )
+            cursor.use {
+                if (it.moveToFirst()) {
+                    SnapshotRecord(
+                        vtData = it.getBlob(0),
+                        cursorRow = it.getInt(1),
+                        cursorCol = it.getInt(2),
+                        rows = it.getInt(3),
+                        cols = it.getInt(4),
+                        updatedAt = it.getLong(5),
+                    )
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getSnapshot failed", e)
+            null
         }
     }
 
@@ -261,20 +289,25 @@ class BlockStore(context: Context) {
 
     fun getStats(): StoreStats {
         if (closed) return StoreStats(0, 0, 0, 0L, 0L)
-        val blockCount = queryCount("SELECT COUNT(*) FROM blocks")
-        val sessionCount = queryCount("SELECT COUNT(*) FROM sessions")
-        val casCount = queryCount("SELECT COUNT(*) FROM cas_blobs")
-        val casSizeBytes = queryLong("SELECT COALESCE(SUM(size_bytes), 0) FROM cas_blobs")
-        val dedupSaved = queryLong(
-            "SELECT COALESCE(SUM((ref_count - 1) * size_bytes), 0) FROM cas_blobs WHERE ref_count > 1"
-        )
-        return StoreStats(
-            sessions = sessionCount,
-            blocks = blockCount,
-            casBlobs = casCount,
-            casSizeBytes = casSizeBytes,
-            dedupSavedBytes = dedupSaved,
-        )
+        return try {
+            val blockCount = queryCount("SELECT COUNT(*) FROM blocks")
+            val sessionCount = queryCount("SELECT COUNT(*) FROM sessions")
+            val casCount = queryCount("SELECT COUNT(*) FROM cas_blobs")
+            val casSizeBytes = queryLong("SELECT COALESCE(SUM(size_bytes), 0) FROM cas_blobs")
+            val dedupSaved = queryLong(
+                "SELECT COALESCE(SUM((ref_count - 1) * size_bytes), 0) FROM cas_blobs WHERE ref_count > 1"
+            )
+            StoreStats(
+                sessions = sessionCount,
+                blocks = blockCount,
+                casBlobs = casCount,
+                casSizeBytes = casSizeBytes,
+                dedupSavedBytes = dedupSaved,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "getStats failed", e)
+            StoreStats(0, 0, 0, 0L, 0L)
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────

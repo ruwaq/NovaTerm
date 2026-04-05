@@ -191,7 +191,10 @@ impl VulkanRenderer {
 
         // 4. Update uniforms
         let (cell_w, cell_h) = self.atlas.cell_metrics();
-        let (out_w, out_h) = self.surface.as_ref().unwrap().size();
+        let (out_w, out_h) = match self.surface.as_ref() {
+            Some(s) => s.size(),
+            None => return false,
+        };
         let uniforms = Uniforms {
             cell_width: cell_w,
             cell_height: cell_h,
@@ -212,8 +215,7 @@ impl VulkanRenderer {
         let surface_texture = match self
             .surface
             .as_mut()
-            .unwrap()
-            .get_current_texture(&self.ctx)
+            .and_then(|s| s.get_current_texture(&self.ctx))
         {
             Some(tex) => tex,
             None => {

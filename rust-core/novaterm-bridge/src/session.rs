@@ -84,7 +84,7 @@ impl RustSession {
         }
         let rb = read_buffer.clone();
         let ar = alive.clone();
-        thread::Builder::new()
+        let reader_thread = thread::Builder::new()
             .name(format!("nova-read[{}]", child_pid))
             .spawn(move || {
                 let mut file = unsafe { std::fs::File::from_raw_fd(reader_raw) };
@@ -100,13 +100,18 @@ impl RustSession {
                         Err(_) => break,
                     }
                 }
-            })
-            .map_err(novaterm_pty::Error::Io)?;
+            });
+        if let Err(e) = reader_thread {
+            // Spawn failed — the closure never ran, so both fds are still open here.
+            unsafe { libc::close(reader_raw); }
+            unsafe { libc::close(writer_raw); }
+            return Err(novaterm_pty::Error::Io(e));
+        }
 
         // Writer: write_buffer → PTY
         let wb = write_buffer.clone();
         let aw = alive.clone();
-        thread::Builder::new()
+        let writer_thread = thread::Builder::new()
             .name(format!("nova-write[{}]", child_pid))
             .spawn(move || {
                 let mut file = unsafe { std::fs::File::from_raw_fd(writer_raw) };
@@ -120,8 +125,13 @@ impl RustSession {
                         break;
                     }
                 }
-            })
-            .map_err(novaterm_pty::Error::Io)?;
+            });
+        if let Err(e) = writer_thread {
+            // Writer spawn failed — stop the reader thread and close writer fd.
+            alive.store(false, Ordering::Relaxed);
+            unsafe { libc::close(writer_raw); }
+            return Err(novaterm_pty::Error::Io(e));
+        }
 
         Ok(RustSession {
             backend: AlacrittyBackend::new(rows as u32, cols as u32),

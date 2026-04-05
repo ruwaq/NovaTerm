@@ -36,7 +36,7 @@ class RunCommandTool(
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
         val command = arguments["command"] as? String
             ?: return ToolResult.Error("Missing required parameter: command")
-        val session = (arguments["session"] as? Number)?.toInt() ?: 0
+        val session = (arguments["session"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
         val waitMs = (arguments["wait_ms"] as? Number)?.toLong()?.coerceIn(500, 30_000) ?: 3_000
 
         // Security: check blocked commands

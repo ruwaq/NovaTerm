@@ -38,6 +38,7 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeSession_nativ
             for i in 0..args_len {
                 let obj = e.get_object_array_element(&args, i as usize)?;
                 let raw = obj.into_raw();
+                if raw.is_null() { continue; }
                 let jstr = unsafe { JString::from_raw(e, raw) };
                 let s: String = e.get_string(&jstr)?.into();
                 args_vec.push(s);
@@ -47,6 +48,7 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeSession_nativ
             for i in 0..env_len {
                 let obj = e.get_object_array_element(&env_vars, i as usize)?;
                 let raw = obj.into_raw();
+                if raw.is_null() { continue; }
                 let jstr = unsafe { JString::from_raw(e, raw) };
                 let s: String = e.get_string(&jstr)?.into();
                 env_vec.push(s);

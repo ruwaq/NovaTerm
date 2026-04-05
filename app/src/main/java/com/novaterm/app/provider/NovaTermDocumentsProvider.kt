@@ -95,12 +95,20 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
         displayName: String,
     ): String {
         val parent = fileForDocId(parentDocumentId)
-        val newFile = File(parent, displayName)
+        // Sanitize displayName to prevent path traversal (e.g. "../../etc/passwd")
+        val safeName = displayName.replace("/", "_").replace("\u0000", "")
+        if (safeName.isEmpty() || safeName == "." || safeName == "..") {
+            throw FileNotFoundException("Invalid document name: $displayName")
+        }
+        val newFile = File(parent, safeName)
 
-        if (mimeType == Document.MIME_TYPE_DIR) {
+        val created = if (mimeType == Document.MIME_TYPE_DIR) {
             newFile.mkdirs()
         } else {
             newFile.createNewFile()
+        }
+        if (!created) {
+            throw FileNotFoundException("Failed to create: $safeName")
         }
 
         return docIdForFile(newFile)
@@ -146,9 +154,11 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
         val canonical = file.canonicalFile
         val homeCanonical = homeDir.canonicalFile
         val homePath = homeCanonical.path + File.separator
-        val storagePath = "/storage/emulated/"
+        // Only allow symlinks to user's own shared storage, not arbitrary /storage paths.
+        // /storage/emulated/0/ is the current user's storage; block access to other users.
+        val allowedStoragePath = "/storage/emulated/0/"
         val isInsideHome = canonical == homeCanonical || canonical.path.startsWith(homePath)
-        val isStorageLink = canonical.path.startsWith(storagePath)
+        val isStorageLink = canonical.path.startsWith(allowedStoragePath)
         if (!isInsideHome && !isStorageLink) {
             throw FileNotFoundException("Access denied: $docId resolves outside home directory")
         }

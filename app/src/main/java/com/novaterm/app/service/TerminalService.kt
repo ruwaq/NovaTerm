@@ -603,8 +603,8 @@ class TerminalService : Service() {
             // The exact size comes from the last known view dimensions;
             // 40x120 are reasonable defaults if view hasn't measured yet.
             val lastSession = _sessions.value.lastOrNull()
-            val rows = lastSession?.emulator?.mRows?.toString() ?: "40"
-            val cols = lastSession?.emulator?.mColumns?.toString() ?: "120"
+            val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: "40"
+            val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: "120"
             val env = shellProvider.buildEnvironment(mapOf("LINES" to rows, "COLUMNS" to cols))
 
             Log.i(TAG, "Creating session: cmd=${shellCmd.toList()} cwd=$cwd size=${rows}x${cols}")
@@ -664,19 +664,22 @@ class TerminalService : Service() {
     }
 
     fun removeSession(index: Int) {
-        val currentList = _sessions.value
-        if (index !in currentList.indices) return
-        val session = currentList[index]
-        // Clean up callbacks, trackers, and engines BEFORE updating session list
+        // Atomically remove the session from the list to avoid TOCTOU races.
+        // Capture the removed session reference inside the update lambda.
+        var removedSession: TerminalSession? = null
+        _sessions.update { list ->
+            if (index !in list.indices) return
+            removedSession = list[index]
+            list.filterIndexed { i, _ -> i != index }
+        }
+        val session = removedSession ?: return
+        // Clean up callbacks, trackers, and engines AFTER atomic removal
         screenUpdateCallbacks.remove(session.mHandle)
         zoneTrackers.remove(session.mHandle)
         rustEngines.remove(session.mHandle)?.destroy()
         session.setRawByteInterceptor(null)
         session.setResizeListener(null)
         session.finishIfRunning()
-        _sessions.update { list ->
-            list.filterIndexed { _, s -> s !== session }
-        }
         updateNotification()
         updateBootReceiverState()
         if (_sessions.value.isEmpty()) stopSelf()

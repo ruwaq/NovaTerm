@@ -300,7 +300,11 @@ pub fn create_subprocess(
             libc::dup2(slave_fd, 1);
             libc::dup2(slave_fd, 2);
 
-            // Close all other fds (including master via O_CLOEXEC, but be safe).
+            // Close the original slave fd now that it's been dup'd to 0/1/2.
+            // Then close all remaining fds > 2 (including master via O_CLOEXEC).
+            if slave_fd > 2 {
+                libc::close(slave_fd);
+            }
             close_fds_except(-1);
 
             // Change directory.

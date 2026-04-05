@@ -214,7 +214,8 @@ fun TerminalScreen(
             terminalViewRef.value = view
 
             // Attach new session when tab switches.
-            // attachSession() handles IME restart internally (clearFocus + requestFocus + restartInput).
+            // attachSession() reuses the existing InputConnection with the new session's emulator.
+            // No IME manipulation needed — the InputConnection works seamlessly by reference.
             if (view.mTermSession != session) {
                 view.attachSession(session)
                 onViewReady?.invoke(view)

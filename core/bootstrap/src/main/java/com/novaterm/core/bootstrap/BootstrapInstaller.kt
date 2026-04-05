@@ -309,15 +309,21 @@ class BootstrapInstaller(private val context: Context) {
 
         // Write wrapper script — handles both direct .deb args and --recursive dirs
         // Also handles large packages (>50MB) via direct extraction fallback
+        // Derive paths from the actual prefix to avoid hardcoding the package name.
+        // prefix is already the usr dir (e.g. /data/data/com.nvterm/files/usr),
+        // so binPath is prefix/bin and NVTERM_PREFIX is the parent (files dir).
+        val prefixPath = prefix.absolutePath
+        val binPath = "$prefixPath/bin"
+        val filesPath = prefix.parentFile!!.absolutePath
         dpkgBin.writeText(buildString {
-            appendLine("#!/data/data/com.nvterm/files/usr/bin/sh")
+            appendLine("#!$binPath/sh")
             appendLine("# NovaTerm dpkg wrapper — patches com.termux paths in .deb files")
             appendLine("# com.termux and com.nvterm are both 10 bytes → safe binary replacement")
             appendLine("# Real dpkg is at dpkg.real")
             appendLine()
-            appendLine("DPKG_DEB=\"/data/data/com.nvterm/files/usr/bin/dpkg-deb\"")
-            appendLine("DPKG_REAL=\"/data/data/com.nvterm/files/usr/bin/dpkg.real\"")
-            appendLine("NVTERM_PREFIX=\"/data/data/com.nvterm/files\"")
+            appendLine("DPKG_DEB=\"$binPath/dpkg-deb\"")
+            appendLine("DPKG_REAL=\"$binPath/dpkg.real\"")
+            appendLine("NVTERM_PREFIX=\"$filesPath\"")
             appendLine()
             appendLine("patch_deb() {")
             appendLine("  local deb=\"\$1\"")
