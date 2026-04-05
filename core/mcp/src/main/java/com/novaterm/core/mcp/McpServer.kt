@@ -6,6 +6,7 @@ import com.novaterm.core.mcp.bridge.McpSessionBridge
 import com.novaterm.core.mcp.security.ApprovalManager
 import com.novaterm.core.mcp.security.ApprovalResult
 import com.novaterm.core.mcp.security.AutoApprovalManager
+import com.novaterm.core.mcp.security.RateLimiter
 import com.novaterm.core.mcp.tool.McpTool
 import com.novaterm.core.mcp.tool.ToolRegistry
 import com.novaterm.core.mcp.tool.ToolResult
@@ -68,6 +69,7 @@ class McpServer(
 
     private var server: EmbeddedServer<*, *>? = null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
+    private val rateLimiter = RateLimiter(maxRequests = 60)
 
     val isRunning: Boolean get() = server != null && _bound
     private var _bound = false
@@ -109,6 +111,16 @@ class McpServer(
             routing {
                 // MCP endpoint (Streamable HTTP)
                 post("/mcp") {
+                    if (!rateLimiter.tryAcquire()) {
+                        call.respondText(
+                            buildJsonObject {
+                                put("error", "Rate limit exceeded. Max ${60} requests per minute.")
+                            }.toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.TooManyRequests,
+                        )
+                        return@post
+                    }
                     if (!validateBearerToken(call)) return@post
                     val body = call.receiveText()
                     val clientAddress = call.request.local.remoteAddress

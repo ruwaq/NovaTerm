@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novaterm.feature.terminal.color.TerminalPalettes
 import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
@@ -136,7 +138,8 @@ fun TerminalScreen(
         AndroidView(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 4.dp), // Minimal horizontal padding, no vertical gap
+            .padding(horizontal = 4.dp) // Minimal horizontal padding, no vertical gap
+            .semantics { contentDescription = "Terminal output" },
         factory = { context ->
             applyTerminalPalette(colorScheme)
 

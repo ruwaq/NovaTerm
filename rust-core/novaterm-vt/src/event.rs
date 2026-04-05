@@ -21,6 +21,14 @@ pub enum BackendEvent {
     ColorRequest(usize),
     /// Bytes that must be written back to the PTY (DA responses, DSR, etc.)
     PtyWrite(Vec<u8>),
+    /// A decoded Sixel image at a grid position, pixel data in RGBA format.
+    SixelImage {
+        x: u16,
+        y: u16,
+        width: u32,
+        height: u32,
+        pixels: Vec<u8>, // RGBA
+    },
 }
 
 /// Collects events from alacritty_terminal into a thread-safe buffer.

@@ -11,5 +11,7 @@ alacritty_terminal = { workspace = true }
 parking_lot = { workspace = true }
 log = { workspace = true }
 bitflags = { workspace = true }
+sixel-image = "0.2"
+sixel-tokenizer = "0.1"
 
 [dev-dependencies]

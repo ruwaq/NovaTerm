@@ -26,7 +26,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 import android.view.inputmethod.BaseInputConnection;
@@ -166,6 +168,10 @@ public final class TerminalView extends View {
     private String[] mAutoFillHints = new String[0];
 
     private final boolean mAccessibilityEnabled;
+
+    /** Throttle accessibility announcements to avoid spamming TalkBack. */
+    private long mLastAccessibilityAnnounceMs = 0;
+    private static final long ACCESSIBILITY_ANNOUNCE_INTERVAL_MS = 1000;
 
     /** The {@link KeyEvent} is generated from a virtual keyboard, like manually with the {@link KeyEvent#KeyEvent(int, int)} constructor. */
     public final static int KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD = KeyCharacterMap.VIRTUAL_KEYBOARD; // -1
@@ -570,7 +576,14 @@ public final class TerminalView extends View {
         if (mEmulator.isSynchronizedOutput()) return;
 
         invalidate();
-        if (mAccessibilityEnabled) setContentDescription(getText());
+        if (mAccessibilityEnabled) {
+            setContentDescription(getText());
+            // Announce the last visible line so TalkBack users hear new output
+            String lastLine = getLastVisibleLine();
+            if (lastLine != null && !lastLine.isEmpty()) {
+                announceNewOutput(lastLine);
+            }
+        }
     }
 
     /** This must be called by the hosting activity in {@link Activity#onContextMenuClosed(Menu)}
@@ -1223,6 +1236,67 @@ public final class TerminalView extends View {
         int minTopRow = -(mEmulator.getScreen().getActiveTranscriptRows());
         mTopRow = Math.min(0, Math.max(minTopRow, externalRow));
         invalidate();
+    }
+
+    // ── Accessibility (TalkBack) ────────────────────────────────────
+
+    @Override
+    public CharSequence getAccessibilityClassName() {
+        return TerminalView.class.getName();
+    }
+
+    @Override
+    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+        super.onInitializeAccessibilityNodeInfo(info);
+        info.setClassName(TerminalView.class.getName());
+        if (mEmulator != null) {
+            info.setContentDescription(getText());
+        } else {
+            info.setContentDescription("Terminal output");
+        }
+        info.setScrollable(true);
+        info.setMultiLine(true);
+    }
+
+    @Override
+    public void onPopulateAccessibilityEvent(AccessibilityEvent event) {
+        super.onPopulateAccessibilityEvent(event);
+        if (mEmulator != null) {
+            String lastLine = getLastVisibleLine();
+            if (lastLine != null && !lastLine.isEmpty()) {
+                event.getText().add(lastLine);
+            }
+        }
+    }
+
+    /**
+     * Announce new terminal output to TalkBack, throttled to avoid spam.
+     * Maximum one announcement per {@link #ACCESSIBILITY_ANNOUNCE_INTERVAL_MS}.
+     */
+    private void announceNewOutput(String text) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - mLastAccessibilityAnnounceMs < ACCESSIBILITY_ANNOUNCE_INTERVAL_MS) return;
+        mLastAccessibilityAnnounceMs = now;
+        announceForAccessibility(text);
+    }
+
+    /**
+     * Returns the last non-empty visible line of the terminal, or null.
+     * Used for accessibility announcements.
+     */
+    private String getLastVisibleLine() {
+        if (mEmulator == null) return null;
+        TerminalBuffer screen = mEmulator.getScreen();
+        // Walk from the bottom visible row upward to find the last non-blank line
+        int bottomRow = mTopRow + mEmulator.mRows - 1;
+        for (int row = bottomRow; row >= mTopRow; row--) {
+            String line = screen.getSelectedText(0, row, mEmulator.mColumns, row);
+            if (line != null) {
+                line = line.trim();
+                if (!line.isEmpty()) return line;
+            }
+        }
+        return null;
     }
 
     private CharSequence getText() {

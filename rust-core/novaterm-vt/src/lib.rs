@@ -7,6 +7,7 @@
 mod backend;
 pub mod grid_snapshot;
 mod event;
+pub mod sixel;
 
 pub use backend::{AlacrittyBackend, TerminalBackend};
 pub use event::{BackendEvent, EventCollector};

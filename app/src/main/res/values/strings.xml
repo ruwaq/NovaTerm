@@ -45,6 +45,7 @@
     <string name="cd_settings">Open settings</string>
     <string name="cd_add_session">New session</string>
     <string name="cd_search">Search history</string>
+    <string name="cd_terminal_view">Terminal output</string>
 
     <!-- URL dialog -->
     <string name="url_dialog_title">Open link?</string>
