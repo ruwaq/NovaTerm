@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * @param windowMs   Window duration in milliseconds (default: 1 minute).
  */
 class RateLimiter(
-    private val maxRequests: Int = 60,
+    val maxRequests: Int = 60,
     private val windowMs: Long = 60_000L,
 ) {
     private val timestamps = ConcurrentLinkedDeque<Long>()

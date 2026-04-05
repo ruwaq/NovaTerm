@@ -126,7 +126,10 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
     override fun isChildDocument(parentDocumentId: String, documentId: String): Boolean {
         val parent = fileForDocId(parentDocumentId)
         val child = fileForDocId(documentId)
-        return child.canonicalPath.startsWith(parent.canonicalPath)
+        // Use separator suffix to prevent "/home/dir" matching "/home/dir2"
+        val parentPath = parent.canonicalPath
+        val childPath = child.canonicalPath
+        return childPath == parentPath || childPath.startsWith(parentPath + File.separator)
     }
 
     // ── Helpers ─────────────────────────────────────────────

@@ -116,7 +116,7 @@ class McpServer(
                     if (!rateLimiter.tryAcquire()) {
                         call.respondText(
                             buildJsonObject {
-                                put("error", "Rate limit exceeded. Max ${60} requests per minute.")
+                                put("error", "Rate limit exceeded. Max ${rateLimiter.maxRequests} requests per minute.")
                             }.toString(),
                             ContentType.Application.Json,
                             HttpStatusCode.TooManyRequests,
@@ -333,8 +333,14 @@ class McpServer(
             is ApprovalResult.Approved -> { /* proceed */ }
         }
 
-        // Execute tool
-        val result = tool.execute(arguments)
+        // Execute tool — wrap in try-catch so uncaught tool exceptions return
+        // a clean error response instead of crashing the request handler.
+        val result = try {
+            tool.execute(arguments)
+        } catch (e: Exception) {
+            Log.e(TAG, "Tool '${tool.name}' threw unexpectedly", e)
+            ToolResult.Error("Tool execution failed: ${e.message ?: e.javaClass.simpleName}")
+        }
 
         return buildJsonObject {
             put("content", buildJsonArray {
