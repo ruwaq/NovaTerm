@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Support
+    url: https://github.com/nvterm/NovaTerm/discussions/new?category=q-a
+    about: Ask the community for help before opening an issue.
+  - name: Feature Ideas
+    url: https://github.com/nvterm/NovaTerm/discussions/new?category=ideas
+    about: Suggest new features via Discussions first.
+  - name: Package Issues
+    url: https://github.com/nvterm/novaterm-packages/issues
+    about: Report issues with packages (bash, apt, etc.), not the terminal app.

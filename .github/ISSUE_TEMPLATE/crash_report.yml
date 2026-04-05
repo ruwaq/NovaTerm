@@ -1,0 +1,78 @@
+name: Crash Report
+description: Report a crash or ANR (Application Not Responding)
+labels: ["bug", "type:crash"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Important:** Crashes are high priority. Please include as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: NovaTerm version
+      placeholder: "v0.2.0-alpha"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Xiaomi 15T Pro, Android 16"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: crash-type
+    attributes:
+      label: Crash type
+      options:
+        - App crash (force close)
+        - ANR (Application Not Responding)
+        - Terminal session killed
+        - Service stopped unexpectedly
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Terminal backend
+      options:
+        - Legacy (Java) — default
+        - Rust (experimental)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What were you doing when it crashed?
+      description: Steps to reproduce, if possible
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this happen?
+      options:
+        - Every time
+        - Often (>50%)
+        - Sometimes (<50%)
+        - Happened once
+    validations:
+      required: true
+
+  - type: textarea
+    id: logcat
+    attributes:
+      label: Logcat output
+      description: |
+        Run `logcat -d -t 100 --pid=$(pidof com.nvterm)` right after the crash.
+        Paste the output in the block below.
+      render: text
+    validations:
+      required: false
