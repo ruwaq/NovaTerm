@@ -19,7 +19,8 @@ on:
       - '.github/workflows/build-gpu.yml'
 
 permissions:
-  contents: write   # needed to commit libnovaterm.so back to the repo
+  contents: write       # create branch with updated .so
+  pull-requests: write  # open PR to main
 
 concurrency:
   group: gpu-${{ github.ref }}
