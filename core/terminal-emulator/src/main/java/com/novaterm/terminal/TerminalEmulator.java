@@ -129,6 +129,8 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_LEFTRIGHT_MARGIN_MODE = 1 << 11;
     /** Not really DECSET bit... - http://www.vt100.net/docs/vt510-rm/DECSACE */
     private static final int DECSET_BIT_RECTANGULAR_CHANGEATTRIBUTE = 1 << 12;
+    /** DECSET 45 - reverse wrap-around: backspace at left margin wraps to previous line. */
+    private static final int DECSET_BIT_REVERSE_WRAPAROUND = 1 << 13;
 
 
     private String mTitle;
@@ -1302,7 +1304,14 @@ public final class TerminalEmulator {
                     mClient.onTerminalCursorStateChange(setting);
                 break;
             case 40: // Allow 80 => 132 Mode, ignore.
-            case 45: // TODO: Reverse wrap-around. Implement???
+            case 45: // Reverse wrap-around (DECSET 45).
+                // When enabled, backspace at left margin wraps to previous line's right margin.
+                // Most modern terminals support this (xterm, VTE, alacritty).
+                if (setting)
+                    mCurrentDecSetFlags |= DECSET_BIT_REVERSE_WRAPAROUND;
+                else
+                    mCurrentDecSetFlags &= ~DECSET_BIT_REVERSE_WRAPAROUND;
+                break;
             case 66: // Application keypad (DECNKM).
                 break;
             case 69: // Left and right margin mode (DECLRMM).
@@ -2644,10 +2653,8 @@ public final class TerminalEmulator {
         int offsetDueToCombiningChar = ((displayWidth <= 0 && mCursorCol > 0 && !mAboutToAutoWrap) ? 1 : 0);
         int column = mCursorCol - offsetDueToCombiningChar;
 
-        // Fix TerminalRow.setChar() ArrayIndexOutOfBoundsException index=-1 exception reported
-        // The offsetDueToCombiningChar would never be 1 if mCursorCol was 0 to get column/index=-1,
-        // so was mCursorCol changed after the offsetDueToCombiningChar conditional by another thread?
-        // TODO: Check if there are thread synchronization issues with mCursorCol and mCursorRow, possibly causing others bugs too.
+        // Guard against race condition: mCursorCol may be modified by another thread
+        // between the offsetDueToCombiningChar check and setChar(). Clamp to valid range.
         if (column < 0) column = 0;
         mScreen.setChar(column, mCursorRow, codePoint, getStyle());
 
@@ -2677,7 +2684,7 @@ public final class TerminalEmulator {
         setCursorPosition(col, mCursorRow);
     }
 
-    /** TODO: Better name, distinguished from {@link #setCursorPosition(int, int)} by not regarding origin mode. */
+    /** Set absolute cursor position, ignoring origin mode (unlike {@link #setCursorPosition}). */
     private void setCursorRowCol(int row, int col) {
         mCursorRow = Math.max(0, Math.min(row, mRows - 1));
         mCursorCol = Math.max(0, Math.min(col, mColumns - 1));

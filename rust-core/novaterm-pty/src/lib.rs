@@ -413,11 +413,14 @@ mod tests {
 
     #[test]
     fn test_child_setup_builds() {
+        // Use a generic test path — not tied to any specific app
+        const TEST_HOME: &str = "/data/data/com.nvterm/files/home";
+
         let setup = ChildSetup::new(
             "/system/bin/sh",
-            "/data/data/com.termux/files/home",
+            TEST_HOME,
             &["-l"],
-            &["HOME=/data/data/com.termux/files/home", "TERM=xterm-256color"],
+            &[&format!("HOME={TEST_HOME}"), "TERM=xterm-256color"],
         )
         .expect("ChildSetup::new should succeed");
 
@@ -431,10 +434,7 @@ mod tests {
 
         // Verify shell path
         assert_eq!(setup.shell.to_str().unwrap(), "/system/bin/sh");
-        assert_eq!(
-            setup.cwd.to_str().unwrap(),
-            "/data/data/com.termux/files/home"
-        );
+        assert_eq!(setup.cwd.to_str().unwrap(), TEST_HOME);
     }
 
     #[test]

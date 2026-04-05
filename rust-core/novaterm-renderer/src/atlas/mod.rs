@@ -70,8 +70,8 @@ impl GlyphAtlas {
         let mut db = cosmic_text::fontdb::Database::new();
         // Load Android system fonts
         db.load_fonts_dir("/system/fonts");
-        // Also try Termux fonts if available
-        db.load_fonts_dir("/data/data/com.termux/files/usr/share/fonts/TTF");
+        // Also try NovaTerm prefix fonts if available
+        db.load_fonts_dir("/data/data/com.nvterm/files/usr/share/fonts/TTF");
         let mut font_system = FontSystem::new_with_locale_and_db("en-US".to_string(), db);
         let swash_cache = SwashCache::new();
 
