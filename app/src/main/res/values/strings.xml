@@ -73,6 +73,10 @@
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="boot_restore_failed">Session restore failed. Tap to open.</string>
 
+    <!-- Shortcuts -->
+    <string name="shortcut_new_session">New session</string>
+    <string name="shortcut_new_session_long">Open a new terminal session</string>
+
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>
 </resources>

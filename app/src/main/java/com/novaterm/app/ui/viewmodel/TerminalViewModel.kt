@@ -131,6 +131,13 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _sessionCreationFailed = MutableStateFlow(false)
     val sessionCreationFailed: StateFlow<Boolean> = _sessionCreationFailed.asStateFlow()
 
+    private val _isInPipMode = MutableStateFlow(false)
+    val isInPipMode: StateFlow<Boolean> = _isInPipMode.asStateFlow()
+
+    fun setInPipMode(inPip: Boolean) {
+        _isInPipMode.value = inPip
+    }
+
     // ── Actions ────────────────────────────────────────────
 
     fun createSession() {

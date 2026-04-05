@@ -278,6 +278,16 @@ fun SettingsScreen(
                 },
             )
 
+            // Picture-in-Picture on leave
+            ToggleSettingRow(
+                title = stringResource(R.string.settings_pip_mode),
+                subtitle = stringResource(R.string.settings_pip_mode_desc),
+                checked = preferences.pipOnLeave,
+                onCheckedChange = {
+                    onPreferencesChanged(preferences.copy(pipOnLeave = it))
+                },
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // ── Experimental ──────────────────────────────────────

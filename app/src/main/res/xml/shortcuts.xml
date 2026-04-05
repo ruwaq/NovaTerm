@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_session"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_input_add"
+        android:shortcutShortLabel="@string/shortcut_new_session"
+        android:shortcutLongLabel="@string/shortcut_new_session_long">
+        <intent
+            android:action="com.nvterm.NEW_SESSION"
+            android:targetPackage="com.nvterm"
+            android:targetClass="com.novaterm.app.ui.MainActivity" />
+    </shortcut>
+</shortcuts>

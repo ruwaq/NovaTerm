@@ -364,6 +364,17 @@ class AndroidShellProvider(
                 appendLine("# ── Functions ──────────────────────────────")
                 appendLine("mkcd() { mkdir -p \"\$1\" && cd \"\$1\"; }")
                 appendLine()
+                appendLine("# ── Command not found ──────────────────────")
+                appendLine("command_not_found_handler() {")
+                appendLine("  local pkg")
+                appendLine("  printf '\\e[38;5;167m%s\\e[0m: command not found\\n' \"\$1\" >&2")
+                appendLine("  pkg=\$(apt-cache search --names-only \"^\$1\$\" 2>/dev/null | head -1 | cut -d' ' -f1)")
+                appendLine("  if [ -n \"\$pkg\" ]; then")
+                appendLine("    printf '  \\e[38;5;208m→\\e[0m Install with: \\e[1mpkg install %s\\e[0m\\n' \"\$pkg\" >&2")
+                appendLine("  fi")
+                appendLine("  return 127")
+                appendLine("}")
+                appendLine()
             })
         }
 

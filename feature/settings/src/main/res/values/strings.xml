@@ -47,6 +47,10 @@
     <string name="settings_back_is_escape">Back button sends ESC</string>
     <string name="settings_back_is_escape_desc">Map hardware back button to Escape key</string>
 
+    <!-- PiP mode -->
+    <string name="settings_pip_mode">Floating terminal (PiP)</string>
+    <string name="settings_pip_mode_desc">Show terminal as floating window when leaving the app</string>
+
     <!-- Experimental -->
     <string name="settings_section_experimental">Experimental</string>
 

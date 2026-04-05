@@ -18,6 +18,7 @@ data class TerminalPreferences(
     val colorScheme: String = "gruvbox-dark",
     val useRustBackend: Boolean = false,
     val useGpuRenderer: Boolean = false,
+    val pipOnLeave: Boolean = false,
     val mcpEnabled: Boolean = false,
     val mcpPort: Int = 8080,
     val llmEnabled: Boolean = false,
@@ -95,6 +96,7 @@ class PreferencesRepository(context: Context) {
             colorScheme = prefs.getString("color_scheme", "gruvbox-dark") ?: "gruvbox-dark",
             useRustBackend = prefs.getBoolean("use_rust_backend", false),
             useGpuRenderer = prefs.getBoolean("use_gpu_renderer", false),
+            pipOnLeave = prefs.getBoolean("pip_on_leave", false),
             mcpEnabled = prefs.getBoolean("mcp_enabled", false),
             mcpPort = prefs.getInt("mcp_port", 8080),
             llmEnabled = prefs.getBoolean("llm_enabled", false),
@@ -114,6 +116,7 @@ class PreferencesRepository(context: Context) {
             .putString("color_scheme", p.colorScheme)
             .putBoolean("use_rust_backend", p.useRustBackend)
             .putBoolean("use_gpu_renderer", p.useGpuRenderer)
+            .putBoolean("pip_on_leave", p.pipOnLeave)
             .putBoolean("mcp_enabled", p.mcpEnabled)
             .putInt("mcp_port", p.mcpPort)
             .putBoolean("llm_enabled", p.llmEnabled)

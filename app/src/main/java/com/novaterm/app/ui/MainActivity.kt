@@ -1,11 +1,14 @@
 package com.novaterm.app.ui
 
 import android.Manifest
+import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -186,6 +189,14 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
 
         when (intent.action) {
+            ACTION_NEW_SESSION -> {
+                Log.i(TAG, "NEW_SESSION shortcut intent")
+                val serviceIntent = Intent(this, TerminalService::class.java).apply {
+                    action = TerminalService.ACTION_NEW_SESSION
+                }
+                startForegroundService(serviceIntent)
+            }
+
             ACTION_RUN_COMMAND -> {
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
@@ -234,6 +245,38 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Enter Picture-in-Picture mode when the user navigates away.
+     * This keeps the terminal visible as a floating window.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        enterPipModeIfEnabled()
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        viewModel.setInPipMode(isInPictureInPictureMode)
+    }
+
+    private fun enterPipModeIfEnabled() {
+        // Only enter PiP if user has enabled it in settings
+        val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
+        if (!prefs.getBoolean("pip_on_leave", false)) return
+
+        try {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(3, 4)) // Portrait terminal ratio
+                .build()
+            enterPictureInPictureMode(params)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to enter PiP mode", e)
         }
     }
 
@@ -296,5 +339,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "NovaTerm"
         private const val ACTION_RUN_COMMAND = "com.nvterm.RUN_COMMAND"
+        private const val ACTION_NEW_SESSION = "com.nvterm.NEW_SESSION"
     }
 }

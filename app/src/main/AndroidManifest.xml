@@ -45,10 +45,22 @@
             android:exported="true"
             android:windowSoftInputMode="adjustNothing"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|keyboard|keyboardHidden|navigation"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:supportsPictureInPicture="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Long-press app icon shortcuts -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+            <!-- New session shortcut intent -->
+            <intent-filter>
+                <action android:name="com.nvterm.NEW_SESSION" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- Allow other apps to run commands in NovaTerm -->
