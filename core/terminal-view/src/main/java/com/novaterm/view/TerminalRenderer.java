@@ -175,7 +175,7 @@ public final class TerminalRenderer {
      * Images are drawn at their placement cell coordinates, scaled to fit
      * the specified column/row span.
      */
-    private void renderKittyImages(Canvas canvas, TerminalEmulator emulator, int topRow) {
+    void renderKittyImages(Canvas canvas, TerminalEmulator emulator, int topRow) {
         KittyGraphicsManager gfx = emulator.mKittyGraphics;
         if (gfx == null || gfx.getPlacements().isEmpty()) return;
 

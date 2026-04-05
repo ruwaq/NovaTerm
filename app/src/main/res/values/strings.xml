@@ -10,6 +10,8 @@
     <string name="notification_channel_service_desc">Keeps terminal sessions alive in the background</string>
     <string name="notification_channel_alerts_desc">Important terminal alerts and process notifications</string>
     <string name="notification_bell_activity">Activity in terminal session</string>
+    <string name="notification_command_done">Command finished</string>
+    <string name="notification_command_failed">Command failed (exit %d)</string>
 
     <!-- Actions -->
     <string name="action_new_session">New session</string>

@@ -1146,6 +1146,10 @@ public final class TerminalView extends View {
             mRenderer.renderFromGrid(snap.grid, snap.rows, snap.cols,
                 snap.cursorRow, snap.cursorCol, snap.cursorShape, snap.cursorVisible,
                 canvas, 0, sel[0], sel[1], sel[2], sel[3]);
+            // Kitty Graphics images are managed by the Java emulator even in Rust mode
+            if (mEmulator != null) {
+                mRenderer.renderKittyImages(canvas, mEmulator, mTopRow);
+            }
             renderTextSelection();
         } else if (mEmulator == null) {
             canvas.drawColor(0XFF000000);

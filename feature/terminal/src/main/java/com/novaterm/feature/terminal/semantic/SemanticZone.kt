@@ -63,8 +63,18 @@ class SemanticZoneTracker {
     private var currentZone: SemanticZone? = null
     private var currentCommand: String? = null
 
+    /** Timestamp (SystemClock.elapsedRealtime) when the command started executing (C marker). */
+    private var commandStartTimeMs: Long = 0L
+
     /** Callback when a complete command block is detected (prompt → input → output → done). */
     var onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null
+
+    /**
+     * Enhanced callback that also provides command duration in milliseconds.
+     * Duration is measured from the C marker (output start) to the D marker (command done).
+     * If only [onBlockComplete] is set, it is still called; this provides additional timing data.
+     */
+    var onBlockCompleteWithDuration: ((command: String, exitCode: Int?, durationMs: Long) -> Unit)? = null
 
     /**
      * Process an OSC 133 marker from the terminal emulator.
@@ -94,22 +104,32 @@ class SemanticZoneTracker {
                 trimIfNeeded()
             }
             'C' -> {
-                // Command output begins
+                // Command output begins — start timing
                 closeCurrentZone(row, col)
                 val zone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
                 currentZone = zone
                 _zones.add(zone)
                 trimIfNeeded()
+                commandStartTimeMs = System.currentTimeMillis()
             }
             'D' -> {
                 // Command finished with exit code
                 val exitCode = params?.toIntOrNull()
                 closeCurrentZone(row, col)
 
+                // Calculate duration (from C marker to D marker)
+                val durationMs = if (commandStartTimeMs > 0L) {
+                    System.currentTimeMillis() - commandStartTimeMs
+                } else {
+                    0L
+                }
+                commandStartTimeMs = 0L
+
                 // Emit complete block
                 val cmd = currentCommand
                 if (cmd != null) {
                     onBlockComplete?.invoke(cmd, exitCode)
+                    onBlockCompleteWithDuration?.invoke(cmd, exitCode, durationMs)
                 }
                 currentCommand = null
             }

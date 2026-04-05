@@ -45,6 +45,7 @@ import com.novaterm.core.llm.ModelCatalog
 import com.novaterm.core.llm.ModelManager
 import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
+import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
 import com.novaterm.terminal.TerminalEmulator
 import com.novaterm.terminal.TerminalSession
 import com.novaterm.terminal.TerminalSessionClient
@@ -135,6 +136,13 @@ class TerminalService : Service() {
     val mcpPort = java.util.concurrent.atomic.AtomicInteger(McpServerConfig.DEFAULT_PORT)
     val scrollbackLines = java.util.concurrent.atomic.AtomicInteger(TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS)
 
+    // ── Semantic zone trackers (per-session, for command completion notifications) ──
+
+    private val zoneTrackers = java.util.concurrent.ConcurrentHashMap<String, SemanticZoneTracker>()
+
+    /** Minimum command duration (ms) to trigger a completion notification. */
+    private val commandNotifyThresholdMs = 5_000L
+
     // ── Rust engine instances (Phase 2) ────────────────────
 
     private val rustEngines = java.util.concurrent.ConcurrentHashMap<String, TerminalEngine>()
@@ -187,6 +195,7 @@ class TerminalService : Service() {
         }
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
+            zoneTrackers.remove(finishedSession.mHandle)
             _sessions.update { current ->
                 current.filter { it !== finishedSession }
             }
@@ -252,9 +261,39 @@ class TerminalService : Service() {
 
         override fun onOsc133SemanticPrompt(session: TerminalSession, params: String?) {
             if (params.isNullOrEmpty()) return
-            // OSC 133 markers: A=prompt, B=command, C=output, D;exitcode=done
-            // Logged for now — SemanticZoneTracker in TerminalScreen handles the UI side
-            Log.d(TAG, "OSC 133: $params")
+            Log.d(TAG, "OSC 133: $params (session=${session.mHandle})")
+
+            // Parse marker and optional params (e.g. "D;0" → marker='D', extra="0")
+            val marker = params[0]
+            val extra = if (params.length > 2 && params[1] == ';') params.substring(2) else null
+
+            // Get or create per-session zone tracker
+            val tracker = zoneTrackers.getOrPut(session.mHandle) {
+                SemanticZoneTracker().also { t ->
+                    t.onBlockCompleteWithDuration = { command, exitCode, durationMs ->
+                        onCommandCompleted(session, command, exitCode, durationMs)
+                    }
+                }
+            }
+
+            val emulator = session.emulator ?: return
+            val row = emulator.getCursorRow()
+            val col = emulator.getCursorCol()
+            tracker.onOsc133(marker, extra, row, col)
+
+            // Capture command text on C marker: read the line where B was issued
+            if (marker == 'C' && row >= 0) {
+                val screen = emulator.getScreen()
+                // Command is on the line before the output starts (row - 1, or row 0)
+                val bRow = if (row > 0) row - 1 else row
+                val lineText = screen.getSelectedText(0, bRow, emulator.mColumns, bRow + 1)
+                    ?.trim() ?: ""
+                // Strip common prompt prefixes ($ , # , % ) to get just the command
+                val command = lineText.replace(Regex("^[^$#%]*[$#%]\\s*"), "")
+                if (command.isNotBlank()) {
+                    tracker.setCurrentCommand(command)
+                }
+            }
         }
 
         override fun setTerminalShellPid(session: TerminalSession, pid: Int) {
@@ -410,11 +449,13 @@ class TerminalService : Service() {
                 val snapshot = _sessions.value.toList()
                 _sessions.value = emptyList()
                 snapshot.forEach { session ->
+                    zoneTrackers.remove(session.mHandle)
                     rustEngines.remove(session.mHandle)?.destroy()
                     session.setRawByteInterceptor(null)
                     session.setResizeListener(null)
                     session.finishIfRunning()
                 }
+                zoneTrackers.clear()
                 rustEngines.clear()
                 releaseLocks()
                 stopSelf()
@@ -494,10 +535,12 @@ class TerminalService : Service() {
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { session ->
+            zoneTrackers.remove(session.mHandle)
             rustEngines.remove(session.mHandle)?.destroy()
             session.setRawByteInterceptor(null)
             session.finishIfRunning()
         }
+        zoneTrackers.clear()
         rustEngines.clear()
         releaseLocks()
         super.onDestroy()
@@ -609,8 +652,9 @@ class TerminalService : Service() {
         val currentList = _sessions.value
         if (index !in currentList.indices) return
         val session = currentList[index]
-        // Clean up callbacks and engines BEFORE updating session list
+        // Clean up callbacks, trackers, and engines BEFORE updating session list
         screenUpdateCallbacks.remove(session.mHandle)
+        zoneTrackers.remove(session.mHandle)
         rustEngines.remove(session.mHandle)?.destroy()
         session.setRawByteInterceptor(null)
         session.finishIfRunning()
@@ -752,6 +796,67 @@ class TerminalService : Service() {
 
         val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         manager.notify(NOTIFICATION_BELL, notification)
+    }
+
+    /**
+     * Called when a command block completes (OSC 133;D received).
+     * Sends a notification if the command took longer than [commandNotifyThresholdMs]
+     * and the app is currently in the background.
+     */
+    private fun onCommandCompleted(
+        session: TerminalSession,
+        command: String,
+        exitCode: Int?,
+        durationMs: Long,
+    ) {
+        // Only notify for long-running commands (>5s)
+        if (durationMs < commandNotifyThresholdMs) return
+
+        // Only notify when the app is in the background
+        val app = application as? NovaTermApp ?: return
+        if (app.appLifecycle.isInForeground.value) return
+
+        sendCommandCompletionNotification(session, command, exitCode)
+    }
+
+    private fun sendCommandCompletionNotification(
+        session: TerminalSession,
+        command: String,
+        exitCode: Int?,
+    ) {
+        val code = exitCode ?: 0
+        val title = if (code == 0) {
+            getString(R.string.notification_command_done)
+        } else {
+            getString(R.string.notification_command_failed, code)
+        }
+
+        // Truncate long commands for notification display
+        val displayCommand = if (command.length > 120) command.take(117) + "…" else command
+
+        val sessionIndex = _sessions.value.indexOf(session)
+        val notificationId = NOTIFICATION_COMMAND_DONE + (if (sessionIndex >= 0) sessionIndex else 0)
+
+        val contentIntent = PendingIntent.getActivity(
+            this, notificationId,
+            Intent(this, MainActivity::class.java).apply {
+                putExtra("session_index", sessionIndex)
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(displayCommand)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(displayCommand))
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .build()
+
+        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        manager.notify(notificationId, notification)
     }
 
     private fun sendOsc9Notification(session: TerminalSession, text: String) {
@@ -1009,6 +1114,7 @@ class TerminalService : Service() {
         private const val REQ_FLOAT = 4
         private const val NOTIFICATION_BELL = 1338
         private const val NOTIFICATION_OSC9 = 1340
+        private const val NOTIFICATION_COMMAND_DONE = 1350
         private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
