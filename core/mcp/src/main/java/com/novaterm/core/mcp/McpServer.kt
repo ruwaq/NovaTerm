@@ -8,11 +8,15 @@ import com.novaterm.core.mcp.security.AutoApprovalManager
 import com.novaterm.core.mcp.tool.McpTool
 import com.novaterm.core.mcp.tool.ToolRegistry
 import com.novaterm.core.mcp.tool.ToolResult
+import com.novaterm.core.mcp.tool.builtin.CreateSessionTool
 import com.novaterm.core.mcp.tool.builtin.FileReadTool
 import com.novaterm.core.mcp.tool.builtin.FileWriteTool
+import com.novaterm.core.mcp.tool.builtin.GetSessionOutputTool
+import com.novaterm.core.mcp.tool.builtin.GetTerminalInfoTool
 import com.novaterm.core.mcp.tool.builtin.ListSessionsTool
 import com.novaterm.core.mcp.tool.builtin.ReadOutputTool
 import com.novaterm.core.mcp.tool.builtin.RunCommandTool
+import com.novaterm.core.mcp.tool.builtin.WaitForOutputTool
 import com.novaterm.core.mcp.tool.builtin.WriteInputTool
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
@@ -77,6 +81,11 @@ class McpServer(
             WriteInputTool(bridge),
             FileReadTool(bridge),
             FileWriteTool(bridge),
+            // Agent orchestration tools
+            CreateSessionTool(bridge),
+            GetSessionOutputTool(bridge),
+            WaitForOutputTool(bridge),
+            GetTerminalInfoTool(bridge),
         )
     }
 

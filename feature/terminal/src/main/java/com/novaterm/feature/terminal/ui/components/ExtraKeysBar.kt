@@ -268,6 +268,10 @@ fun ExtraKeysBar(
     onAltToggle: () -> Unit,
     onKeyboardToggle: () -> Unit = {},
     onVoiceInput: (() -> Unit)? = null,
+    onSplitHorizontal: (() -> Unit)? = null,
+    onSplitVertical: (() -> Unit)? = null,
+    onCloseSplitPane: (() -> Unit)? = null,
+    hasSplitPanes: Boolean = false,
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
     hapticEnabled: Boolean = true,
@@ -289,9 +293,24 @@ fun ExtraKeysBar(
     ) {
         rows.forEachIndexed { index, row ->
             ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, onKeyboardToggle, ctrlActive, altActive, hapticEnabled, haptic,
-                // Mic button at the end of the last row
-                trailingContent = if (index == rows.lastIndex && onVoiceInput != null) {
-                    { VoiceInputButton(onVoiceInput, hapticEnabled, haptic) }
+                // Trailing buttons at the end of the last row
+                trailingContent = if (index == rows.lastIndex) {
+                    {
+                        // Split pane button: tap = horizontal split, long press = vertical split
+                        if (onSplitHorizontal != null) {
+                            SplitPaneButton(
+                                onSplitHorizontal = onSplitHorizontal,
+                                onSplitVertical = onSplitVertical,
+                                onCloseSplitPane = onCloseSplitPane,
+                                hasSplitPanes = hasSplitPanes,
+                                hapticEnabled = hapticEnabled,
+                                haptic = haptic,
+                            )
+                        }
+                        if (onVoiceInput != null) {
+                            VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
+                        }
+                    }
                 } else null,
             )
         }
@@ -330,6 +349,74 @@ private fun VoiceInputButton(
         Icon(
             imageVector = Icons.Outlined.Mic,
             contentDescription = stringResource(R.string.cd_voice_input),
+        )
+    }
+}
+
+/**
+ * Split pane button for the extra keys bar.
+ * Tap = horizontal split (side by side), Long press = vertical split (top/bottom).
+ * When panes are already split, shows a close button instead on long press.
+ */
+@Composable
+private fun SplitPaneButton(
+    onSplitHorizontal: () -> Unit,
+    onSplitVertical: (() -> Unit)?,
+    onCloseSplitPane: (() -> Unit)?,
+    hasSplitPanes: Boolean,
+    hapticEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val accentColor = MaterialTheme.colorScheme.primary
+    var pressed by remember { mutableStateOf(false) }
+    val currentOnSplit by rememberUpdatedState(onSplitHorizontal)
+    val currentOnSplitV by rememberUpdatedState(onSplitVertical)
+    val currentOnClose by rememberUpdatedState(onCloseSplitPane)
+
+    Box(
+        modifier = Modifier
+            .height(48.dp)
+            .widthIn(min = 48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (hasSplitPanes) accentColor.copy(alpha = 0.2f) else surfaceColor)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        tryAwaitRelease()
+                        pressed = false
+                    },
+                    onTap = {
+                        if (hapticEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        currentOnSplit()
+                    },
+                    onLongPress = {
+                        if (hapticEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        if (hasSplitPanes && currentOnClose != null) {
+                            currentOnClose!!()
+                        } else {
+                            currentOnSplitV?.invoke()
+                        }
+                    },
+                )
+            }
+            .padding(horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            // Vertical bar icon for horizontal split; X when panes exist (long press to close)
+            text = if (hasSplitPanes) "\u2590\u258C" else "\u2590\u258C",
+            color = if (hasSplitPanes) accentColor else textColor,
+            fontSize = 14.sp,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
         )
     }
 }

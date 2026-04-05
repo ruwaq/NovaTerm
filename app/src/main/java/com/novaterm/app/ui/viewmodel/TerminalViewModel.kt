@@ -11,6 +11,10 @@ import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
+import com.novaterm.feature.terminal.ui.pane.PaneManager
+import com.novaterm.feature.terminal.ui.pane.PaneNode
+import com.novaterm.feature.terminal.ui.pane.SplitDirection
+import com.novaterm.feature.terminal.ui.pane.leafCount
 import com.novaterm.terminal.TerminalSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -138,6 +142,103 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         _isInPipMode.value = inPip
     }
 
+    // ── Pane management (built-in multiplexer) ────────────
+
+    /** Per-tab pane managers. Key = tab index. Only populated for tabs with splits. */
+    private val _paneManagers = mutableMapOf<Int, PaneManager>()
+
+    /** The pane layout for the current tab. Null = single pane (default). */
+    private val _currentPaneLayout = MutableStateFlow<PaneNode?>(null)
+    val currentPaneLayout: StateFlow<PaneNode?> = _currentPaneLayout.asStateFlow()
+
+    /** Which session index is focused within a split pane. */
+    private val _focusedPaneSession = MutableStateFlow(-1)
+    val focusedPaneSession: StateFlow<Int> = _focusedPaneSession.asStateFlow()
+
+    /**
+     * Split the currently focused pane (or the current tab if no split exists yet).
+     * Creates a new session for the new pane.
+     */
+    fun splitPane(direction: SplitDirection) {
+        val svc = _service.value ?: return
+        val currentSessions = sessions.value
+        val tabIndex = _currentSessionIndex.value
+        if (tabIndex !in currentSessions.indices) return
+
+        // Get or create PaneManager for this tab
+        val manager = _paneManagers.getOrPut(tabIndex) {
+            PaneManager().also { it.init(tabIndex) }
+        }
+        if (!manager.hasSplit()) {
+            manager.init(tabIndex)
+        }
+
+        // Check max panes
+        val layout = manager.getCurrentLayout() ?: return
+        if (layout.leafCount() >= PaneManager.MAX_PANES) return
+
+        // Create a new session for the split
+        val newSession = svc.createSession() ?: return
+        val newSessionIndex = svc.sessionCount - 1
+
+        if (!manager.splitFocusedPane(direction, newSessionIndex)) {
+            // Split failed — remove the session we just created
+            svc.removeSession(newSessionIndex)
+            return
+        }
+
+        _currentPaneLayout.value = manager.getCurrentLayout()
+        _focusedPaneSession.value = manager.getFocusedPane()
+    }
+
+    /** Close the currently focused pane within a split. */
+    fun closeSplitPane() {
+        val tabIndex = _currentSessionIndex.value
+        val manager = _paneManagers[tabIndex] ?: return
+        val focusedSession = manager.getFocusedPane()
+
+        val remaining = manager.closePane(focusedSession)
+        if (remaining == null || remaining.size <= 1) {
+            // No more splits — revert to single-pane mode
+            _paneManagers.remove(tabIndex)
+            _currentPaneLayout.value = null
+            _focusedPaneSession.value = -1
+        } else {
+            _currentPaneLayout.value = manager.getCurrentLayout()
+            _focusedPaneSession.value = manager.getFocusedPane()
+        }
+
+        // Remove the actual session
+        val svc = _service.value ?: return
+        svc.removeSession(focusedSession)
+
+        // Adjust indices in all PaneManagers
+        for ((_, mgr) in _paneManagers) {
+            mgr.adjustIndicesAfterRemoval(focusedSession)
+        }
+    }
+
+    /** Set focus to a specific pane within the split layout. */
+    fun focusPane(sessionIndex: Int) {
+        val tabIndex = _currentSessionIndex.value
+        val manager = _paneManagers[tabIndex] ?: return
+        manager.setFocusedPane(sessionIndex)
+        _focusedPaneSession.value = sessionIndex
+    }
+
+    /** Refresh the pane layout state when switching tabs. */
+    private fun refreshPaneLayout() {
+        val tabIndex = _currentSessionIndex.value
+        val manager = _paneManagers[tabIndex]
+        if (manager != null && manager.hasSplit()) {
+            _currentPaneLayout.value = manager.getCurrentLayout()
+            _focusedPaneSession.value = manager.getFocusedPane()
+        } else {
+            _currentPaneLayout.value = null
+            _focusedPaneSession.value = -1
+        }
+    }
+
     // ── Actions ────────────────────────────────────────────
 
     fun createSession() {
@@ -203,6 +304,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun selectSession(index: Int) {
         _currentSessionIndex.value = index
+        refreshPaneLayout()
     }
 
     fun renameSession(index: Int, name: String) {
