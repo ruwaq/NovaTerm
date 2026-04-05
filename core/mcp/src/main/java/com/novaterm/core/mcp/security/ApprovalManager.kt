@@ -36,13 +36,12 @@ sealed interface ApprovalResult {
 /**
  * Auto-approval manager for local development.
  *
- * - SAFE tools: always approved
- * - MODERATE tools: approved if from localhost
- * - DANGEROUS tools: approved if from localhost AND requireApproval is false
+ * - SAFE tools: always approved from localhost
+ * - MODERATE tools: approved from localhost
+ * - DANGEROUS tools: DENIED — requires explicit user approval via UI dialog
+ *   (not yet implemented; until then, dangerous tools are blocked)
  */
-class AutoApprovalManager(
-    private val requireApprovalForDangerous: Boolean = true,
-) : ApprovalManager {
+class AutoApprovalManager : ApprovalManager {
 
     override suspend fun requestApproval(
         tool: McpTool,
@@ -58,14 +57,12 @@ class AutoApprovalManager(
             SecurityPolicy.RiskLevel.SAFE -> ApprovalResult.Approved
             SecurityPolicy.RiskLevel.MODERATE -> ApprovalResult.Approved
             SecurityPolicy.RiskLevel.DANGEROUS -> {
-                if (requireApprovalForDangerous) {
-                    // In a real implementation, this would show a UI dialog
-                    // and suspend until the user responds.
-                    // For now, auto-approve from localhost.
-                    ApprovalResult.Approved
-                } else {
-                    ApprovalResult.Approved
-                }
+                // Dangerous tools (arbitrary command execution, file writes)
+                // must be explicitly approved via UI dialog.
+                // Until the approval dialog is implemented, deny by default.
+                ApprovalResult.Denied(
+                    "Tool '${tool.name}' has DANGEROUS risk level and requires explicit user approval"
+                )
             }
         }
     }

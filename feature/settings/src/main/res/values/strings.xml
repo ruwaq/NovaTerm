@@ -74,6 +74,10 @@
     <string name="settings_mcp_server_desc">Expose terminal as an MCP tool server for AI agents (Claude Code, Codex CLI). Listens on localhost.</string>
     <string name="settings_mcp_port">MCP port</string>
     <string name="settings_mcp_port_value">Port: %1$d</string>
+    <string name="settings_mcp_token">MCP auth token</string>
+    <string name="settings_mcp_token_copy">Copy token</string>
+    <string name="settings_mcp_token_reveal">Show token</string>
+    <string name="settings_mcp_token_hide">Hide token</string>
 
     <!-- On-device AI -->
     <string name="settings_section_ai">AI</string>

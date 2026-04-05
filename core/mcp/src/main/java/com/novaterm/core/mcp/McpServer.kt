@@ -1,5 +1,6 @@
 package com.novaterm.core.mcp
 
+import android.content.Context
 import android.util.Log
 import com.novaterm.core.mcp.bridge.McpSessionBridge
 import com.novaterm.core.mcp.security.ApprovalManager
@@ -38,6 +39,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.io.File
 
 /**
  * NovaTerm MCP Server.
@@ -57,6 +59,7 @@ import kotlinx.serialization.json.put
 class McpServer(
     private val config: McpServerConfig,
     private val bridge: McpSessionBridge,
+    private val context: Context? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) {
     val toolRegistry = ToolRegistry()
@@ -68,6 +71,12 @@ class McpServer(
 
     val isRunning: Boolean get() = server != null && _bound
     private var _bound = false
+
+    /**
+     * Bearer token for authentication. Regenerated on every server start.
+     * Clients must send `Authorization: Bearer <token>` on every request.
+     */
+    val authToken: String = java.util.UUID.randomUUID().toString()
 
     init {
         registerBuiltinTools()
@@ -93,18 +102,23 @@ class McpServer(
     fun start() {
         if (server != null) return
 
+        // Save the token to an app-private file so MCP clients can read it
+        saveTokenFile()
+
         server = embeddedServer(CIO, port = config.port, host = config.host) {
             routing {
                 // MCP endpoint (Streamable HTTP)
                 post("/mcp") {
+                    if (!validateBearerToken(call)) return@post
                     val body = call.receiveText()
                     val clientAddress = call.request.local.remoteAddress
                     val response = handleJsonRpc(body, clientAddress)
                     call.respondText(response, ContentType.Application.Json)
                 }
 
-                // Health check
+                // Health check — requires auth to prevent information leakage
                 get("/health") {
+                    if (!validateBearerToken(call)) return@get
                     call.respondText(
                         buildJsonObject {
                             put("status", "ok")
@@ -116,13 +130,11 @@ class McpServer(
                     )
                 }
 
-                // Server info
+                // Server info — minimal, no auth required (just confirms server is alive)
                 get("/") {
                     call.respondText(
                         "NovaTerm MCP Server v${config.serverVersion}\n" +
-                        "Endpoint: POST /mcp\n" +
-                        "Health: GET /health\n" +
-                        "Tools: ${toolRegistry.size}\n",
+                        "Authentication: Bearer token required\n",
                         ContentType.Text.Plain,
                     )
                 }
@@ -134,6 +146,7 @@ class McpServer(
             // Verify the socket actually bound by checking the engine
             _bound = true
             Log.i(TAG, "MCP server started on ${config.host}:${config.port} with ${toolRegistry.size} tools")
+            Log.i(TAG, "MCP auth token: $authToken")
         } catch (e: Exception) {
             Log.e(TAG, "MCP server failed to bind on ${config.host}:${config.port}", e)
             server?.stop(0, 0)
@@ -142,12 +155,75 @@ class McpServer(
         }
     }
 
-    /** Stop the MCP server. */
+    /**
+     * Validate the Bearer token from the Authorization header.
+     * Returns true if valid, false if rejected (and sends 401 response).
+     */
+    private suspend fun validateBearerToken(call: io.ktor.server.application.ApplicationCall): Boolean {
+        val authHeader = call.request.headers["Authorization"]
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            call.respondText(
+                buildJsonObject {
+                    put("error", "Missing or malformed Authorization header. Expected: Bearer <token>")
+                }.toString(),
+                ContentType.Application.Json,
+                HttpStatusCode.Unauthorized,
+            )
+            return false
+        }
+
+        val token = authHeader.removePrefix("Bearer ").trim()
+        if (token != authToken) {
+            Log.w(TAG, "MCP auth rejected: invalid bearer token from ${call.request.local.remoteAddress}")
+            call.respondText(
+                buildJsonObject {
+                    put("error", "Invalid bearer token")
+                }.toString(),
+                ContentType.Application.Json,
+                HttpStatusCode.Unauthorized,
+            )
+            return false
+        }
+
+        return true
+    }
+
+    /**
+     * Save the auth token to an app-private file (mode 0600) so MCP clients
+     * running on the same device can discover it.
+     */
+    private fun saveTokenFile() {
+        val ctx = context ?: return
+        try {
+            val tokenFile = File(ctx.filesDir, TOKEN_FILE_NAME)
+            tokenFile.writeText(authToken)
+            // Owner-only read/write (mode 0600)
+            tokenFile.setReadable(true, true)
+            tokenFile.setWritable(true, true)
+            tokenFile.setExecutable(false)
+            Log.d(TAG, "MCP token saved to ${tokenFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save MCP token file", e)
+        }
+    }
+
+    /** Stop the MCP server and clean up the token file. */
     fun stop() {
         server?.stop(1_000, 5_000)
         server = null
         _bound = false
+        deleteTokenFile()
         Log.i(TAG, "MCP server stopped")
+    }
+
+    private fun deleteTokenFile() {
+        val ctx = context ?: return
+        try {
+            val tokenFile = File(ctx.filesDir, TOKEN_FILE_NAME)
+            if (tokenFile.exists()) tokenFile.delete()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete MCP token file", e)
+        }
     }
 
     // ── JSON-RPC handler ─────────────────────────────────────
@@ -293,5 +369,7 @@ class McpServer(
 
     companion object {
         private const val TAG = "McpServer"
+        /** File name for the bearer token (saved in app-private filesDir). */
+        const val TOKEN_FILE_NAME = "mcp-token"
     }
 }

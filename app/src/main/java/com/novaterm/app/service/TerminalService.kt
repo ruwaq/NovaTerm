@@ -120,6 +120,9 @@ class TerminalService : Service() {
 
     private var mcpServer: McpServer? = null
 
+    /** Current MCP auth token (null when server is not running). */
+    val mcpAuthToken: String? get() = mcpServer?.authToken
+
     // ── On-device LLM (optional) ────────────────────────────
 
     lateinit var modelManager: ModelManager
@@ -362,7 +365,7 @@ class TerminalService : Service() {
                 port = mcpPort.get(),
             )
             val bridge = ServiceMcpBridge()
-            val server = McpServer(config, bridge)
+            val server = McpServer(config, bridge, context = this@TerminalService)
             server.start()
             mcpServer = server
             Log.i(TAG, "MCP server started on port ${mcpPort.get()}")

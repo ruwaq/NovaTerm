@@ -2,6 +2,9 @@ package com.novaterm.feature.settings.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,13 +68,49 @@ data class TerminalPreferences(
     }
 }
 
-class PreferencesRepository(context: Context) {
+class PreferencesRepository(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * Separate EncryptedSharedPreferences instance for API keys only.
+     * Non-sensitive settings stay in regular prefs (faster, no crypto overhead).
+     * Falls back to regular prefs if crypto initialization fails
+     * (e.g., corrupted Android Keystore, old device quirks).
+     */
+    private val securePrefs: SharedPreferences by lazy {
+        try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                SECURE_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        } catch (e: Exception) {
+            // Fallback to regular prefs if crypto fails (old device, corrupted keystore)
+            Log.w(TAG, "EncryptedSharedPreferences failed, using fallback", e)
+            context.getSharedPreferences(SECURE_PREFS_FALLBACK, Context.MODE_PRIVATE)
+        }
+    }
+
     companion object {
         const val PREFS_NAME = "novaterm_prefs"
+        const val SECURE_PREFS_NAME = "novaterm_secure_prefs"
+        private const val SECURE_PREFS_FALLBACK = "novaterm_secure_fallback"
+        private const val TAG = "PreferencesRepository"
+        private const val KEY_MIGRATION_DONE = "api_keys_migrated_to_secure"
+
+        private val API_KEY_NAMES = listOf(
+            "api_key_anthropic",
+            "api_key_google",
+            "api_key_openai",
+            "api_key_openrouter",
+        )
     }
 
     private val _preferences = MutableStateFlow(load())
@@ -98,6 +137,8 @@ class PreferencesRepository(context: Context) {
     }
 
     private fun load(): TerminalPreferences {
+        migrateApiKeysToSecurePrefs()
+
         return TerminalPreferences(
             fontSize = prefs.getInt("font_size", 12),
             fontFamily = prefs.getString("font_family", TerminalPreferences.FONT_FAMILY_SYSTEM_MONO)
@@ -117,14 +158,48 @@ class PreferencesRepository(context: Context) {
             mcpPort = prefs.getInt("mcp_port", 8080),
             llmEnabled = prefs.getBoolean("llm_enabled", false),
             scrollbackLines = prefs.getInt("scrollback_lines", TerminalPreferences.DEFAULT_SCROLLBACK_LINES),
-            anthropicApiKey = prefs.getString("api_key_anthropic", "") ?: "",
-            googleApiKey = prefs.getString("api_key_google", "") ?: "",
-            openaiApiKey = prefs.getString("api_key_openai", "") ?: "",
-            openrouterApiKey = prefs.getString("api_key_openrouter", "") ?: "",
+            anthropicApiKey = securePrefs.getString("api_key_anthropic", "") ?: "",
+            googleApiKey = securePrefs.getString("api_key_google", "") ?: "",
+            openaiApiKey = securePrefs.getString("api_key_openai", "") ?: "",
+            openrouterApiKey = securePrefs.getString("api_key_openrouter", "") ?: "",
         )
     }
 
+    /**
+     * One-time migration: moves API keys from plain SharedPreferences
+     * to EncryptedSharedPreferences and deletes the plain-text copies.
+     */
+    private fun migrateApiKeysToSecurePrefs() {
+        if (prefs.getBoolean(KEY_MIGRATION_DONE, false)) return
+
+        try {
+            val editor = securePrefs.edit()
+            val plainEditor = prefs.edit()
+            var migrated = false
+
+            for (key in API_KEY_NAMES) {
+                val value = prefs.getString(key, null)
+                if (!value.isNullOrEmpty()) {
+                    editor.putString(key, value)
+                    plainEditor.remove(key)
+                    migrated = true
+                    Log.i(TAG, "Migrated $key to secure storage")
+                }
+            }
+
+            if (migrated) {
+                editor.apply()
+                plainEditor.apply()
+            }
+            // Mark migration as done even if no keys existed (don't re-check every time)
+            prefs.edit().putBoolean(KEY_MIGRATION_DONE, true).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "API key migration failed — keys remain in plain prefs", e)
+        }
+    }
+
     private fun save(p: TerminalPreferences) {
+        // Non-sensitive settings → regular SharedPreferences
         prefs.edit()
             .putInt("font_size", p.fontSize)
             .putString("font_family", p.fontFamily)
@@ -142,6 +217,10 @@ class PreferencesRepository(context: Context) {
             .putInt("mcp_port", p.mcpPort)
             .putBoolean("llm_enabled", p.llmEnabled)
             .putInt("scrollback_lines", p.scrollbackLines)
+            .apply()
+
+        // API keys → EncryptedSharedPreferences (AES-256-GCM)
+        securePrefs.edit()
             .putString("api_key_anthropic", p.anthropicApiKey)
             .putString("api_key_google", p.googleApiKey)
             .putString("api_key_openai", p.openaiApiKey)

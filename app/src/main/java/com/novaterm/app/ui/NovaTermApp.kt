@@ -126,6 +126,7 @@ fun NovaTermApp(
             onDownloadModel = { modelId -> service?.modelManager?.startDownload(modelId) },
             onCancelDownload = { service?.modelManager?.cancelDownload() },
             onDeleteModel = { service?.modelManager?.deleteModel() },
+            mcpAuthToken = service?.mcpAuthToken,
             onInstallAiTool = { command ->
                 // Write the install command to the active terminal session and switch back
                 val currentSessions = sessions

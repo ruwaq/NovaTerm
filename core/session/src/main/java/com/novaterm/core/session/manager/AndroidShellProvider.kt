@@ -1,8 +1,12 @@
 package com.novaterm.core.session.manager
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Environment
+import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.novaterm.core.common.contract.ShellProvider
 import java.io.File
 
@@ -16,6 +20,12 @@ class AndroidShellProvider(
     private val context: Context,
     private val appVersion: String = "0.1.0",
 ) : ShellProvider {
+
+    companion object {
+        /** Must match PreferencesRepository.SECURE_PREFS_NAME */
+        private const val SECURE_PREFS_NAME = "novaterm_secure_prefs"
+        private const val SECURE_PREFS_FALLBACK = "novaterm_secure_fallback"
+    }
 
     // rootDir = context.filesDir = /data/data/com.nvterm/files
     // This matches Termux layout: /data/data/com.termux/files/{usr,home}
@@ -190,11 +200,11 @@ class AndroidShellProvider(
         System.getenv("ANDROID_ROOT")?.let { env["ANDROID_ROOT"] = it }
             ?: run { env["ANDROID_ROOT"] = "/system" }
 
-        // AI API keys — read from SharedPreferences, export as env vars
+        // AI API keys — read from EncryptedSharedPreferences, export as env vars
         // so CLI tools (claude, gemini, aider, opencode) pick them up automatically.
-        // Keys are stored in app-private storage (Android sandbox protects them).
+        // Keys are encrypted with AES-256-GCM via Android Keystore.
         try {
-            val apiPrefs = context.getSharedPreferences("novaterm_prefs", Context.MODE_PRIVATE)
+            val apiPrefs = getSecurePrefs()
             apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["ANTHROPIC_API_KEY"] = it
             }
@@ -209,12 +219,35 @@ class AndroidShellProvider(
                 env["OPENROUTER_API_KEY"] = it
             }
         } catch (e: Exception) {
-            android.util.Log.w("NovaTerm", "Failed to load API keys from preferences", e)
+            Log.w("NovaTerm", "Failed to load API keys from secure preferences", e)
         }
 
         env.putAll(extraVars)
 
         return env.map { "${it.key}=${it.value}" }.toTypedArray()
+    }
+
+    /**
+     * Returns EncryptedSharedPreferences for API keys, with fallback
+     * to regular prefs if crypto initialization fails.
+     * Uses the same file name as PreferencesRepository.SECURE_PREFS_NAME.
+     */
+    private fun getSecurePrefs(): SharedPreferences {
+        return try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                SECURE_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        } catch (e: Exception) {
+            Log.w("NovaTerm", "EncryptedSharedPreferences failed, using fallback", e)
+            context.getSharedPreferences(SECURE_PREFS_FALLBACK, Context.MODE_PRIVATE)
+        }
     }
 
     override fun defaultWorkingDirectory(): String {

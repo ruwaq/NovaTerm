@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -17,9 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,7 +48,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -53,6 +59,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novaterm.core.common.model.ColorSchemes
 import com.novaterm.core.llm.ModelCatalog
@@ -73,6 +80,7 @@ fun SettingsScreen(
     onCancelDownload: () -> Unit = {},
     onDeleteModel: () -> Unit = {},
     onInstallAiTool: (String) -> Unit = {},
+    mcpAuthToken: String? = null,
 ) {
     // Local slider state that follows external preference changes.
     var fontSize by remember(preferences.fontSize) {
@@ -386,7 +394,7 @@ fun SettingsScreen(
                 },
             )
 
-            // MCP port (only show when MCP is enabled)
+            // MCP port and token (only show when MCP is enabled)
             if (preferences.mcpEnabled) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_mcp_port)) },
@@ -398,6 +406,11 @@ fun SettingsScreen(
                         )
                     },
                 )
+
+                // MCP auth token (read-only, with copy and reveal toggle)
+                if (mcpAuthToken != null) {
+                    McpTokenRow(token = mcpAuthToken)
+                }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -803,5 +816,51 @@ private fun ExtraKeysStyleOption(
             }
         },
         onClick = onClick,
+    )
+}
+
+/** Read-only row displaying the MCP bearer token with copy and reveal toggle. */
+@Composable
+private fun McpTokenRow(token: String) {
+    var revealed by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val displayText = if (revealed) token else "****${token.takeLast(8)}"
+
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_mcp_token)) },
+        supportingContent = {
+            Text(
+                text = displayText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Reveal / hide toggle
+                IconButton(onClick = { revealed = !revealed }) {
+                    Icon(
+                        imageVector = if (revealed) Icons.Outlined.VisibilityOff
+                        else Icons.Outlined.Visibility,
+                        contentDescription = if (revealed)
+                            stringResource(R.string.settings_mcp_token_hide)
+                        else stringResource(R.string.settings_mcp_token_reveal),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                // Copy to clipboard
+                IconButton(onClick = {
+                    clipboardManager.setText(AnnotatedString(token))
+                }) {
+                    Icon(
+                        Icons.Outlined.ContentCopy,
+                        contentDescription = stringResource(R.string.settings_mcp_token_copy),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        },
     )
 }

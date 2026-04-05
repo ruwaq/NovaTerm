@@ -33,10 +33,10 @@ class ApprovalManagerTest {
     }
 
     @Test
-    fun `dangerous tool from localhost is approved`() = runTest {
+    fun `dangerous tool from localhost is denied`() = runTest {
         val manager = AutoApprovalManager()
         val result = manager.requestApproval(toolWithRisk(RiskLevel.DANGEROUS), emptyMap(), "127.0.0.1")
-        assertTrue(result is ApprovalResult.Approved)
+        assertTrue(result is ApprovalResult.Denied)
     }
 
     @Test
@@ -54,9 +54,16 @@ class ApprovalManagerTest {
     }
 
     @Test
-    fun `IPv6 localhost is approved`() = runTest {
+    fun `IPv6 localhost safe tool is approved`() = runTest {
+        val manager = AutoApprovalManager()
+        val result = manager.requestApproval(toolWithRisk(RiskLevel.SAFE), emptyMap(), "::1")
+        assertTrue(result is ApprovalResult.Approved)
+    }
+
+    @Test
+    fun `IPv6 localhost dangerous tool is denied`() = runTest {
         val manager = AutoApprovalManager()
         val result = manager.requestApproval(toolWithRisk(RiskLevel.DANGEROUS), emptyMap(), "::1")
-        assertTrue(result is ApprovalResult.Approved)
+        assertTrue(result is ApprovalResult.Denied)
     }
 }
