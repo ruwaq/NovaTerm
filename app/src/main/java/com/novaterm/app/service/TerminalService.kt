@@ -102,9 +102,14 @@ class TerminalService : Service() {
      */
     private val screenUpdateCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
 
-    /** Register a screen update callback for a specific session. */
+    /** Register a screen update callback for a specific session.
+     *  Immediately invokes the callback to render any buffered content
+     *  that arrived before the view was composed (fixes session 2+ freeze). */
     fun registerScreenCallback(sessionHandle: String, callback: () -> Unit) {
         screenUpdateCallbacks[sessionHandle] = callback
+        // Force immediate redraw — the session may have produced output
+        // before this callback was registered (race between PTY I/O and Compose).
+        mainHandler.post(callback)
     }
 
     /** Unregister a screen update callback (e.g., when tab is disposed). */
@@ -176,12 +181,10 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Prefer per-session callback (only invalidates the specific TerminalView).
-            // Fall back to legacy global callback for sessions without registered views
-            // (e.g., newly created session before HorizontalPager composes its page).
-            val callback = screenUpdateCallbacks[changedSession.mHandle]
-                ?: onScreenUpdated
-                ?: return
+            // Per-session callback: only invalidates the TerminalView for this session.
+            // If no callback registered yet (session just created, view not composed),
+            // silently skip — registerScreenCallback() will force a redraw when ready.
+            val callback = screenUpdateCallbacks[changedSession.mHandle] ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 callback()
             } else {
