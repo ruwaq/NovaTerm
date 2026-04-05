@@ -23,6 +23,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -64,46 +65,54 @@ fun SessionTabBar(
             )
         }
 
-        ScrollableTabRow(
-            selectedTabIndex = selectedPage.coerceIn(0, (sessions.size - 1).coerceAtLeast(0)),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            edgePadding = 0.dp,
-            modifier = Modifier.weight(1f),
-            divider = {},
-        ) {
-            sessions.forEachIndexed { index, session ->
-                Tab(
-                    selected = selectedPage == index,
-                    onClick = { onSelectTab(index) },
-                    modifier = Modifier
-                        .height(40.dp)
-                        .combinedClickable(
-                            onClick = { onSelectTab(index) },
-                            onLongClick = { onLongClickTab(index) },
-                        ),
+        if (sessions.isNotEmpty()) {
+            // key(sessions.size) forces full recomposition when tab count changes,
+            // preventing ScrollableTabRow indicator from accessing a stale
+            // selectedTabIndex during partial recomposition (IndexOutOfBoundsException).
+            val clampedIndex = selectedPage.coerceIn(0, sessions.size - 1)
+            key(sessions.size) {
+                ScrollableTabRow(
+                    selectedTabIndex = clampedIndex,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    edgePadding = 0.dp,
+                    modifier = Modifier.weight(1f),
+                    divider = {},
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Box(
+                    sessions.forEachIndexed { index, session ->
+                        Tab(
+                            selected = clampedIndex == index,
+                            onClick = { onSelectTab(index) },
                             modifier = Modifier
-                                .size(6.dp)
-                                .background(
-                                    color = if (session.isRunning) novaColors.accent
-                                    else novaColors.destructive,
-                                    shape = CircleShape,
+                                .height(40.dp)
+                                .combinedClickable(
+                                    onClick = { onSelectTab(index) },
+                                    onLongClick = { onLongClickTab(index) },
+                                ),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            color = if (session.isRunning) novaColors.accent
+                                            else novaColors.destructive,
+                                            shape = CircleShape,
+                                        )
                                 )
-                        )
-                        Text(
-                            text = sessionNames[index]
-                                ?: session.title?.takeIf { it.isNotBlank() }
-                                ?: stringResource(R.string.tab_session, index + 1),
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                                Text(
+                                    text = sessionNames[index]
+                                        ?: session.title?.takeIf { it.isNotBlank() }
+                                        ?: stringResource(R.string.tab_session, index + 1),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
                 }
             }
