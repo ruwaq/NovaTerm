@@ -34,7 +34,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -372,8 +374,17 @@ class McpServer(
     private fun JsonObject.toMap(): Map<String, Any?> {
         return entries.associate { (k, v) ->
             k to when {
-                v is kotlinx.serialization.json.JsonPrimitive && v.isString -> v.content
-                v is kotlinx.serialization.json.JsonPrimitive -> v.content.toIntOrNull() ?: v.content.toLongOrNull() ?: v.content
+                v is JsonNull -> null
+                v is JsonPrimitive && v.isString -> v.content
+                v is JsonPrimitive -> {
+                    val content = v.content
+                    // Preserve JSON number types: Int → Long → Double → Boolean → raw string
+                    content.toIntOrNull()
+                        ?: content.toLongOrNull()
+                        ?: content.toDoubleOrNull()
+                        ?: content.toBooleanStrictOrNull()
+                        ?: content
+                }
                 else -> v.toString()
             }
         }

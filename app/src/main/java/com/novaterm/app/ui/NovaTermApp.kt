@@ -201,6 +201,12 @@ fun NovaTermApp(
                             exitCode = exitCode,
                             cwd = cwd,
                         )
+                        service?.predictionEngine?.onCommandExecuted(
+                            sessionId = sessionId,
+                            command = command,
+                            cwd = cwd,
+                        )
+                        viewModel.refreshSuggestion()
                     },
                     onPromptNavigatorReady = {},
                     onViewReady = { terminalView ->

@@ -54,16 +54,6 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
         """)
 
         db.execSQL("""
-            CREATE TABLE block_output (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                block_id TEXT NOT NULL,
-                offset_ms INTEGER NOT NULL DEFAULT 0,
-                data TEXT NOT NULL,
-                FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
-            )
-        """)
-
-        db.execSQL("""
             CREATE TABLE snapshots (
                 session_id TEXT PRIMARY KEY,
                 vt_data BLOB,
@@ -91,14 +81,17 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX idx_blocks_session ON blocks(session_id, timestamp)")
         db.execSQL("CREATE INDEX idx_blocks_command ON blocks(command)")
         db.execSQL("CREATE INDEX idx_blocks_cwd ON blocks(cwd)")
-        db.execSQL("CREATE INDEX idx_block_output_block ON block_output(block_id)")
-
         Log.i(TAG, "BlockStore database created (v$DATABASE_VERSION)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         Log.w(TAG, "Upgrading database from v$oldVersion to v$newVersion")
-        // Future migrations go here
+        if (oldVersion < 2) {
+            // Drop block_output: streaming-chunk storage was replaced by cas_blobs (CAS dedup).
+            // The table was created but never written to.
+            db.execSQL("DROP INDEX IF EXISTS idx_block_output_block")
+            db.execSQL("DROP TABLE IF EXISTS block_output")
+        }
     }
 
     override fun onConfigure(db: SQLiteDatabase) {
@@ -111,6 +104,6 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "BlockStoreDb"
         private const val DATABASE_NAME = "novaterm_blocks.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
     }
 }

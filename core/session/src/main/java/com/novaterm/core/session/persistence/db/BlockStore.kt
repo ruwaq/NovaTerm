@@ -102,8 +102,8 @@ class BlockStore(context: Context) {
             try {
                 wdb.delete("sessions", null, null)
                 wdb.delete("blocks", null, null)
-                wdb.delete("block_output", null, null)
                 wdb.delete("snapshots", null, null)
+                wdb.delete("cas_blobs", null, null)
                 wdb.setTransactionSuccessful()
             } finally {
                 wdb.endTransaction()
