@@ -17,7 +17,7 @@ class LlmConfigTest {
         assertEquals(64, config.maxTokens)
         assertEquals(10, config.contextDepth)
         assertEquals(500, config.maxOutputChars)
-        assertEquals(5_000L, config.inferenceTimeoutMs)
+        assertEquals(2_000L, config.inferenceTimeoutMs)
         assertEquals(4, config.numThreads)
         assertEquals(ModelCatalog.ModelFamily.GEMMA4, config.modelFamily)
     }

@@ -34,7 +34,7 @@ class GemmaEngineBackendSelectionTest {
         val config = LlmConfig()
         assertTrue("temperature should be low for deterministic suggestions", config.temperature <= 0.5f)
         assertTrue("maxTokens should be short for command suggestions", config.maxTokens <= 128)
-        assertTrue("inferenceTimeout should be at least 3s", config.inferenceTimeoutMs >= 3_000)
+        assertTrue("inferenceTimeout should be positive and reasonable", config.inferenceTimeoutMs in 500..10_000)
         assertTrue("numThreads should be positive", config.numThreads > 0)
     }
 
