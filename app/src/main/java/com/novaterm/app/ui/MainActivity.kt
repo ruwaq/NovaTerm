@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             val recognizedText = matches?.firstOrNull()
             if (!recognizedText.isNullOrBlank()) {
-                Log.i(TAG, "Voice input: ${recognizedText.take(80)}")
+                Log.d(TAG, "Voice input received (${recognizedText.length} chars)")
                 writeVoiceInputToSession(recognizedText)
             }
         }
@@ -264,9 +264,15 @@ class MainActivity : ComponentActivity() {
             }
 
             ACTION_RUN_COMMAND -> {
+                // Verify caller has RUN_COMMAND permission
+                if (checkCallingOrSelfPermission("com.nvterm.permission.RUN_COMMAND")
+                    != PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "RUN_COMMAND denied — caller lacks permission")
+                    return
+                }
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
-                    Log.i(TAG, "RUN_COMMAND intent: ${command.take(80)}")
+                    Log.d(TAG, "RUN_COMMAND intent received")
                     val cwd = intent.getStringExtra("cwd")
                     val serviceIntent = Intent(this, TerminalService::class.java).apply {
                         action = TerminalService.ACTION_RUN_COMMAND
@@ -281,7 +287,7 @@ class MainActivity : ComponentActivity() {
                 if (intent.type == "text/plain") {
                     val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
                     if (!sharedText.isNullOrBlank()) {
-                        Log.i(TAG, "SEND intent: ${sharedText.take(80)}")
+                        Log.d(TAG, "SEND intent received (${sharedText.length} chars)")
                         val serviceIntent = Intent(this, TerminalService::class.java).apply {
                             action = TerminalService.ACTION_WRITE_INPUT
                             putExtra("input", sharedText)
@@ -299,19 +305,19 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> {
                 val uri = intent.data
                 if (uri != null && uri.scheme == "nvterm") {
-                    Log.i(TAG, "VIEW intent: $uri")
+                    Log.d(TAG, "VIEW intent: nvterm://${uri.host}")
                     when (uri.host) {
-                        "run" -> {
-                            val cmd = uri.getQueryParameter("cmd")
-                            if (!cmd.isNullOrBlank()) {
-                                val serviceIntent = Intent(this, TerminalService::class.java).apply {
-                                    action = TerminalService.ACTION_RUN_COMMAND
-                                    putExtra("command", cmd)
-                                }
-                                startForegroundService(serviceIntent)
-                            }
+                        "open" -> {
+                            // nvterm://open — just bring NovaTerm to foreground
+                            Log.d(TAG, "Deep link: open")
                         }
-                        // Future deep link paths can be added here
+                        "run" -> {
+                            // SECURITY: nvterm://run?cmd= is disabled to prevent
+                            // malicious websites from executing commands via deep links.
+                            // Use the RUN_COMMAND intent with proper permission instead.
+                            Log.w(TAG, "Deep link nvterm://run is disabled for security")
+                            Toast.makeText(this, "Command execution via deep links is disabled", Toast.LENGTH_SHORT).show()
+                        }
                         else -> Log.w(TAG, "Unknown nvterm:// host: ${uri.host}")
                     }
                 }
