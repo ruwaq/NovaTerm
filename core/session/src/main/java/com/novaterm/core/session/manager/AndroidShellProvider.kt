@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.Environment
+import android.system.Os
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -257,6 +258,19 @@ class AndroidShellProvider(
         if (firstRun) home.mkdirs()
         if (!tmpdir.isDirectory) tmpdir.mkdirs()
 
+        // Create /tmp symlink pointing to $PREFIX/tmp.
+        // Many tools (Claude Code, npm, Python) hardcode /tmp.
+        // The app process has write access to its own data dir.
+        try {
+            val tmpLink = File(rootDir, "tmp")
+            if (!tmpLink.exists()) {
+                Os.symlink(tmpdir.absolutePath, tmpLink.absolutePath)
+                Log.i("NovaTerm", "Created /tmp symlink → ${tmpdir.absolutePath}")
+            }
+        } catch (e: Exception) {
+            Log.w("NovaTerm", "Could not create /tmp symlink (non-fatal)", e)
+        }
+
         if (firstRun) {
             setupDirectoryStructure(home)
             setupStorageLinks(home)
@@ -342,16 +356,11 @@ class AndroidShellProvider(
                 appendLine("export TERM_PROGRAM=novaterm")
                 appendLine("export TERM_PROGRAM_VERSION=\"$appVersion\"")
                 appendLine()
-                appendLine("# ── /tmp fix for Claude Code and other tools ──")
-                appendLine("# Android doesn't have /tmp. Create it as symlink if possible,")
-                appendLine("# or ensure TMPDIR points to our writable tmp directory.")
-                appendLine("if [ ! -e /tmp ] && [ -w /data/data ]; then")
-                appendLine("  ln -sf \"\$PREFIX/tmp\" /tmp 2>/dev/null")
-                appendLine("fi")
-                appendLine("if [ ! -d /tmp ]; then")
-                appendLine("  mkdir -p \"\$PREFIX/tmp\" 2>/dev/null")
-                appendLine("  export TMPDIR=\"\$PREFIX/tmp\"")
-                appendLine("fi")
+                appendLine("# ── /tmp ──")
+                appendLine("# NovaTerm creates /tmp symlink from Java (has app permissions).")
+                appendLine("# Ensure TMPDIR always points to a writable directory.")
+                appendLine("export TMPDIR=\"\$PREFIX/tmp\"")
+                appendLine("mkdir -p \"\$TMPDIR\" 2>/dev/null")
                 appendLine()
                 appendLine("# ── History (crash-safe: saved on every command) ──")
                 appendLine("export HISTSIZE=10000")

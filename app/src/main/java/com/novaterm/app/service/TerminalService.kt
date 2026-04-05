@@ -554,6 +554,11 @@ class TerminalService : Service() {
     }
 
     fun createSession(): TerminalSession? {
+        // Limit max sessions to prevent OOM on mobile (each session uses ~2-4MB for PTY + buffers)
+        if (_sessions.value.size >= MAX_SESSIONS) {
+            Log.w(TAG, "Max sessions reached ($MAX_SESSIONS) — refusing to create more")
+            return null
+        }
         return createSessionInternal(shellProvider.defaultWorkingDirectory())
     }
 
@@ -1141,6 +1146,8 @@ class TerminalService : Service() {
         const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
         const val ACTION_LAUNCH_PRESET = "com.nvterm.LAUNCH_PRESET"
         private const val MAX_DYNAMIC_SHORTCUTS = 4
+        /** Max sessions to prevent OOM. Each session uses ~2-4MB (PTY + scrollback buffer). */
+        private const val MAX_SESSIONS = 8
 
         /** Map of preset names to commands that should be executed in a new session. */
         private val PRESET_COMMANDS = mapOf(
