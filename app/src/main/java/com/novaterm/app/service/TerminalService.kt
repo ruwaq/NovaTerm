@@ -1,31 +1,23 @@
 package com.novaterm.app.service
 
-import android.app.Notification
-import android.app.PendingIntent
 import android.app.Service
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.net.wifi.WifiManager
 import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import com.novaterm.app.NovaTermApp
 import com.novaterm.app.R
-import com.novaterm.app.ui.MainActivity
 import android.content.ComponentName
 import android.content.pm.PackageManager
-import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
-import android.graphics.drawable.Icon
 import com.novaterm.app.receiver.BootReceiver
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.model.TerminalDimensions
@@ -161,12 +153,12 @@ class TerminalService : Service() {
 
     @Volatile private var isServiceDestroyed = false
 
-    // ── Locks ──────────────────────────────────────────────
+    // ── Notification + lock helpers ────────────────────────
 
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: WifiManager.WifiLock? = null
+    private lateinit var notifications: NotificationHelper
+    private lateinit var wakeLocks: WakeLockManager
 
-    val isWakeLockHeld: Boolean get() = wakeLock?.isHeld == true
+    val isWakeLockHeld: Boolean get() = wakeLocks.isHeld
 
     // ── Clipboard ──────────────────────────────────────────
 
@@ -244,7 +236,7 @@ class TerminalService : Service() {
             // Send notification when app is in background
             val app = application as? NovaTermApp ?: return
             if (!app.appLifecycle.isInForeground.value) {
-                sendBellNotification(session)
+                notifications.sendBellNotification(session)
             }
         }
 
@@ -256,7 +248,7 @@ class TerminalService : Service() {
             // Convert OSC 9 to Android notification (used by Claude Code, Codex CLI)
             val app = application as? NovaTermApp ?: return
             if (!app.appLifecycle.isInForeground.value) {
-                sendOsc9Notification(session, text)
+                notifications.sendOsc9Notification(session, text)
             }
         }
 
@@ -337,8 +329,10 @@ class TerminalService : Service() {
         blockStore = BlockStore(this)
         predictionEngine = PredictionEngine(filesDir).also { it.load() }
         modelManager = ModelManager(this)
+        notifications = NotificationHelper(this, { _sessions.value }, { isWakeLockHeld })
+        wakeLocks = WakeLockManager(this)
 
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForeground(notifications.foregroundNotificationId, notifications.buildForegroundNotification())
 
         // Periodic session save (every 30s) for crash protection
         startPeriodicSave()
@@ -683,12 +677,8 @@ class TerminalService : Service() {
     }
 
     fun toggleWakeLock() {
-        if (wakeLock?.isHeld == true) {
-            releaseLocks()
-        } else {
-            acquireLocks()
-        }
-        updateNotification()
+        wakeLocks.toggle()
+        notifications.scheduleUpdate()
     }
 
     // ── Boot receiver management ────────────────────────────
@@ -733,58 +723,11 @@ class TerminalService : Service() {
 
     fun clearSavedSessions() = sessionStore.clear()
 
-    // ── Lock management ────────────────────────────────────
+    // ── Lock management — delegated to WakeLockManager ──────
 
-    private fun acquireLocks() {
-        if (wakeLock == null) {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "novaterm:service-wakelock",
-            )
-        }
-        wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
+    private fun releaseLocks() = wakeLocks.release()
 
-        if (wifiLock == null) {
-            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            @Suppress("DEPRECATION")
-            wifiLock = wm.createWifiLock(
-                WifiManager.WIFI_MODE_FULL_HIGH_PERF,
-                "novaterm:service-wifilock",
-            )
-        }
-        wifiLock?.acquire()
-    }
-
-    private fun releaseLocks() {
-        if (wakeLock?.isHeld == true) wakeLock?.release()
-        wakeLock = null
-        if (wifiLock?.isHeld == true) wifiLock?.release()
-        wifiLock = null
-    }
-
-    // ── Notifications ──────────────────────────────────────
-
-    private fun sendBellNotification(session: TerminalSession) {
-        val title = session.title?.takeIf { it.isNotBlank() } ?: "Terminal"
-        val contentIntent = PendingIntent.getActivity(
-            this, NOTIFICATION_BELL,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(getString(R.string.notification_bell_activity))
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .build()
-
-        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(NOTIFICATION_BELL, notification)
-    }
+    // ── Notifications — delegated to NotificationHelper ──────
 
     /**
      * Called when a command block completes (OSC 133;D received).
@@ -797,180 +740,13 @@ class TerminalService : Service() {
         exitCode: Int?,
         durationMs: Long,
     ) {
-        // Only notify for long-running commands (>5s)
         if (durationMs < commandNotifyThresholdMs) return
-
-        // Only notify when the app is in the background
         val app = application as? NovaTermApp ?: return
         if (app.appLifecycle.isInForeground.value) return
-
-        sendCommandCompletionNotification(session, command, exitCode)
+        notifications.sendCommandCompletionNotification(session, command, exitCode)
     }
 
-    private fun sendCommandCompletionNotification(
-        session: TerminalSession,
-        command: String,
-        exitCode: Int?,
-    ) {
-        val code = exitCode ?: 0
-        val title = if (code == 0) {
-            getString(R.string.notification_command_done)
-        } else {
-            getString(R.string.notification_command_failed, code)
-        }
-
-        // Truncate long commands for notification display
-        val displayCommand = if (command.length > 120) command.take(117) + "…" else command
-
-        val sessionIndex = _sessions.value.indexOf(session)
-        val notificationId = NOTIFICATION_COMMAND_DONE + (if (sessionIndex >= 0) sessionIndex else 0)
-
-        val contentIntent = PendingIntent.getActivity(
-            this, notificationId,
-            Intent(this, MainActivity::class.java).apply {
-                putExtra("session_index", sessionIndex)
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(displayCommand)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(displayCommand))
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .build()
-
-        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(notificationId, notification)
-    }
-
-    private fun sendOsc9Notification(session: TerminalSession, text: String) {
-        // Include session title so the user knows which tab sent the notification.
-        val sessionTitle = session.title?.takeIf { it.isNotBlank() } ?: "Terminal"
-        // Use session-unique notification ID so multiple sessions don't overwrite each other.
-        val sessionIndex = _sessions.value.indexOf(session)
-        val notificationId = NOTIFICATION_OSC9 + (if (sessionIndex >= 0) sessionIndex else 0)
-
-        val contentIntent = PendingIntent.getActivity(
-            this, notificationId,
-            Intent(this, MainActivity::class.java).apply {
-                // Navigate to the specific session tab when tapped
-                putExtra("session_index", sessionIndex)
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val notification = NotificationCompat.Builder(this, NovaTermApp.CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(sessionTitle)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .build()
-        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(notificationId, notification)
-    }
-
-    private fun buildNotification(): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        val newSessionIntent = PendingIntent.getService(
-            this, REQ_NEW_SESSION,
-            Intent(this, TerminalService::class.java).setAction(ACTION_NEW_SESSION),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val floatIntent = PendingIntent.getActivity(
-            this, REQ_FLOAT,
-            Intent(this, MainActivity::class.java)
-                .setAction(ACTION_FLOAT)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        val exitIntent = PendingIntent.getService(
-            this, REQ_EXIT,
-            Intent(this, TerminalService::class.java).setAction(ACTION_EXIT),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val count = _sessions.value.size
-
-        return NotificationCompat.Builder(this, NovaTermApp.CHANNEL_SERVICE)
-            .setContentTitle(getString(R.string.notification_title_running))
-            .setContentText(getString(R.string.notification_sessions, count))
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .setShowWhen(false)
-            .setPriority(if (isWakeLockHeld) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .addAction(android.R.drawable.ic_input_add, getString(R.string.action_new_session), newSessionIntent)
-            .addAction(android.R.drawable.ic_menu_crop, getString(R.string.action_float), floatIntent)
-            .addAction(android.R.drawable.ic_delete, getString(R.string.action_exit), exitIntent)
-            .build()
-    }
-
-    @Volatile private var notificationUpdateScheduled = false
-
-    private fun updateNotification() {
-        // Debounce: batch rapid updates (session create/close) into a single notification rebuild
-        if (notificationUpdateScheduled) return
-        notificationUpdateScheduled = true
-        mainHandler.postDelayed({
-            notificationUpdateScheduled = false
-            val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-            manager.notify(NOTIFICATION_ID, buildNotification())
-            updateDynamicShortcuts()
-        }, 300)
-    }
-
-    /**
-     * Update dynamic app shortcuts to reflect active terminal sessions.
-     * Each shortcut opens the app and switches to the corresponding session.
-     * Limited to [MAX_DYNAMIC_SHORTCUTS] (Android launcher limit is 4-5).
-     */
-    private fun updateDynamicShortcuts() {
-        val shortcutManager = getSystemService(ShortcutManager::class.java) ?: return
-        val currentSessions = _sessions.value
-
-        if (currentSessions.isEmpty()) {
-            shortcutManager.removeAllDynamicShortcuts()
-            return
-        }
-
-        val shortcuts = currentSessions
-            .take(MAX_DYNAMIC_SHORTCUTS)
-            .mapIndexed { index, session ->
-                val label = session.title?.takeIf { it.isNotBlank() }
-                    ?: getString(R.string.shortcut_session, index + 1)
-
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    action = ACTION_SWITCH_SESSION
-                    putExtra("session_index", index)
-                    // Flags required for shortcut intents
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                }
-
-                ShortcutInfo.Builder(this, "session_$index")
-                    .setShortLabel(label)
-                    .setLongLabel(label)
-                    .setIcon(Icon.createWithResource(this, R.drawable.ic_notification))
-                    .setIntent(intent)
-                    .setRank(index)
-                    .build()
-            }
-
-        shortcutManager.dynamicShortcuts = shortcuts
-    }
+    private fun updateNotification() = notifications.scheduleUpdate()
 
     // ── MCP bridge implementation ───────────────────────────
 
@@ -1103,16 +879,7 @@ class TerminalService : Service() {
 
     companion object {
         private const val TAG = "NovaTerm"
-        private const val NOTIFICATION_ID = 1337
-        private const val REQ_EXIT = 1
-        private const val REQ_NEW_SESSION = 2
-        private const val REQ_TOGGLE_WAKELOCK = 3
-        private const val REQ_FLOAT = 4
-        private const val NOTIFICATION_BELL = 1338
-        private const val NOTIFICATION_OSC9 = 1340
-        private const val NOTIFICATION_COMMAND_DONE = 1350
         private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
-        private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4h safety net
 
         const val ACTION_EXIT = "com.nvterm.action.EXIT"
         const val ACTION_NEW_SESSION = "com.nvterm.action.NEW_SESSION"
@@ -1122,7 +889,6 @@ class TerminalService : Service() {
         const val ACTION_FLOAT = "com.nvterm.action.FLOAT"
         const val ACTION_SWITCH_SESSION = "com.nvterm.SWITCH_SESSION"
         const val ACTION_LAUNCH_PRESET = "com.nvterm.LAUNCH_PRESET"
-        private const val MAX_DYNAMIC_SHORTCUTS = 4
         /** Max sessions to prevent OOM. Each session uses ~2-4MB (PTY + scrollback buffer). */
         private const val MAX_SESSIONS = 8
 
