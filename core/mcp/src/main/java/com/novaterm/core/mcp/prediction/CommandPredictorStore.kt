@@ -1,7 +1,6 @@
 package com.novaterm.core.mcp.prediction
 
 import android.util.Log
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -69,7 +68,10 @@ object CommandPredictorStore {
         return try {
             val json = JSONObject(file.readText())
             val version = json.optInt(KEY_VERSION, 0)
-            if (version != CURRENT_VERSION) return CommandPredictor()
+            if (version != CURRENT_VERSION) {
+                Log.i("CommandPredictorStore", "Version mismatch ($version != $CURRENT_VERSION), resetting")
+                return CommandPredictor()
+            }
 
             val predictor = CommandPredictor()
             predictor.importState(
@@ -79,7 +81,8 @@ object CommandPredictorStore {
                 totalCommands = json.getInt(KEY_TOTAL),
             )
             predictor
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("CommandPredictorStore", "Failed to load predictor, starting fresh", e)
             CommandPredictor()
         }
     }

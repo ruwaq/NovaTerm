@@ -64,22 +64,29 @@ class CommandPredictor {
                 dirCommands[normalized] = (dirCommands[normalized] ?: 0) + 1
             }
 
-            // Evict least frequent entries if vocabulary exceeds limits
+            // Evict least frequent entries if vocabulary exceeds limits.
+            // Sort by count ascending, remove the exact bottom N — avoids threshold
+            // ambiguity that can delete too many entries when counts are tied.
             if (unigrams.size > MAX_UNIGRAMS) {
-                val threshold = unigrams.values.sorted()[unigrams.size - MAX_UNIGRAMS]
-                unigrams.entries.removeAll { it.value <= threshold }
+                val toRemove = unigrams.entries
+                    .sortedBy { it.value }
+                    .take(unigrams.size - MAX_UNIGRAMS)
+                    .map { it.key }
+                toRemove.forEach { unigrams.remove(it) }
             }
             if (bigrams.size > MAX_BIGRAM_KEYS) {
-                val leastUsed = bigrams.entries
+                val toRemove = bigrams.entries
                     .sortedBy { it.value.values.sum() }
                     .take(bigrams.size - MAX_BIGRAM_KEYS)
-                leastUsed.forEach { bigrams.remove(it.key) }
+                    .map { it.key }
+                toRemove.forEach { bigrams.remove(it) }
             }
             if (cwdCommands.size > MAX_CWD_KEYS) {
-                val leastUsed = cwdCommands.entries
+                val toRemove = cwdCommands.entries
                     .sortedBy { it.value.values.sum() }
                     .take(cwdCommands.size - MAX_CWD_KEYS)
-                leastUsed.forEach { cwdCommands.remove(it.key) }
+                    .map { it.key }
+                toRemove.forEach { cwdCommands.remove(it) }
             }
         }
     }

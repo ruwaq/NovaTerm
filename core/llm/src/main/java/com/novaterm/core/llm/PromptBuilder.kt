@@ -192,9 +192,12 @@ object PromptBuilder {
     private const val MAX_HISTORY = 8
     private const val MAX_OUTPUT_CHARS = 400
 
-    /** Strip control tokens to prevent prompt injection via command history. */
+    /** Strip control tokens and newlines to prevent prompt injection via command history. */
     private fun sanitize(input: String): String {
         return input
+            .replace("\r\n", " ")
+            .replace('\n', ' ')
+            .replace('\r', ' ')
             .replace("<start_of_turn>", "")
             .replace("<end_of_turn>", "")
             .replace("<start_of_role>", "")

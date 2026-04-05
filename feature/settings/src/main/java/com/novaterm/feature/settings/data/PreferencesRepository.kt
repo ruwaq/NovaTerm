@@ -79,7 +79,7 @@ class PreferencesRepository(private val context: Context) {
      * Falls back to regular prefs if crypto initialization fails
      * (e.g., corrupted Android Keystore, old device quirks).
      */
-    private val securePrefs: SharedPreferences by lazy {
+    private val securePrefs: SharedPreferences? by lazy {
         try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -92,16 +92,15 @@ class PreferencesRepository(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         } catch (e: Exception) {
-            // Fallback to regular prefs if crypto fails (old device, corrupted keystore)
-            Log.w(TAG, "EncryptedSharedPreferences failed, using fallback", e)
-            context.getSharedPreferences(SECURE_PREFS_FALLBACK, Context.MODE_PRIVATE)
+            // No plaintext fallback — API keys silently unavailable if crypto fails.
+            Log.e(TAG, "EncryptedSharedPreferences unavailable, API keys skipped", e)
+            null
         }
     }
 
     companion object {
         const val PREFS_NAME = "novaterm_prefs"
         const val SECURE_PREFS_NAME = "novaterm_secure_prefs"
-        private const val SECURE_PREFS_FALLBACK = "novaterm_secure_fallback"
         private const val TAG = "PreferencesRepository"
         private const val KEY_MIGRATION_DONE = "api_keys_migrated_to_secure"
 
@@ -158,10 +157,10 @@ class PreferencesRepository(private val context: Context) {
             mcpPort = prefs.getInt("mcp_port", 8080),
             llmEnabled = prefs.getBoolean("llm_enabled", false),
             scrollbackLines = prefs.getInt("scrollback_lines", TerminalPreferences.DEFAULT_SCROLLBACK_LINES),
-            anthropicApiKey = securePrefs.getString("api_key_anthropic", "") ?: "",
-            googleApiKey = securePrefs.getString("api_key_google", "") ?: "",
-            openaiApiKey = securePrefs.getString("api_key_openai", "") ?: "",
-            openrouterApiKey = securePrefs.getString("api_key_openrouter", "") ?: "",
+            anthropicApiKey = securePrefs?.getString("api_key_anthropic", "") ?: "",
+            googleApiKey = securePrefs?.getString("api_key_google", "") ?: "",
+            openaiApiKey = securePrefs?.getString("api_key_openai", "") ?: "",
+            openrouterApiKey = securePrefs?.getString("api_key_openrouter", "") ?: "",
         )
     }
 
@@ -174,8 +173,9 @@ class PreferencesRepository(private val context: Context) {
     private fun migrateApiKeysToSecurePrefs() {
         if (prefs.getBoolean(KEY_MIGRATION_DONE, false)) return
 
+        val sp = securePrefs ?: return  // Can't migrate if crypto unavailable
         try {
-            val editor = securePrefs.edit()
+            val editor = sp.edit()
             val plainEditor = prefs.edit()
             var migrated = false
 
@@ -221,12 +221,12 @@ class PreferencesRepository(private val context: Context) {
             .putInt("scrollback_lines", p.scrollbackLines)
             .apply()
 
-        // API keys → EncryptedSharedPreferences (AES-256-GCM)
-        securePrefs.edit()
-            .putString("api_key_anthropic", p.anthropicApiKey)
-            .putString("api_key_google", p.googleApiKey)
-            .putString("api_key_openai", p.openaiApiKey)
-            .putString("api_key_openrouter", p.openrouterApiKey)
-            .apply()
+        // API keys → EncryptedSharedPreferences (AES-256-GCM, skipped if unavailable)
+        securePrefs?.edit()
+            ?.putString("api_key_anthropic", p.anthropicApiKey)
+            ?.putString("api_key_google", p.googleApiKey)
+            ?.putString("api_key_openai", p.openaiApiKey)
+            ?.putString("api_key_openrouter", p.openrouterApiKey)
+            ?.apply()
     }
 }

@@ -232,7 +232,7 @@ private fun CommandSearchTab(
             .fillMaxWidth()
             .height(400.dp),
     ) {
-        items(filtered) { entry ->
+        items(filtered, key = { "${it.timestamp}_${it.command}" }) { entry ->
             HistoryRow(
                 entry = entry,
                 onClick = {

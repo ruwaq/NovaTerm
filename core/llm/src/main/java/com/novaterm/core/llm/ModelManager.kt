@@ -40,6 +40,9 @@ class ModelManager(context: Context) {
     private val _state = MutableStateFlow<ModelState>(ModelState.Idle)
     val state: StateFlow<ModelState> = _state.asStateFlow()
 
+    /** Guards against concurrent pollProgress() calls. */
+    @Volatile private var isPolling = false
+
     /** Currently active download ID, or -1 if none. */
     private var activeDownloadId: Long
         get() = prefs.getLong("active_download_id", -1)
@@ -133,13 +136,15 @@ class ModelManager(context: Context) {
     private val maxPollDurationMs = 4 * 60 * 60 * 1000L
 
     suspend fun pollProgress() = withContext(Dispatchers.IO) {
+        if (isPolling) return@withContext
+        isPolling = true
         val downloadId = activeDownloadId
-        if (downloadId == -1L) return@withContext
+        if (downloadId == -1L) { isPolling = false; return@withContext }
 
         val query = DownloadManager.Query().setFilterById(downloadId)
         val startTime = System.currentTimeMillis()
 
-        while (System.currentTimeMillis() - startTime < maxPollDurationMs) {
+        try { while (System.currentTimeMillis() - startTime < maxPollDurationMs) {
             val cursor = downloadManager.query(query)
             val shouldReturn = cursor?.use { c ->
                 if (!c.moveToFirst()) {
@@ -193,7 +198,7 @@ class ModelManager(context: Context) {
             }
 
             delay(500) // Poll every 500ms
-        }
+        } } finally { isPolling = false }
     }
 
     /** Cancel an in-progress download. */

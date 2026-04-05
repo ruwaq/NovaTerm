@@ -254,11 +254,15 @@ class BootstrapInstaller(private val context: Context) {
                 }
                 !entry.isDirectory -> {
                     val outFile = File(targetDir, name)
-                    // Security: block path traversal
+                    // Security: block ZIP slip path traversal.
+                    // Use canonical paths with explicit separator to prevent
+                    // /prefix/usr-evil matching /prefix/usr boundary.
                     val canonical = outFile.canonicalPath
-                    val targetCanonical = targetDir.canonicalPath + File.separator
-                    if (!canonical.startsWith(targetCanonical)) {
-                        Log.w(TAG, "Skipping path traversal entry: $name")
+                    val targetCanonical = targetDir.canonicalPath
+                    val isInTarget = canonical.startsWith(targetCanonical + File.separator) ||
+                        canonical == targetCanonical
+                    if (!isInTarget) {
+                        Log.w(TAG, "Skipping path traversal entry: $name -> $canonical")
                         entry = zis.nextEntry
                         continue
                     }
@@ -390,6 +394,9 @@ class BootstrapInstaller(private val context: Context) {
      * Both arrays MUST have equal length (same-length binary patching).
      */
     private fun patchBytes(data: ByteArray, old: ByteArray, new: ByteArray) {
+        require(old.size == new.size) {
+            "patchBytes: arrays must be equal length — old=${old.size}, new=${new.size}"
+        }
         var i = 0
         while (i <= data.size - old.size) {
             var match = true

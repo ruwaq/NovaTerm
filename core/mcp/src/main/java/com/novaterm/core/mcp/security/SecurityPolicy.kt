@@ -45,8 +45,9 @@ object SecurityPolicy {
         Regex("""^chmod\s+-R\s+777\s+/\s*$"""), // chmod -R 777 / (exact root)
     )
 
-    /** Shell metacharacters that introduce a new command. */
-    private val SHELL_METACHAR = Regex("""[;`]|\$\(""")
+    // Split on all shell metacharacters that can chain commands or redirect I/O.
+    // Missing any allows injection: cmd && evil, cmd | evil, cmd > file, etc.
+    private val SHELL_METACHAR = Regex("""[;`&|<>\n]|\$\(|\$\{|&&|\|\|""")
 
     /** Paths that tools cannot read or write. */
     val BLOCKED_PATHS = setOf(

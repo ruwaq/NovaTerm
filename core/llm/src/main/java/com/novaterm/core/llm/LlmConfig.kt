@@ -19,8 +19,8 @@ data class LlmConfig(
     val contextDepth: Int = 10,
     /** Maximum characters of last command output to include. */
     val maxOutputChars: Int = 500,
-    /** Timeout for a single inference call (ms). */
-    val inferenceTimeoutMs: Long = 5_000,
+    /** Timeout for a single inference call (ms). 2s keeps UI responsive on mobile. */
+    val inferenceTimeoutMs: Long = 2_000,
     /** Number of CPU threads for inference. */
     val numThreads: Int = 4,
     /** Model family for prompt format selection. */

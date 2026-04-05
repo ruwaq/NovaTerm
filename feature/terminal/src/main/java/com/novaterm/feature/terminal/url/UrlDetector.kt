@@ -14,9 +14,10 @@ object UrlDetector {
     }
 
     // ── URL pattern ──────────────────────────────────────────
+    // Max 2048 chars prevents catastrophic backtracking (ReDoS) on malicious terminal output.
     private val URL_REGEX = Regex(
         """(https?://|ftp://|ssh://|git://|file://|mailto:)""" +
-        """[^\u0000-\u001F\u007F-\u009F<>"'\s{}\\\^`]+"""
+        """[^\u0000-\u001F\u007F-\u009F<>"'\s{}\\\^`]{1,2048}"""
     )
 
     // ── IP address patterns ──────────────────────────────────

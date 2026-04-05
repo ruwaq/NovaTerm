@@ -45,6 +45,11 @@ class PredictionEngine(private val storageDir: File) {
     fun onCommandExecuted(sessionId: String, command: String, cwd: String? = null) {
         val prev = lastCommand[sessionId]
         predictor.learn(command, previousCommand = prev, cwd = cwd)
+        // Cap map to prevent unbounded growth if onSessionClosed is never called
+        if (lastCommand.size > MAX_TRACKED_SESSIONS) {
+            val oldest = lastCommand.keys.first()
+            lastCommand.remove(oldest)
+        }
         lastCommand[sessionId] = command
         dirty = true
     }
@@ -113,6 +118,10 @@ class PredictionEngine(private val storageDir: File) {
     fun recentCommands(sessionId: String, limit: Int = 5): List<String> {
         // Return from the predictor's top unigrams as proxy for recent commands
         return predictor.topCommands(limit)
+    }
+
+    companion object {
+        private const val MAX_TRACKED_SESSIONS = 100
     }
 
     /** Number of unique commands learned. */

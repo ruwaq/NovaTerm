@@ -7,6 +7,7 @@ import com.novaterm.core.mcp.tool.InputSchema
 import com.novaterm.core.mcp.tool.McpTool
 import com.novaterm.core.mcp.tool.PropertySchema
 import com.novaterm.core.mcp.tool.ToolResult
+import java.io.File
 
 /** Read file contents from the terminal's filesystem. */
 class FileReadTool(
@@ -28,10 +29,22 @@ class FileReadTool(
         val rawPath = arguments["path"] as? String
             ?: return ToolResult.Error("Missing required parameter: path")
 
-        // Resolve relative paths against home
-        val path = if (rawPath.startsWith("/")) rawPath
-        else if (rawPath.startsWith("~/")) bridge.homePath() + rawPath.removePrefix("~")
-        else bridge.homePath() + "/" + rawPath
+        // Resolve relative paths against home, then canonicalize to resolve ../ traversals.
+        val resolved = when {
+            rawPath.startsWith("/") -> rawPath
+            rawPath.startsWith("~/") -> bridge.homePath() + rawPath.removePrefix("~")
+            else -> bridge.homePath() + "/" + rawPath
+        }
+        val canonical = try {
+            File(resolved).canonicalPath
+        } catch (e: Exception) {
+            return ToolResult.Error("Invalid path: $rawPath")
+        }
+        val homeCanonical = File(bridge.homePath()).canonicalPath
+        if (!canonical.startsWith(homeCanonical + "/") && canonical != homeCanonical) {
+            return ToolResult.Error("Path traversal not allowed: $rawPath")
+        }
+        val path = canonical
 
         if (SecurityPolicy.isBlockedPath(path)) {
             return ToolResult.Error("Path blocked by security policy: $path")

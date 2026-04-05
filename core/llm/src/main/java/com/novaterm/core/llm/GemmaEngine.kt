@@ -2,6 +2,7 @@ package com.novaterm.core.llm
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -98,7 +99,6 @@ class GemmaEngine(
                 val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
                     b.generate(prompt, config.maxTokens, config.temperature)
                 }
-                _state.value = LlmState.READY
 
                 if (response == null) {
                     Log.w(TAG, "Inference timed out")
@@ -107,10 +107,13 @@ class GemmaEngine(
 
                 val command = PromptBuilder.parseCommandResponse(response) ?: return@withLock null
                 LlmSuggestion(command = command, confidence = 0.85, reasoning = null)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Inference failed", e)
-                _state.value = LlmState.READY
                 null
+            } finally {
+                _state.value = LlmState.READY
             }
         }
     }
@@ -128,12 +131,14 @@ class GemmaEngine(
                 val response = withTimeoutOrNull(config.inferenceTimeoutMs) {
                     b.generate(prompt, config.maxTokens * 2, config.temperature)
                 }
-                _state.value = LlmState.READY
                 response?.trim()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Explain inference failed", e)
-                _state.value = LlmState.READY
                 null
+            } finally {
+                _state.value = LlmState.READY
             }
         }
     }
