@@ -176,19 +176,14 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Phase 2 validation: log Rust engine state on every screen update
-            if (useRustBackend.get()) {
-                validateRustEngine(changedSession)
-            }
-
-            // Per-session callback: each tab gets its own update
-            val perSessionCallback = screenUpdateCallbacks[changedSession.mHandle]
-            // Fallback to legacy single callback
-            val callback = perSessionCallback ?: onScreenUpdated ?: return
+            // Only call screen update for the session that has a registered callback.
+            // Off-screen sessions (not visible in HorizontalPager) won't have callbacks,
+            // so this naturally skips invisible tabs — critical for multi-session performance.
+            val perSessionCallback = screenUpdateCallbacks[changedSession.mHandle] ?: return
             if (Looper.myLooper() == Looper.getMainLooper()) {
-                callback()
+                perSessionCallback()
             } else {
-                mainHandler.post(callback)
+                mainHandler.post(perSessionCallback)
             }
         }
 
@@ -942,10 +937,18 @@ class TerminalService : Service() {
             .build()
     }
 
+    private var notificationUpdateScheduled = false
+
     private fun updateNotification() {
-        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.notify(NOTIFICATION_ID, buildNotification())
-        updateDynamicShortcuts()
+        // Debounce: batch rapid updates (session create/close) into a single notification rebuild
+        if (notificationUpdateScheduled) return
+        notificationUpdateScheduled = true
+        mainHandler.postDelayed({
+            notificationUpdateScheduled = false
+            val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+            manager.notify(NOTIFICATION_ID, buildNotification())
+            updateDynamicShortcuts()
+        }, 300)
     }
 
     /**

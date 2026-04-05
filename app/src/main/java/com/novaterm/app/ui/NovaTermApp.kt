@@ -205,7 +205,7 @@ fun NovaTermApp(
                 HorizontalPager(
                     state = pagerState,
                     userScrollEnabled = false,
-                    modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier.fillMaxSize(),
                 ) { page ->
                     if (page in sessions.indices) {
                         val session = sessions[page]
@@ -387,7 +387,7 @@ fun NovaTermApp(
                     HorizontalPager(
                         state = pagerState,
                         userScrollEnabled = false,
-                        modifier = Modifier.fillMaxSize(),
+                                                modifier = Modifier.fillMaxSize(),
                     ) { page ->
                         if (page in sessions.indices) {
                             val session = sessions[page]
