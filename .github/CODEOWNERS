@@ -1,0 +1,9 @@
+# Default owner for everything
+* @PrometeoDEV
+
+# Rust core
+/rust-core/ @PrometeoDEV
+
+# Terminal emulator (legacy Java)
+/core/terminal-emulator/ @PrometeoDEV
+/core/terminal-view/ @PrometeoDEV

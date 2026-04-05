@@ -1,9 +1,11 @@
 # NovaTerm
 
+[![CI](https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml/badge.svg)](https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-11%2B-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-purple.svg)](https://kotlinlang.org)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
+[![GitHub release](https://img.shields.io/github/v/release/nvterm/NovaTerm?include_prereleases)](https://github.com/nvterm/NovaTerm/releases)
 
 Next-generation Android terminal emulator. First Rust-powered, GPU-accelerated, AI-native terminal for Android.
 
