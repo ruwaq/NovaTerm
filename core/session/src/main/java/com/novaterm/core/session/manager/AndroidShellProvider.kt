@@ -205,19 +205,23 @@ class AndroidShellProvider(
         // AI API keys — read from EncryptedSharedPreferences, export as env vars
         // so CLI tools (claude, gemini, aider, opencode) pick them up automatically.
         // Keys are encrypted with AES-256-GCM via Android Keystore.
+        // If secure prefs are unavailable (Keystore failure), keys are skipped entirely.
         try {
-            val apiPrefs = securePrefs
-            apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
+            val apiPrefs = securePrefs ?: run {
+                Log.w("NovaTerm", "Skipping API key export — encrypted prefs unavailable")
+                null
+            }
+            apiPrefs?.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["ANTHROPIC_API_KEY"] = it
             }
-            apiPrefs.getString("api_key_google", null)?.takeIf { it.isNotEmpty() }?.let {
+            apiPrefs?.getString("api_key_google", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["GOOGLE_API_KEY"] = it
                 env["GEMINI_API_KEY"] = it
             }
-            apiPrefs.getString("api_key_openai", null)?.takeIf { it.isNotEmpty() }?.let {
+            apiPrefs?.getString("api_key_openai", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["OPENAI_API_KEY"] = it
             }
-            apiPrefs.getString("api_key_openrouter", null)?.takeIf { it.isNotEmpty() }?.let {
+            apiPrefs?.getString("api_key_openrouter", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["OPENROUTER_API_KEY"] = it
             }
         } catch (e: Exception) {
@@ -232,10 +236,11 @@ class AndroidShellProvider(
     /**
      * EncryptedSharedPreferences for API keys.
      *
-     * Cached via `lazy` — MasterKey.Builder involves crypto initialization
-     * and must not be called on every session spawn.
+     * Returns null if the Android Keystore is unavailable — in that case
+     * API keys are NOT loaded rather than falling back to plaintext storage.
+     * Cached via `lazy` — MasterKey.Builder involves crypto initialization.
      */
-    private val securePrefs: SharedPreferences by lazy {
+    private val securePrefs: SharedPreferences? by lazy {
         try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -248,8 +253,9 @@ class AndroidShellProvider(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         } catch (e: Exception) {
-            Log.w("NovaTerm", "EncryptedSharedPreferences failed, using fallback", e)
-            context.getSharedPreferences(SECURE_PREFS_FALLBACK, Context.MODE_PRIVATE)
+            // Do NOT fall back to plaintext — API keys must stay encrypted.
+            Log.e("NovaTerm", "EncryptedSharedPreferences unavailable, API keys skipped", e)
+            null
         }
     }
 

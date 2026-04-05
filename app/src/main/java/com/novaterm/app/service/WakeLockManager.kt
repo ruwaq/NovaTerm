@@ -24,6 +24,10 @@ internal class WakeLockManager(private val context: Context) {
     }
 
     fun acquire() {
+        if (isHeld) {
+            Log.d(TAG, "Wake lock already held, skipping acquire")
+            return
+        }
         if (wakeLock == null) {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(
@@ -42,7 +46,7 @@ internal class WakeLockManager(private val context: Context) {
                 "novaterm:service-wifilock",
             )
         }
-        wifiLock?.acquire()
+        if (wifiLock?.isHeld == false) wifiLock?.acquire()
         Log.d(TAG, "Locks acquired")
     }
 

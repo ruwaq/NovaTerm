@@ -147,7 +147,8 @@ internal class NotificationHelper(
 
         val displayCommand = if (command.length > 120) command.take(117) + "…" else command
         val sessionIndex = sessionsProvider().indexOf(session)
-        val notificationId = NOTIFICATION_COMMAND_DONE + sessionIndex.coerceAtLeast(0)
+        if (sessionIndex < 0) return  // Session removed — skip notification
+        val notificationId = NOTIFICATION_COMMAND_DONE + sessionIndex
 
         val intent = PendingIntent.getActivity(
             context, notificationId,
@@ -172,7 +173,8 @@ internal class NotificationHelper(
     fun sendOsc9Notification(session: TerminalSession, text: String) {
         val sessionTitle = session.title?.takeIf { it.isNotBlank() } ?: "Terminal"
         val sessionIndex = sessionsProvider().indexOf(session)
-        val notificationId = NOTIFICATION_OSC9 + sessionIndex.coerceAtLeast(0)
+        if (sessionIndex < 0) return  // Session removed — skip notification
+        val notificationId = NOTIFICATION_OSC9 + sessionIndex
 
         val intent = PendingIntent.getActivity(
             context, notificationId,

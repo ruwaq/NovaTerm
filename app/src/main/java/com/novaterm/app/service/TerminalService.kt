@@ -767,10 +767,12 @@ class TerminalService : Service() {
         private val _mcpSessions = MutableStateFlow<List<McpSessionInfo>>(emptyList())
 
         init {
-            // Keep MCP session list in sync with actual sessions.
-            // We use a simple polling approach via the save handler since
-            // StateFlow.map returns a Flow, not a StateFlow.
-            syncMcpSessions()
+            // Keep MCP session list continuously in sync with _sessions.
+            // Observing the flow catches unexpected session terminations that
+            // don't go through closeSession() (e.g., process crash).
+            serviceScope.launch {
+                _sessions.collect { syncMcpSessions() }
+            }
         }
 
         private fun syncMcpSessions() {

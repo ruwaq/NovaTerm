@@ -340,14 +340,19 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                 }
             }
         }
-        val newCount = svc.sessionCount
+        // Use observed sessions flow size — svc.sessionCount may lag the flow
+        val newCount = sessions.value.size
         if (_currentSessionIndex.value >= newCount) {
             _currentSessionIndex.value = (newCount - 1).coerceAtLeast(0)
         }
+        // Clean up orphaned PaneManagers for removed indices
+        _paneManagers.keys.removeAll { it >= newCount }
     }
 
     fun selectSession(index: Int) {
         _currentSessionIndex.value = index
+        // Clean up PaneManagers for indices that no longer exist
+        _paneManagers.keys.removeAll { it >= sessions.value.size }
         refreshPaneLayout()
     }
 
@@ -431,18 +436,26 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     return@launch
                 }
 
-                // Fallback to LLM if enabled and ready (slower but smarter)
+                // Fallback to LLM if enabled and ready (slower but smarter).
+                // Capture local ref — llmEngine can be set to null concurrently by
+                // updateLlmState() on a different coroutine.
                 val llm = currentSvc.llmEngine
                 if (llm != null && llm.state.value == com.novaterm.core.llm.LlmState.READY) {
                     val recentCommands = currentSvc.predictionEngine.recentCommands(sessionId, limit = 5)
-                    val context = com.novaterm.core.llm.TerminalContext(
+                    val llmContext = com.novaterm.core.llm.TerminalContext(
                         recentCommands = recentCommands.map { cmd ->
                             com.novaterm.core.llm.CommandEntry(command = cmd)
                         },
                         cwd = cwd,
                     )
-                    val llmSuggestion = llm.suggest(context)
-                    _suggestion.value = llmSuggestion?.command
+                    try {
+                        val llmSuggestion = llm.suggest(llmContext)
+                        _suggestion.value = llmSuggestion?.command
+                    } catch (e: Exception) {
+                        // Engine released while inference was in-flight
+                        Log.w(TAG, "LLM suggest failed (engine released?)", e)
+                        _suggestion.value = null
+                    }
                 } else {
                     _suggestion.value = null
                 }
