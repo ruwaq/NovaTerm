@@ -364,7 +364,10 @@ public final class TerminalView extends View {
         mTopRow = 0;
 
         mTermSession = session;
-        // Get emulator immediately — don't set null to avoid InputConnection race condition.
+        // Get emulator immediately from the new session.
+        // The existing InputConnection references mEmulator from this TerminalView,
+        // so updating it here makes the SAME InputConnection work with the new session.
+        // No need to restart the IME — that actually BREAKS Gboard's key event routing.
         mEmulator = session.getEmulator();
         mCombiningAccent = 0;
 
@@ -375,23 +378,7 @@ public final class TerminalView extends View {
 
         updateSize();
         setVerticalScrollBarEnabled(true);
-
-        // Force complete IME InputConnection recreation.
-        // Without this, Gboard keeps a stale InputConnection from the previous session
-        // and backspace/Enter stop working (key events routed to dead target).
-        if (isAttachedToWindow()) {
-            post(() -> {
-                clearFocus();
-                requestFocus();
-                // Force the IME to call onCreateInputConnection() with fresh state
-                android.view.inputmethod.InputMethodManager imm =
-                    (android.view.inputmethod.InputMethodManager) getContext()
-                        .getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-                if (imm != null) {
-                    imm.restartInput(this);
-                }
-            });
-        }
+        invalidate();
 
         return true;
     }
