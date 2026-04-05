@@ -17,6 +17,9 @@
     <string name="tooltip_esc">Cancel or exit mode</string>
     <string name="tooltip_long_press">Long-press for more options</string>
 
+    <!-- Voice input -->
+    <string name="cd_voice_input">Voice input</string>
+
     <!-- History search -->
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="search_results_count">%d commands</string>

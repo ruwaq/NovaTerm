@@ -60,7 +60,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun NovaTermApp(viewModel: TerminalViewModel) {
+fun NovaTermApp(
+    viewModel: TerminalViewModel,
+    onVoiceInput: (() -> Unit)? = null,
+) {
     val sessions by viewModel.sessions.collectAsState()
     val selectedTab by viewModel.currentSessionIndex.collectAsState()
     val ctrlActive by viewModel.ctrlActive.collectAsState()
@@ -71,13 +74,15 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
     val sessionNames by viewModel.sessionNames.collectAsState()
     val service by viewModel.service.collectAsState()
     val suggestion by viewModel.suggestion.collectAsState()
+    val isInPipMode by viewModel.isInPipMode.collectAsState()
     val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
     val view = LocalView.current
 
     // Sync preferences to service
-    LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, service) {
+    LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
         service?.bellEnabled?.set(preferences.bellEnabled)
         service?.useRustBackend?.set(preferences.useRustBackend)
+        service?.scrollbackLines?.set(preferences.scrollbackLines)
     }
 
     // Sync MCP preferences to service and start/stop server
@@ -179,6 +184,77 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
         )
     }
 
+    // ── PiP mode — terminal only, no chrome ────────────────
+    if (isInPipMode) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (sessions.isNotEmpty()) {
+                HorizontalPager(
+                    state = pagerState,
+                    userScrollEnabled = false,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    if (page in sessions.indices) {
+                        val session = sessions[page]
+                        TerminalScreen(
+                            session = session,
+                            fontSize = preferences.fontSize,
+                            fontFamily = preferences.fontFamily,
+                            colorScheme = preferences.colorScheme,
+                            keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
+                            ctrlActive = false,
+                            altActive = false,
+                            backIsEscape = false,
+                            onModifiersConsumed = {},
+                            onTabAcceptSuggestion = { null },
+                            onBlockComplete = { command, exitCode ->
+                                val sessionId = "session_$page"
+                                val cwd = sessions.getOrNull(page)?.cwd
+                                service?.blockStore?.insertBlock(
+                                    sessionId = sessionId,
+                                    command = command,
+                                    exitCode = exitCode,
+                                    cwd = cwd,
+                                )
+                            },
+                            onPromptNavigatorReady = {},
+                            onViewReady = { terminalView ->
+                                val handle = session.mHandle
+                                service?.registerScreenCallback(handle) {
+                                    if (service?.useRustBackend?.get() == true) {
+                                        val engine = service?.getRustEngine(handle)
+                                        if (engine != null) {
+                                            val grid = engine.getGrid()
+                                            val cursor = engine.getCursor()
+                                            if (grid != null) {
+                                                val dims = engine.getDimensions()
+                                                terminalView.setRustGrid(
+                                                    grid, dims.rows, dims.columns,
+                                                    cursor.row, cursor.column,
+                                                    2, true,
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        terminalView.clearRustGrid()
+                                    }
+                                    terminalView.onScreenUpdated()
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+
+                        androidx.compose.runtime.DisposableEffect(session.mHandle) {
+                            onDispose {
+                                service?.unregisterScreenCallback(session.mHandle)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
     // ── Main layout ──────────────────────────────────────────
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -261,6 +337,7 @@ fun NovaTermApp(viewModel: TerminalViewModel) {
                                 @Suppress("DEPRECATION")
                                 imm?.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0)
                             },
+                            onVoiceInput = onVoiceInput,
                             ctrlActive = ctrlActive,
                             altActive = altActive,
                             hapticEnabled = preferences.hapticFeedback,

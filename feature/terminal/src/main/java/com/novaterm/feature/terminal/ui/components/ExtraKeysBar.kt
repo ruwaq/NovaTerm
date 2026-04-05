@@ -42,6 +42,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -234,6 +239,7 @@ fun ExtraKeysBar(
     onCtrlToggle: () -> Unit,
     onAltToggle: () -> Unit,
     onKeyboardToggle: () -> Unit = {},
+    onVoiceInput: (() -> Unit)? = null,
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
     hapticEnabled: Boolean = true,
@@ -253,9 +259,50 @@ fun ExtraKeysBar(
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        rows.forEach { row ->
-            ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, onKeyboardToggle, ctrlActive, altActive, hapticEnabled, haptic)
+        rows.forEachIndexed { index, row ->
+            ExtraKeyRow(row, onKey, onCtrlToggle, onAltToggle, onKeyboardToggle, ctrlActive, altActive, hapticEnabled, haptic,
+                // Mic button at the end of the last row
+                trailingContent = if (index == rows.lastIndex && onVoiceInput != null) {
+                    { VoiceInputButton(onVoiceInput, hapticEnabled, haptic) }
+                } else null,
+            )
         }
+    }
+}
+
+/**
+ * Microphone button for voice-to-text input.
+ * Launches Android's SpeechRecognizer via the parent-provided callback.
+ */
+@Composable
+private fun VoiceInputButton(
+    onClick: () -> Unit,
+    hapticEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+
+    IconButton(
+        onClick = {
+            if (hapticEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+            onClick()
+        },
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = surfaceColor,
+            contentColor = textColor,
+        ),
+        modifier = Modifier
+            .height(48.dp)
+            .widthIn(min = 48.dp)
+            .clip(RoundedCornerShape(10.dp)),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Mic,
+            contentDescription = stringResource(R.string.cd_voice_input),
+        )
     }
 }
 
@@ -270,6 +317,7 @@ private fun ExtraKeyRow(
     altActive: Boolean,
     hapticEnabled: Boolean,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     // Capture latest callbacks so pointerInput closures never go stale.
     val currentOnKey by rememberUpdatedState(onKey)
@@ -325,6 +373,8 @@ private fun ExtraKeyRow(
                 }
             )
         }
+
+        trailingContent?.invoke()
     }
 }
 

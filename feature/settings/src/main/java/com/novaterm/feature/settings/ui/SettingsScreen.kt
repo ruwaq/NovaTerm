@@ -199,6 +199,45 @@ fun SettingsScreen(
                 },
             )
 
+            // Scrollback buffer size
+            var scrollbackMenuExpanded by remember { mutableStateOf(false) }
+            val scrollbackLabel = java.text.NumberFormat.getIntegerInstance()
+                .format(preferences.scrollbackLines)
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_scrollback)) },
+                supportingContent = {
+                    Column {
+                        Text(
+                            stringResource(R.string.settings_scrollback_value, scrollbackLabel),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            stringResource(R.string.settings_scrollback_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                modifier = Modifier.clickable { scrollbackMenuExpanded = true },
+            )
+            DropdownMenu(
+                expanded = scrollbackMenuExpanded,
+                onDismissRequest = { scrollbackMenuExpanded = false },
+            ) {
+                TerminalPreferences.SCROLLBACK_OPTIONS.forEach { lines ->
+                    val label = java.text.NumberFormat.getIntegerInstance().format(lines)
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.settings_scrollback_value, label)) },
+                        onClick = {
+                            onPreferencesChanged(preferences.copy(scrollbackLines = lines))
+                            scrollbackMenuExpanded = false
+                        },
+                    )
+                }
+            }
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // ── Input ──────────────────────────────────────────────

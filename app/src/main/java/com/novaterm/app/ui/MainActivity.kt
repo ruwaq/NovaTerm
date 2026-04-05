@@ -7,8 +7,10 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.util.Log
 import android.util.Rational
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +26,7 @@ import com.novaterm.app.service.TerminalService
 import com.novaterm.app.ui.theme.NovaTermTheme
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.oemcompat.detection.OemDetector
+import java.util.Locale
 
 /**
  * Single activity hosting the terminal UI.
@@ -64,6 +67,49 @@ class MainActivity : ComponentActivity() {
             Log.i(TAG, "Storage permission granted")
         } else {
             Log.w(TAG, "Storage permission denied — DocumentsProvider still available")
+        }
+    }
+
+    // Voice input via Android SpeechRecognizer — writes recognized text to active session
+    private val speechRecognizerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val recognizedText = matches?.firstOrNull()
+            if (!recognizedText.isNullOrBlank()) {
+                Log.i(TAG, "Voice input: ${recognizedText.take(80)}")
+                writeVoiceInputToSession(recognizedText)
+            }
+        }
+    }
+
+    /**
+     * Write recognized speech text to the active terminal session.
+     */
+    private fun writeVoiceInputToSession(text: String) {
+        val sessions = viewModel.sessions.value
+        val index = viewModel.currentSessionIndex.value
+        if (index in sessions.indices) {
+            sessions[index].write(text)
+        }
+    }
+
+    /**
+     * Launch the speech recognizer intent.
+     * Uses ACTION_RECOGNIZE_SPEECH which handles its own permissions via the system dialog.
+     */
+    private fun launchVoiceInput() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        try {
+            speechRecognizerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Speech recognition not available", e)
+            Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -167,7 +213,10 @@ class MainActivity : ComponentActivity() {
 
                     // Step 3: Main terminal
                     else -> {
-                        NovaTermApp(viewModel = viewModel)
+                        NovaTermApp(
+                            viewModel = viewModel,
+                            onVoiceInput = ::launchVoiceInput,
+                        )
                     }
                 }
             }

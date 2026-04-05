@@ -130,6 +130,7 @@ class TerminalService : Service() {
     val useRustBackend = java.util.concurrent.atomic.AtomicBoolean(false)
     val mcpEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
     val mcpPort = java.util.concurrent.atomic.AtomicInteger(McpServerConfig.DEFAULT_PORT)
+    val scrollbackLines = java.util.concurrent.atomic.AtomicInteger(TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS)
 
     // ── Rust engine instances (Phase 2) ────────────────────
 
@@ -521,7 +522,7 @@ class TerminalService : Service() {
                 cwd,
                 shellCmd,
                 env,
-                TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
+                scrollbackLines.get(),
                 sessionClient,
             )
 

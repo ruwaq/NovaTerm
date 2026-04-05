@@ -30,6 +30,11 @@
     <string name="settings_bell">Terminal bell</string>
     <string name="settings_bell_desc">Vibrate on bell character</string>
 
+    <!-- Scrollback buffer -->
+    <string name="settings_scrollback">Scrollback buffer</string>
+    <string name="settings_scrollback_desc">Maximum number of lines kept in scroll history</string>
+    <string name="settings_scrollback_value">%1$s lines</string>
+
     <!-- Extra keys -->
     <string name="settings_extra_keys">Extra keys bar</string>
     <string name="settings_extra_keys_desc">Show shortcut keys above keyboard</string>

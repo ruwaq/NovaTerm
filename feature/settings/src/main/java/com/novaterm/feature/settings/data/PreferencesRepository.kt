@@ -22,6 +22,7 @@ data class TerminalPreferences(
     val mcpEnabled: Boolean = false,
     val mcpPort: Int = 8080,
     val llmEnabled: Boolean = false,
+    val scrollbackLines: Int = DEFAULT_SCROLLBACK_LINES,
 ) {
     companion object {
         const val EXTRA_KEYS_STYLE_DEFAULT = "default"
@@ -35,6 +36,11 @@ data class TerminalPreferences(
             EXTRA_KEYS_STYLE_DEV,
             EXTRA_KEYS_STYLE_MINIMAL,
         )
+
+        const val DEFAULT_SCROLLBACK_LINES = 10000
+
+        /** Allowed scrollback sizes for the settings dropdown. */
+        val SCROLLBACK_OPTIONS = listOf(1000, 5000, 10000, 25000, 50000)
 
         const val FONT_FAMILY_SYSTEM_MONO = "system-mono"
         const val FONT_FAMILY_JETBRAINS_MONO = "jetbrains-mono"
@@ -100,6 +106,7 @@ class PreferencesRepository(context: Context) {
             mcpEnabled = prefs.getBoolean("mcp_enabled", false),
             mcpPort = prefs.getInt("mcp_port", 8080),
             llmEnabled = prefs.getBoolean("llm_enabled", false),
+            scrollbackLines = prefs.getInt("scrollback_lines", TerminalPreferences.DEFAULT_SCROLLBACK_LINES),
         )
     }
 
@@ -120,6 +127,7 @@ class PreferencesRepository(context: Context) {
             .putBoolean("mcp_enabled", p.mcpEnabled)
             .putInt("mcp_port", p.mcpPort)
             .putBoolean("llm_enabled", p.llmEnabled)
+            .putInt("scrollback_lines", p.scrollbackLines)
             .apply()
     }
 }
