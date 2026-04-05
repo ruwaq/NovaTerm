@@ -1,11 +1,36 @@
+<p align="center">
+  <img src=".github/banner.svg" alt="NovaTerm — Rust-powered, GPU-accelerated, AI-native Android terminal" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/nvterm/NovaTerm/releases/latest">
+    <img src="https://img.shields.io/github/v/release/nvterm/NovaTerm?include_prereleases&style=for-the-badge&color=d79921&label=Download%20APK" alt="Download APK"/>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml"><img src="https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-458588.svg" alt="License"/></a>
+  <img src="https://img.shields.io/badge/Android-11%2B-98971a.svg" alt="Android 11+"/>
+  <img src="https://img.shields.io/badge/Kotlin-2.1-b16286.svg" alt="Kotlin"/>
+  <img src="https://img.shields.io/badge/Rust-1.80%2B-d65d0e.svg" alt="Rust"/>
+  <img src="https://img.shields.io/badge/wgpu-Vulkan-689d6a.svg" alt="wgpu Vulkan"/>
+</p>
+
+---
+
 # NovaTerm
 
-[![CI](https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml/badge.svg)](https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Android](https://img.shields.io/badge/Android-11%2B-green.svg)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.1-purple.svg)](https://kotlinlang.org)
-[![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
-[![GitHub release](https://img.shields.io/github/v/release/nvterm/NovaTerm?include_prereleases)](https://github.com/nvterm/NovaTerm/releases)
+> **The first Rust-powered, GPU-accelerated, AI-native terminal for Android.**
+> Runs on any Android 11+ phone — from ₹10K budget devices to flagships.
+
+## ⚡ Install in 30 seconds
+
+1. **[Download NovaTerm-v0.3.1-alpha.apk](https://github.com/nvterm/NovaTerm/releases/latest/download/NovaTerm-v0.3.1-alpha.apk)**
+2. Enable *Install unknown apps* for your browser/file manager
+3. Install and open
+
+> Already use Termux? NovaTerm includes its own bootstrap — no setup needed.
 
 Next-generation Android terminal emulator. Rust-powered, GPU-accelerated, AI-native. Runs on any Android 11+ phone.
 
