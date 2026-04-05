@@ -215,7 +215,7 @@ fun TerminalScreen(
 
             // Attach new session when tab switches.
             // attachSession() handles IME restart internally (clearFocus + requestFocus + restartInput).
-            if (view.currentSession != session) {
+            if (view.mTermSession != session) {
                 view.attachSession(session)
                 onViewReady?.invoke(view)
             }
@@ -397,7 +397,7 @@ private class NovaTermViewClient(
 
         // Try to detect a URL under the tap position
         try {
-            val emulator = view.currentSession?.emulator
+            val emulator = view.mTermSession?.emulator
             if (emulator != null && e != null) {
                 // Get the word at tap position from the terminal buffer
                 val screen = emulator.screen
