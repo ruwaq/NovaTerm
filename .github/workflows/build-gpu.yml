@@ -125,7 +125,10 @@ jobs:
            github.event.inputs.commit_result == 'yes')
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # GH_PAT required: org policy blocks GITHUB_TOKEN from creating PRs.
+          # Create a fine-grained PAT with Contents+PRs write on nvterm/NovaTerm,
+          # then add it as repo secret GH_PAT.
+          token: ${{ secrets.GH_PAT }}
           add-paths: app/src/main/jniLibs/arm64-v8a/libnovaterm.so
           commit-message: "chore: update libnovaterm.so (GPU/Vulkan, arm64)"
           branch: chore/update-gpu-renderer
