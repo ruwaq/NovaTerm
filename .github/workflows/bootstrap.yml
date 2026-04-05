@@ -1,6 +1,6 @@
 name: Update Bootstrap
 
-# Downloads the latest bootstrap from PrometeoDEV/novaterm-packages
+# Downloads the latest bootstrap from nvterm/novaterm-packages
 # and commits it to app/src/main/cpp/ for APK embedding.
 #
 # The actual bootstrap build happens in novaterm-packages repo.
@@ -26,12 +26,12 @@ jobs:
           TAG="${{ github.event.inputs.release_tag }}"
           if [ -z "$TAG" ]; then
             # Get latest release
-            TAG=$(gh api repos/PrometeoDEV/novaterm-packages/releases/latest --jq '.tag_name')
+            TAG=$(gh api repos/nvterm/novaterm-packages/releases/latest --jq '.tag_name')
           fi
           echo "Downloading bootstrap from release: $TAG"
 
           gh release download "$TAG" \
-            --repo PrometeoDEV/novaterm-packages \
+            --repo nvterm/novaterm-packages \
             --pattern "bootstrap-aarch64.zip" \
             --dir app/src/main/cpp/
 

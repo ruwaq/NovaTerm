@@ -13,7 +13,7 @@
 
 Instead, please report security issues via:
 
-1. **GitHub Security Advisories**: [Report a vulnerability](https://github.com/PrometeoDEV/NovaTerm/security/advisories/new)
+1. **GitHub Security Advisories**: [Report a vulnerability](https://github.com/nvterm/NovaTerm/security/advisories/new)
 2. **Email**: Create a private advisory on GitHub (preferred)
 
 ### What to include

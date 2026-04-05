@@ -462,7 +462,7 @@ class BootstrapInstaller(private val context: Context) {
             motd.writeText(buildString {
                 appendLine("Welcome to NovaTerm!")
                 appendLine()
-                appendLine("  Docs:     https://github.com/PrometeoDEV/NovaTerm")
+                appendLine("  Docs:     https://github.com/nvterm/NovaTerm")
                 appendLine("  Packages: pkg install <name>")
                 appendLine("  AI:       claude (Claude Code)")
                 appendLine()
