@@ -87,12 +87,13 @@ class BootstrapInstaller(private val context: Context) {
             val zipBytes = try {
                 // Try assets first (simpler, no NDK required)
                 context.assets.open("bootstrap-aarch64.zip").use { it.readBytes() }
-            } catch (_: Exception) {
+            } catch (assetEx: Exception) {
+                Log.i(TAG, "Bootstrap not in assets, trying native library: ${assetEx.message}")
                 try {
                     // Fallback to JNI native library (Phase 2, requires NDK build)
                     NativeBootstrap.getZip()
-                } catch (_: UnsatisfiedLinkError) {
-                    Log.w(TAG, "No bootstrap found in assets or native library")
+                } catch (linkEx: UnsatisfiedLinkError) {
+                    Log.e(TAG, "No bootstrap found in assets or native library", linkEx)
                     _state.value = State.Error("Bootstrap not available.")
                     return@withContext false
                 }

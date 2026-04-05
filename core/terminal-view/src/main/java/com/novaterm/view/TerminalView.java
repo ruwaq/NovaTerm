@@ -1167,7 +1167,7 @@ public final class TerminalView extends View {
         if (mEmulator == null || (newColumns != mEmulator.mColumns || newRows != mEmulator.mRows)) {
             mTermSession.updateSize(newColumns, newRows, (int) mRenderer.getFontWidth(), mRenderer.getFontLineSpacing());
             mEmulator = mTermSession.getEmulator();
-            mClient.onEmulatorSet();
+            if (mClient != null) mClient.onEmulatorSet();
 
             // Update mTerminalCursorBlinkerRunnable inner class mEmulator on session change
             if (mTerminalCursorBlinkerRunnable != null)
@@ -1762,14 +1762,14 @@ public final class TerminalView extends View {
         }
 
         showTextSelectionCursors(event);
-        mClient.copyModeChanged(isSelectingText());
+        if (mClient != null) mClient.copyModeChanged(isSelectingText());
 
         invalidate();
     }
 
     public void stopTextSelectionMode() {
         if (hideTextSelectionCursors()) {
-            mClient.copyModeChanged(isSelectingText());
+            if (mClient != null) mClient.copyModeChanged(isSelectingText());
             invalidate();
         }
     }

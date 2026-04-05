@@ -742,7 +742,10 @@ class TerminalService : Service() {
 
     @Synchronized
     private fun saveSessionMetadata() {
-        val metadata = _sessions.value.mapIndexed { index, session ->
+        // Snapshot the list inside the synchronized block to prevent
+        // concurrent modification if sessions change on another thread.
+        val snapshot = _sessions.value.toList()
+        val metadata = snapshot.mapIndexed { index, session ->
             SessionMetadata(
                 id = index,
                 shell = shellProvider.findShell(),

@@ -29,6 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
@@ -117,10 +119,13 @@ fun TerminalScreen(
     var isScrolledUp by remember { mutableStateOf(false) }
     var scrollProgress by remember { mutableIntStateOf(100) }
 
-    // Poll scroll state periodically (only when view exists, cancels on session change)
-    // Key on session to ensure coroutine is cancelled when tab switches
+    // Poll scroll state periodically (only when view exists).
+    // Keyed on session so the coroutine is cancelled on tab switch.
+    // Uses isActive check so the coroutine cancels cleanly when the
+    // composable leaves composition (LaunchedEffect handles this).
     LaunchedEffect(session) {
-        while (true) {
+        val context = currentCoroutineContext()
+        while (context.isActive) {
             val view = terminalViewRef.value
             if (view != null) {
                 val scrolled = view.isScrolledUp
@@ -220,10 +225,9 @@ fun TerminalScreen(
             // Keep-screen-on follows preference.
             view.setKeepScreenOn(keepScreenOn)
 
-            // Ensure the terminal has input focus so the soft keyboard targets it.
-            if (!view.hasFocus()) {
-                view.requestFocus()
-            }
+            // Focus is handled by factory's post { requestFocus() }.
+            // With a single TerminalView instance, focus is never lost on
+            // session switch (attachSession handles IME restart internally).
         }
     )
 

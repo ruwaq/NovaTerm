@@ -168,7 +168,9 @@ class PreferencesRepository(private val context: Context) {
     /**
      * One-time migration: moves API keys from plain SharedPreferences
      * to EncryptedSharedPreferences and deletes the plain-text copies.
+     * Synchronized to prevent duplicate migrations from concurrent load() calls.
      */
+    @Synchronized
     private fun migrateApiKeysToSecurePrefs() {
         if (prefs.getBoolean(KEY_MIGRATION_DONE, false)) return
 
