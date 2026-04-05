@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
@@ -155,6 +156,52 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _focusedPaneSession = MutableStateFlow(-1)
     val focusedPaneSession: StateFlow<Int> = _focusedPaneSession.asStateFlow()
 
+    // Declared here (before uiState) so the combined flow can reference it.
+    private val _sessionToClose = MutableStateFlow<Int?>(null)
+    val sessionToClose: StateFlow<Int?> = _sessionToClose.asStateFlow()
+
+    /**
+     * Combined UI state consumed by [NovaTermApp].
+     * Replaces 13 individual [collectAsState] calls with a single subscription.
+     */
+    val uiState: StateFlow<TerminalUiState> = combine(
+        // Group 1: session navigation state
+        combine(sessions, _currentSessionIndex, _sessionNames, _currentPaneLayout, _focusedPaneSession) {
+                s, idx, names, layout, focusedPane ->
+            arrayOf<Any?>(s, idx, names, layout, focusedPane)
+        },
+        // Group 2: input / suggestion state
+        combine(_ctrlActive, _altActive, _suggestion) { ctrl, alt, sug ->
+            arrayOf<Any?>(ctrl, alt, sug)
+        },
+        // Group 3: overlay / dialog state
+        combine(_showSettings, _showOnboarding, _isInPipMode, _sessionToClose, _sessionCreationFailed) {
+                settings, onboarding, pip, toClose, failed ->
+            arrayOf<Any?>(settings, onboarding, pip, toClose, failed)
+        },
+    ) { nav, input, overlay ->
+        @Suppress("UNCHECKED_CAST")
+        TerminalUiState(
+            sessions             = nav[0] as List<TerminalSession>,
+            currentSessionIndex  = nav[1] as Int,
+            sessionNames         = nav[2] as Map<Int, String>,
+            currentPaneLayout    = nav[3] as PaneNode?,
+            focusedPaneSession   = nav[4] as Int,
+            ctrlActive           = input[0] as Boolean,
+            altActive            = input[1] as Boolean,
+            suggestion           = input[2] as String?,
+            showSettings         = overlay[0] as Boolean,
+            showOnboarding       = overlay[1] as Boolean,
+            isInPipMode          = overlay[2] as Boolean,
+            sessionToClose       = overlay[3] as Int?,
+            sessionCreationFailed = overlay[4] as Boolean,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        TerminalUiState(showOnboarding = !prefsRepo.isOnboardingCompleted),
+    )
+
     /**
      * Split the currently focused pane (or the current tab if no split exists yet).
      * Creates a new session for the new pane.
@@ -257,9 +304,6 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 
     // ── Session close confirmation ─────────────────────────
-
-    private val _sessionToClose = MutableStateFlow<Int?>(null)
-    val sessionToClose: StateFlow<Int?> = _sessionToClose.asStateFlow()
 
     fun requestCloseSession(index: Int) {
         val svc = _service.value ?: return

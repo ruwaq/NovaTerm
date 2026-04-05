@@ -23,6 +23,7 @@ class AndroidShellProvider(
 ) : ShellProvider {
 
     companion object {
+        private const val TAG = "AndroidShellProvider"
         /** Must match PreferencesRepository.SECURE_PREFS_NAME */
         private const val SECURE_PREFS_NAME = "novaterm_secure_prefs"
         private const val SECURE_PREFS_FALLBACK = "novaterm_secure_fallback"
@@ -341,181 +342,20 @@ class AndroidShellProvider(
     // ── First-run: shell configuration ────────────────────
 
     private fun setupShellConfig(home: File) {
-        val esc = "\u001b"
+        // Static shell configs — loaded from assets, written once on first run.
+        // Only .motd is generated dynamically (uses Build.MODEL + appVersion).
+        writeShellAsset("profile.sh", File(home, ".profile"), mapOf("VERSION" to appVersion))
+        writeShellAsset("bashrc.sh",  File(home, ".bashrc"))
+        writeShellAsset("inputrc",    File(home, ".inputrc"))
+        writeShellAsset("shrc.sh",    File(home, ".shrc"))
 
-        // ── .profile (POSIX — sourced by any login shell) ────
-        val profile = File(home, ".profile")
-        if (!profile.exists()) {
-            profile.writeText(buildString {
-                appendLine("# NovaTerm shell profile (POSIX compatible)")
-                appendLine("# Sourced on login shells. Keep this lightweight.")
-                appendLine()
-                appendLine("# ── Environment ────────────────────────────")
-                appendLine("export EDITOR=vi")
-                appendLine("export PAGER=less")
-                appendLine("export LESS='-R -i -M'")
-                appendLine("export COLORTERM=truecolor")
-                appendLine("export TERM_PROGRAM=novaterm")
-                appendLine("export TERM_PROGRAM_VERSION=\"$appVersion\"")
-                appendLine()
-                appendLine("# ── /tmp ──")
-                appendLine("# NovaTerm creates /tmp symlink from Java (has app permissions).")
-                appendLine("# Ensure TMPDIR always points to a writable directory.")
-                appendLine("export TMPDIR=\"\$PREFIX/tmp\"")
-                appendLine("mkdir -p \"\$TMPDIR\" 2>/dev/null")
-                appendLine()
-                appendLine("# ── History (crash-safe: saved on every command) ──")
-                appendLine("export HISTSIZE=10000")
-                appendLine("export HISTFILESIZE=10000")
-                appendLine("export HISTCONTROL=erasedups:ignoredups:ignorespace")
-                appendLine("export HISTFILE=\"\$HOME/.local/state/bash_history\"")
-                appendLine()
-                appendLine("# ── Prompt (initial fallback) ──────────────")
-                appendLine("# Interactive prompt is configured in .bashrc with OSC 133 markers.")
-                appendLine("# This fallback covers non-bash POSIX shells.")
-                appendLine("export PS1='${esc}[38;5;208m>${esc}[0m '")
-                appendLine("shopt -s histappend 2>/dev/null")
-                appendLine()
-                appendLine("# Auto-install Claude Code on first launch (runs once)")
-                appendLine("if [ -x \"\$PREFIX/bin/setup-claude\" ]; then")
-                appendLine("  \"\$PREFIX/bin/setup-claude\" && rm -f \"\$PREFIX/bin/setup-claude\"")
-                appendLine("fi")
-                appendLine()
-                appendLine("# Mark command start after profile loads (OSC 133)")
-                appendLine("printf '${esc}]133;B\\007'")
-                appendLine()
-            })
-        }
-
-        // ── .bashrc (bash-specific interactive config) ────────
-        val bashrc = File(home, ".bashrc")
-        if (!bashrc.exists()) {
-            bashrc.writeText(buildString {
-                appendLine("# NovaTerm bash configuration")
-                appendLine("# Sourced for interactive non-login shells.")
-                appendLine()
-                appendLine("# Source profile if not already loaded")
-                appendLine("[ -z \"\$HISTFILE\" ] && . \"\$HOME/.profile\"")
-                appendLine()
-                appendLine("# ── Shell options (bash only) ──────────────")
-                appendLine("if [ -n \"\$BASH_VERSION\" ]; then")
-                appendLine("  shopt -s checkwinsize   # Update LINES/COLUMNS after each command")
-                appendLine("  shopt -s histappend     # Append to history, don't overwrite")
-                appendLine("  shopt -s cmdhist        # Save multi-line commands as one entry")
-                appendLine("  shopt -s globstar 2>/dev/null  # ** recursive glob (bash 4+)")
-                appendLine("  shopt -s nocaseglob     # Case-insensitive globbing")
-                appendLine("fi")
-                appendLine()
-                appendLine("# ── Colors ─────────────────────────────────")
-                appendLine("alias ls='ls --color=auto'")
-                appendLine("alias grep='grep --color=auto'")
-                appendLine("alias diff='diff --color=auto'")
-                appendLine()
-                appendLine("# ── Navigation ─────────────────────────────")
-                appendLine("alias ll='ls -lah'")
-                appendLine("alias la='ls -A'")
-                appendLine("alias ..='cd ..'")
-                appendLine("alias ...='cd ../..'")
-                appendLine("alias p='cd ~/projects'")
-                appendLine("alias s='cd ~/storage/shared'")
-                appendLine()
-                appendLine("# ── Safety ─────────────────────────────────")
-                appendLine("alias rm='rm -i'")
-                appendLine("alias mv='mv -i'")
-                appendLine("alias cp='cp -i'")
-                appendLine()
-                appendLine("# ── Shortcuts ──────────────────────────────")
-                appendLine("alias h='history'")
-                appendLine("alias c='clear'")
-                appendLine("alias q='exit'")
-                appendLine()
-                appendLine("# ── Network ────────────────────────────────")
-                appendLine("alias ports='netstat -tlnp 2>/dev/null || ss -tlnp'")
-                appendLine("alias myip='curl -s ifconfig.me'")
-                appendLine("alias timer='echo \"Timer started. Stop with Ctrl+D.\" && date && time cat && date'")
-                appendLine()
-                appendLine("# ── Functions ──────────────────────────────")
-                appendLine("mkcd() { mkdir -p \"\$1\" && cd \"\$1\"; }")
-                appendLine()
-                appendLine("# Universal archive extraction")
-                appendLine("extract() {")
-                appendLine("  if [ -f \"\$1\" ]; then")
-                appendLine("    case \"\$1\" in")
-                appendLine("      *.tar.bz2) tar xjf \"\$1\" ;;")
-                appendLine("      *.tar.gz)  tar xzf \"\$1\" ;;")
-                appendLine("      *.tar.xz)  tar xJf \"\$1\" ;;")
-                appendLine("      *.tar.zst) tar --zstd -xf \"\$1\" ;;")
-                appendLine("      *.bz2)     bunzip2 \"\$1\" ;;")
-                appendLine("      *.gz)      gunzip \"\$1\" ;;")
-                appendLine("      *.tar)     tar xf \"\$1\" ;;")
-                appendLine("      *.tbz2)    tar xjf \"\$1\" ;;")
-                appendLine("      *.tgz)     tar xzf \"\$1\" ;;")
-                appendLine("      *.zip)     unzip \"\$1\" ;;")
-                appendLine("      *.7z)      7z x \"\$1\" ;;")
-                appendLine("      *.xz)      unxz \"\$1\" ;;")
-                appendLine("      *.zst)     unzstd \"\$1\" ;;")
-                appendLine("      *)         printf 'Cannot extract: %s\\n' \"\$1\" >&2; return 1 ;;")
-                appendLine("    esac")
-                appendLine("  else")
-                appendLine("    printf 'File not found: %s\\n' \"\$1\" >&2; return 1")
-                appendLine("  fi")
-                appendLine("}")
-                appendLine()
-                appendLine("# One-liner weather")
-                appendLine("weather() { curl -s \"wttr.in/\${1:-}?format=3\"; }")
-                appendLine()
-                appendLine("# Cheatsheets from cheat.sh")
-                appendLine("cheat() { curl -s \"cheat.sh/\$1\"; }")
-                appendLine()
-                appendLine("# ── Shell integration (OSC 133 semantic markers) ──")
-                appendLine("# Enables command tracking, completion notifications, and AI block parsing.")
-                appendLine("_novaterm_prompt() {")
-                appendLine("  local exit=\$?")
-                appendLine("  # Mark end of previous command output + exit code")
-                appendLine("  printf '${esc}]133;D;%d\\007' \"\$exit\"")
-                appendLine("  # Mark prompt start")
-                appendLine("  printf '${esc}]133;A\\007'")
-                appendLine("  # Original prompt logic: orange > on success, red > on error")
-                appendLine("  if [ \$exit -eq 0 ]; then")
-                appendLine("    PS1='${esc}[38;5;208m>${esc}[0m '")
-                appendLine("  else")
-                appendLine("    PS1='${esc}[38;5;167m>${esc}[0m '")
-                appendLine("  fi")
-                appendLine("}")
-                appendLine()
-                appendLine("# Wire up prompt and crash-safe history")
-                appendLine("PROMPT_COMMAND=\"_novaterm_prompt;history -a\"")
-                appendLine()
-                appendLine("# PS0 triggers on command execution (bash 4.4+) — acts as preexec.")
-                appendLine("# Marks the start of command output (OSC 133;C).")
-                appendLine("if [ -n \"\$BASH_VERSION\" ]; then")
-                appendLine("  if [ \"\${BASH_VERSINFO[0]}\" -ge 5 ] || { [ \"\${BASH_VERSINFO[0]}\" -eq 4 ] && [ \"\${BASH_VERSINFO[1]}\" -ge 4 ]; }; then")
-                appendLine("    PS0='${esc}]133;C\\007'")
-                appendLine("  fi")
-                appendLine("fi")
-                appendLine()
-                appendLine("# ── Command not found ──────────────────────")
-                appendLine("command_not_found_handler() {")
-                appendLine("  local pkg")
-                appendLine("  printf '\\e[38;5;167m%s\\e[0m: command not found\\n' \"\$1\" >&2")
-                appendLine("  pkg=\$(apt-cache search --names-only \"^\$1\$\" 2>/dev/null | head -1 | cut -d' ' -f1)")
-                appendLine("  if [ -n \"\$pkg\" ]; then")
-                appendLine("    printf '  \\e[38;5;208m→\\e[0m Install with: \\e[1mpkg install %s\\e[0m\\n' \"\$pkg\" >&2")
-                appendLine("  fi")
-                appendLine("  return 127")
-                appendLine("}")
-                appendLine()
-            })
-        }
-
-        // Welcome banner — informative about the environment
+        // ── .motd (dynamic: device name + app version) ──────────
         val motd = File(home, ".motd")
         if (!motd.exists()) {
             val device = Build.MODEL
             val androidVer = Build.VERSION.RELEASE
             val novaText = "NovaTerm v$appVersion"
             val deviceText = "$device · Android $androidVer"
-            // Box width adapts to longest content line (2 leading + 2 trailing spaces inside)
             val innerWidth = maxOf(novaText.length, deviceText.length) + 4
             val border = "─".repeat(innerWidth)
             val novaPad = " ".repeat((innerWidth - 2 - novaText.length).coerceAtLeast(0))
@@ -533,71 +373,22 @@ class AndroidShellProvider(
                 appendLine()
             })
         }
+    }
 
-        // ── .inputrc (readline configuration) ─────────────
-        val inputrc = File(home, ".inputrc")
-        if (!inputrc.exists()) {
-            inputrc.writeText(buildString {
-                appendLine("# NovaTerm readline configuration")
-                appendLine()
-                appendLine("# Case-insensitive tab completion")
-                appendLine("set completion-ignore-case on")
-                appendLine()
-                appendLine("# Show all matches if ambiguous")
-                appendLine("set show-all-if-ambiguous on")
-                appendLine("set show-all-if-unmodified on")
-                appendLine()
-                appendLine("# Color completion by file type")
-                appendLine("set colored-stats on")
-                appendLine("set colored-completion-prefix on")
-                appendLine()
-                appendLine("# Don't ring bell on tab completion")
-                appendLine("set bell-style none")
-                appendLine()
-                appendLine("# Word navigation with Ctrl+Left/Right")
-                appendLine("\"\\e[1;5D\": backward-word")
-                appendLine("\"\\e[1;5C\": forward-word")
-                appendLine()
-                appendLine("# Up/Down search history by prefix")
-                appendLine("\"\\e[A\": history-search-backward")
-                appendLine("\"\\e[B\": history-search-forward")
-                appendLine()
-                appendLine("# Append slash to symlinked directories")
-                appendLine("set mark-symlinked-directories on")
-                appendLine()
-                appendLine("# Append file type indicator (like ls -F)")
-                appendLine("set visible-stats on")
-                appendLine()
-                appendLine("# Don't page completions")
-                appendLine("set page-completions off")
-                appendLine()
-                appendLine("# Delete key and Ctrl+W")
-                appendLine("\"\\e[3~\": delete-char")
-                appendLine("\"\\C-w\": backward-kill-word")
-                appendLine()
-            })
-        }
-
-        // Shell init: source configs and display MOTD.
-        // ENV=$HOME/.shrc is set in buildEnvironment(), so this runs
-        // for any POSIX shell (sh, bash, dash) on startup.
-        val shrc = File(home, ".shrc")
-        if (!shrc.exists()) {
-            shrc.writeText(buildString {
-                appendLine("# NovaTerm shell init (sourced via ENV variable)")
-                appendLine("# NOTE: Only use shell builtins here — external commands")
-                appendLine("# may not work before LD_PRELOAD/termux-exec is active.")
-                appendLine("[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"")
-                appendLine("[ -f \"\$HOME/.bashrc\" ] && . \"\$HOME/.bashrc\"")
-                appendLine("# Display MOTD using read loop (no cat — W^X safe)")
-                appendLine("if [ -f \"\$HOME/.motd\" ]; then")
-                appendLine("  while IFS= read -r line; do echo \"\$line\"; done < \"\$HOME/.motd\"")
-                appendLine("fi")
-                appendLine()
-                appendLine("# Mark initial prompt (OSC 133)")
-                appendLine("printf '${esc}]133;A\\007'")
-                appendLine()
-            })
+    /**
+     * Write an asset from assets/shell/ to [dest], skipping if the file already exists.
+     * Replaces {{KEY}} placeholders with [vars] values.
+     */
+    private fun writeShellAsset(assetName: String, dest: File, vars: Map<String, String> = emptyMap()) {
+        if (dest.exists()) return
+        try {
+            var content = context.assets.open("shell/$assetName").bufferedReader().readText()
+            for ((key, value) in vars) {
+                content = content.replace("{{$key}}", value)
+            }
+            dest.writeText(content)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write shell asset $assetName", e)
         }
     }
 }

@@ -62,20 +62,22 @@ fun NovaTermApp(
     viewModel: TerminalViewModel,
     onVoiceInput: (() -> Unit)? = null,
 ) {
-    val sessions by viewModel.sessions.collectAsState()
-    val selectedTab by viewModel.currentSessionIndex.collectAsState()
-    val ctrlActive by viewModel.ctrlActive.collectAsState()
-    val altActive by viewModel.altActive.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
-    val showSettings by viewModel.showSettings.collectAsState()
-    val showOnboarding by viewModel.showOnboarding.collectAsState()
-    val sessionNames by viewModel.sessionNames.collectAsState()
     val service by viewModel.service.collectAsState()
-    val suggestion by viewModel.suggestion.collectAsState()
-    val isInPipMode by viewModel.isInPipMode.collectAsState()
-    val paneLayout by viewModel.currentPaneLayout.collectAsState()
-    val focusedPaneSession by viewModel.focusedPaneSession.collectAsState()
     val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
+    // Unpack frequently-used fields for readability
+    val sessions = uiState.sessions
+    val selectedTab = uiState.currentSessionIndex
+    val ctrlActive = uiState.ctrlActive
+    val altActive = uiState.altActive
+    val showSettings = uiState.showSettings
+    val showOnboarding = uiState.showOnboarding
+    val sessionNames = uiState.sessionNames
+    val suggestion = uiState.suggestion
+    val isInPipMode = uiState.isInPipMode
+    val paneLayout = uiState.currentPaneLayout
+    val focusedPaneSession = uiState.focusedPaneSession
     val view = LocalView.current
 
     // Sync preferences to service
@@ -149,8 +151,7 @@ fun NovaTermApp(
     val safeIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
 
     // ── Dialogs ──────────────────────────────────────────────
-    val sessionToClose by viewModel.sessionToClose.collectAsState()
-    sessionToClose?.let { index ->
+    uiState.sessionToClose?.let { index ->
         CloseSessionDialog(
             sessionIndex = index,
             onConfirm = viewModel::confirmCloseSession,
@@ -158,8 +159,7 @@ fun NovaTermApp(
         )
     }
 
-    val sessionFailed by viewModel.sessionCreationFailed.collectAsState()
-    if (sessionFailed) {
+    if (uiState.sessionCreationFailed) {
         SessionCreationFailedDialog(
             onRetry = { viewModel.dismissSessionCreationError(); viewModel.createSession() },
             onDismiss = viewModel::dismissSessionCreationError,

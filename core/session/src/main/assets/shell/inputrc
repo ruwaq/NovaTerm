@@ -1,0 +1,36 @@
+# NovaTerm readline configuration
+
+# Case-insensitive tab completion
+set completion-ignore-case on
+
+# Show all matches if ambiguous
+set show-all-if-ambiguous on
+set show-all-if-unmodified on
+
+# Color completion by file type
+set colored-stats on
+set colored-completion-prefix on
+
+# Don't ring bell on tab completion
+set bell-style none
+
+# Word navigation with Ctrl+Left/Right
+"\e[1;5D": backward-word
+"\e[1;5C": forward-word
+
+# Up/Down search history by prefix
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+
+# Append slash to symlinked directories
+set mark-symlinked-directories on
+
+# Append file type indicator (like ls -F)
+set visible-stats on
+
+# Don't page completions
+set page-completions off
+
+# Delete key and Ctrl+W
+"\e[3~": delete-char
+"\C-w": backward-kill-word
