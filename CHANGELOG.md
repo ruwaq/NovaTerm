@@ -26,6 +26,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Shell aliases: ports, myip, timer
 - Environment: TERM_PROGRAM=novaterm, COLORTERM=truecolor, TERM_PROGRAM_VERSION
 - AI env auto-config: CLAUDE_CODE_SCROLL_SPEED, AIDER_DARK_MODE
+- Sixel image parser in Rust core (sixel-image + sixel-tokenizer crates, 10 tests)
+- Built-in terminal multiplexer (split panes, binary tree layout, max 4 panes, 14 tests)
+- MCP agent orchestration: 4 new tools (create_session, get_session_output, wait_for_output, get_terminal_info) — total 10 tools
+- MCP rate limiting (60 req/min sliding window, 6 tests)
+- MCP bearer token authentication (UUID per session, app-private token file)
+- TalkBack accessibility basics (announceForAccessibility throttled, content descriptions)
+- EncryptedSharedPreferences for API key storage (AES-256-GCM via Android Keystore)
 - Dependabot with auto-merge for minor/patch updates
 - Release workflow (automated APK on tag push)
 - Security audit workflow (weekly cargo-audit)
@@ -49,6 +56,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - dpkg wrapper for recursive dirs and large packages
 - Cursor race condition guard documented
 - Compilation errors (float-to-int cast, missing coroutine imports)
+- Voice input race condition (getOrNull prevents IndexOutOfBoundsException)
+- Thread-unsafe paneManagers map replaced with ConcurrentHashMap
+- Session preset delay increased to 1000ms with isRunning check
+- Handler callback leak in onDestroy (removeCallbacks instead of removeAll)
+- Missing resize listener cleanup in removeSession
+- PiP guard when no active sessions
+- Lint error: StringFormatMatches %d → %1$d
+- Force unwrap (!!) eliminated in McpServer, ExtraKeysBar
+
+### Security
+- RUN_COMMAND intent permission verification (checkCallingOrSelfPermission)
+- Deep link nvterm://run disabled (prevents command injection from websites)
+- Sensitive data redacted from logs (Log.d + char count only)
+- AutoApprovalManager denies DANGEROUS tools from localhost
 
 ## [0.2.0-alpha] - 2026-04-04
 

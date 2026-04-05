@@ -86,4 +86,13 @@ internal object NativeTerminal {
 
     /** Get count of active backends (for debugging). */
     external fun nativeActiveCount(): Int
+
+    /**
+     * Parse Sixel DCS payload into ARGB pixel data using the Rust parser.
+     *
+     * @param data Raw Sixel payload bytes (after DCS parameters + 'q', before ST).
+     * @return int[] = [width, height, argb0, argb1, ...] or null on failure.
+     *         ARGB values are packed as Android expects: (A << 24) | (R << 16) | (G << 8) | B.
+     */
+    external fun parseSixel(data: ByteArray): IntArray?
 }

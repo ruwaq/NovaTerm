@@ -87,6 +87,8 @@ public final class TerminalEmulator {
     private static final int ESC_CSI_UNSUPPORTED_PARAMETER_BYTE = 22;
     /** Escape processing: ESC [ <parameter bytes> <intermediate bytes> */
     private static final int ESC_CSI_UNSUPPORTED_INTERMEDIATE_BYTE = 23;
+    /** Escape processing: Inside a Sixel DCS sequence (ESC P ... q <sixel data> ESC \). */
+    private static final int ESC_P_SIXEL = 24;
 
     /** The number of parameter arguments including colon separated sub-parameters. */
     private static final int MAX_ESCAPE_PARAMETERS = 32;
@@ -201,6 +203,12 @@ public final class TerminalEmulator {
 
     /** Maximum APC data length (4MB for large image transmissions). */
     private static final int MAX_APC_LENGTH = 4 * 1024 * 1024;
+
+    /** Maximum Sixel payload length (4MB — Sixel images can be large). */
+    private static final int MAX_SIXEL_LENGTH = 4 * 1024 * 1024;
+
+    /** Buffer for accumulating Sixel DCS payload data. */
+    private java.io.ByteArrayOutputStream mSixelBuffer;
 
     /** Kitty Graphics Protocol manager — handles image storage, decoding, placement. */
     public KittyGraphicsManager mKittyGraphics;
@@ -656,14 +664,16 @@ public final class TerminalEmulator {
             case 24: // CAN.
             case 26: // SUB.
                 if (mEscapeState != ESC_NONE) {
-                    // FIXME: What is this??
+                    if (mEscapeState == ESC_P_SIXEL) {
+                        mSixelBuffer = null; // Discard partial Sixel data
+                    }
                     mEscapeState = ESC_NONE;
                     emitCodePoint(127);
                 }
                 break;
             case 27: // ESC
                 // Starts an escape sequence unless we're parsing a string
-                if (mEscapeState == ESC_P) {
+                if (mEscapeState == ESC_P || mEscapeState == ESC_P_SIXEL) {
                     // XXX: Ignore escape when reading device control sequence, since it may be part of string terminator.
                     return;
                 } else if (mEscapeState != ESC_OSC) {
@@ -877,6 +887,9 @@ public final class TerminalEmulator {
                     case ESC_P:
                         doDeviceControl(b);
                         break;
+                    case ESC_P_SIXEL:
+                        doSixelData(b);
+                        break;
                     case ESC_CSI_QUESTIONMARK_ARG_DOLLAR:
                         if (b == 'p') {
                             // Request DEC private mode (DECRQM).
@@ -948,6 +961,22 @@ public final class TerminalEmulator {
     /** When in {@link #ESC_P} ("device control") sequence. */
     private void doDeviceControl(int b) {
         switch (b) {
+            case 'q': // Check if this is a Sixel DCS: ESC P [params] q <sixel-data> ST
+            {
+                // If the buffer so far contains only parameter bytes (digits, semicolons)
+                // or is empty, then 'q' is the Sixel introducer.
+                String soFar = mOSCOrDeviceControlArgs.toString();
+                if (isSixelParamPrefix(soFar)) {
+                    // Transition to Sixel data accumulation mode
+                    mSixelBuffer = new java.io.ByteArrayOutputStream(8192);
+                    continueSequence(ESC_P_SIXEL);
+                    return;
+                }
+                // Otherwise, 'q' is part of some other DCS (e.g., "$q" for DECRQSS)
+                mOSCOrDeviceControlArgs.appendCodePoint(b);
+                continueSequence(mEscapeState);
+                return;
+            }
             case (byte) '\\': // End of ESC \ string Terminator
             {
                 String dcs = mOSCOrDeviceControlArgs.toString();
@@ -1065,6 +1094,60 @@ public final class TerminalEmulator {
                     mOSCOrDeviceControlArgs.appendCodePoint(b);
                     continueSequence(mEscapeState);
                 }
+        }
+    }
+
+    /**
+     * Check if the DCS parameter prefix is valid for Sixel (only digits and semicolons).
+     * An empty string is valid (no parameters before 'q').
+     */
+    private static boolean isSixelParamPrefix(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c != ';' && (c < '0' || c > '9')) return false;
+        }
+        return true;
+    }
+
+    /**
+     * When in {@link #ESC_P_SIXEL} — accumulating Sixel pixel data.
+     * Collects bytes until ST (ESC \) is received.
+     */
+    private void doSixelData(int b) {
+        if (b == '\\') {
+            // String Terminator (the ESC was consumed in processCodePoint).
+            // Decode the collected Sixel data and pass to KittyGraphicsManager.
+            processSixelPayload();
+            finishSequence();
+        } else {
+            if (mSixelBuffer != null) {
+                if (mSixelBuffer.size() < MAX_SIXEL_LENGTH) {
+                    mSixelBuffer.write(b);
+                    continueSequence(ESC_P_SIXEL);
+                } else {
+                    // Sixel data too large — abort
+                    Logger.logWarn(mClient, LOG_TAG, "Sixel payload too large (>" + MAX_SIXEL_LENGTH + " bytes), discarding");
+                    mSixelBuffer = null;
+                    finishSequence();
+                }
+            } else {
+                finishSequence();
+            }
+        }
+    }
+
+    /**
+     * Process a completed Sixel DCS payload: decode to Bitmap and add to KittyGraphicsManager.
+     */
+    private void processSixelPayload() {
+        if (mSixelBuffer == null || mSixelBuffer.size() == 0) return;
+
+        byte[] data = mSixelBuffer.toByteArray();
+        mSixelBuffer = null; // Free buffer memory immediately
+
+        android.graphics.Bitmap bitmap = SixelParser.parse(data);
+        if (bitmap != null) {
+            mKittyGraphics.addSixelImage(bitmap, mCursorRow, mCursorCol);
         }
     }
 

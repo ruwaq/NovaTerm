@@ -366,6 +366,47 @@ public final class KittyGraphicsManager {
         return usedMemoryBytes;
     }
 
+    /**
+     * Add an externally-decoded image (e.g., from Sixel) at the given cursor position.
+     * Reuses the same storage, memory management, and rendering pipeline as Kitty images.
+     *
+     * @param bitmap The decoded image. Ownership transfers to this manager (will be recycled on eviction).
+     * @param cursorRow Current cursor row for placement.
+     * @param cursorCol Current cursor column for placement.
+     * @return The assigned image ID, or -1 if the image was rejected (too large, null, etc.).
+     */
+    public int addSixelImage(Bitmap bitmap, int cursorRow, int cursorCol) {
+        if (bitmap == null || bitmap.isRecycled()) return -1;
+
+        long bitmapBytes = bitmap.getAllocationByteCount();
+        if (bitmapBytes > MAX_MEMORY_BYTES / 2) {
+            Log.w(TAG, "Sixel image too large: " + (bitmapBytes / 1024 / 1024) + "MB, rejecting");
+            bitmap.recycle();
+            return -1;
+        }
+
+        // Evict old images if over budget
+        while (usedMemoryBytes + bitmapBytes > MAX_MEMORY_BYTES && !images.isEmpty()) {
+            evictOldest();
+        }
+
+        int id = nextImageId++;
+        images.put(id, new KittyImage(id, bitmap));
+        usedMemoryBytes += bitmapBytes;
+
+        // Auto-place at cursor position
+        KittyPlacement placement = new KittyPlacement(
+            id, 0, cursorRow, cursorCol,
+            0, 0, // auto-size from bitmap dimensions
+            0, false
+        );
+        placements.put(id, placement);
+
+        Log.d(TAG, "Sixel image added: id=" + id + " " + bitmap.getWidth() + "x" + bitmap.getHeight()
+            + " at row=" + cursorRow + " col=" + cursorCol);
+        return id;
+    }
+
     /** Release all resources. */
     public void destroy() {
         for (KittyImage img : images.values()) img.bitmap.recycle();

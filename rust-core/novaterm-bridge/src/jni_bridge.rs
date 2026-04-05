@@ -273,3 +273,64 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
 ) -> jint {
     handle_map::active_count() as jint
 }
+
+/// Parse Sixel DCS payload into RGBA pixel data.
+///
+/// Returns int[] with [width, height, pixel0_argb, pixel1_argb, ...] or null on failure.
+/// The ARGB values are packed as Android expects: (A << 24) | (R << 16) | (G << 8) | B.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_parseSixel<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    data: JByteArray<'local>,
+) -> jintArray {
+    let result = panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let bytes = {
+            let mut b = Vec::new();
+            let _ = unowned_env.with_env(|env| -> JniResult<()> {
+                b = env.convert_byte_array(&data)?;
+                Ok(())
+            });
+            b
+        };
+
+        if bytes.is_empty() {
+            return ptr::null_mut();
+        }
+
+        let (width, height, rgba) = match novaterm_vt::sixel::parse_sixel(&bytes) {
+            Some(result) => result,
+            None => return ptr::null_mut(),
+        };
+
+        // Pack into int[]: [width, height, argb0, argb1, ...]
+        let pixel_count = (width as usize) * (height as usize);
+        let mut flat = Vec::with_capacity(2 + pixel_count);
+        flat.push(width as i32);
+        flat.push(height as i32);
+
+        for i in 0..pixel_count {
+            let off = i * 4;
+            if off + 3 >= rgba.len() {
+                flat.push(0); // transparent
+            } else {
+                let r = rgba[off] as i32;
+                let g = rgba[off + 1] as i32;
+                let b = rgba[off + 2] as i32;
+                let a = rgba[off + 3] as i32;
+                // Pack as ARGB (Android Bitmap format)
+                flat.push((a << 24) | (r << 16) | (g << 8) | b);
+            }
+        }
+
+        let mut out: jintArray = ptr::null_mut();
+        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+            let arr = env.new_int_array(flat.len())?;
+            arr.set_region(env, 0, &flat)?;
+            out = arr.into_raw();
+            Ok(())
+        });
+        out
+    }));
+    result.unwrap_or(ptr::null_mut())
+}
