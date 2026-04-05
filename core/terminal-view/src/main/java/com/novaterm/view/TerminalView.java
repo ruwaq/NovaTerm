@@ -1735,6 +1735,16 @@ public final class TerminalView extends View {
         if (mTextSelectionCursorController != null) {
             getViewTreeObserver().addOnTouchModeChangeListener(mTextSelectionCursorController);
         }
+
+        // When reattached by HorizontalPager, ensure focus and IME are properly set up.
+        // Without this, keyboard input can fail after the view is recycled.
+        if (mTermSession != null) {
+            post(() -> {
+                setFocusable(true);
+                setFocusableInTouchMode(true);
+                requestFocus();
+            });
+        }
     }
 
     @Override
