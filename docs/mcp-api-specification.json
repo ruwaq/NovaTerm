@@ -1,0 +1,2237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NovaTerm MCP API Specification",
+  "description": "Universal MCP API for NovaTerm — the AI-native Android terminal. Provider-agnostic, versioned, secure, streaming-capable. Compatible with Claude Code, OpenCode, Gemini CLI, Aider, Copilot CLI, Goose, Crush, Amp, Kiro, Cline, Continue, and any MCP-compliant client.",
+  "version": "1.0.0",
+  "protocol": "MCP (Model Context Protocol)",
+  "protocolVersion": "2025-11-25",
+  "transport": "streamable-http",
+  "baseUrl": "http://127.0.0.1:8080",
+
+  "server": {
+    "name": "novaterm-mcp",
+    "version": "1.0.0",
+    "capabilities": {
+      "tools": { "listChanged": true },
+      "resources": { "subscribe": true, "listChanged": true },
+      "prompts": { "listChanged": false },
+      "logging": {},
+      "notifications": { "sse": true }
+    },
+    "platform": {
+      "os": "android",
+      "minSdk": 30,
+      "arch": "arm64-v8a",
+      "termProgram": "novaterm"
+    }
+  },
+
+  "authentication": {
+    "type": "bearer",
+    "header": "Authorization",
+    "format": "Bearer <token>",
+    "tokenDiscovery": {
+      "file": "$APP_PRIVATE_DIR/files/mcp-token",
+      "permissions": "0600",
+      "lifecycle": "regenerated on every server start"
+    },
+    "notes": [
+      "Token is saved to app-private storage (mode 0600) on server start",
+      "Deleted on server stop",
+      "Only accessible from same device (localhost binding)",
+      "Clients discover token via file or manual copy from Settings UI"
+    ]
+  },
+
+  "versioning": {
+    "strategy": "url-prefix",
+    "currentVersion": "v1",
+    "urlPattern": "/mcp/v{version}",
+    "header": "X-MCP-Version",
+    "deprecationPolicy": "Major versions supported for 12 months after successor release",
+    "migration": {
+      "v1-to-v2": "Automatic namespace aliasing: flat tool names (v1) map to namespaced names (v2)"
+    }
+  },
+
+  "rateLimit": {
+    "global": {
+      "maxRequests": 60,
+      "windowMs": 60000,
+      "algorithm": "sliding-window"
+    },
+    "perNamespace": {
+      "terminal": { "maxRequests": 120, "windowMs": 60000 },
+      "session": { "maxRequests": 30, "windowMs": 60000 },
+      "fs": { "maxRequests": 60, "windowMs": 60000 },
+      "process": { "maxRequests": 30, "windowMs": 60000 },
+      "ui": { "maxRequests": 20, "windowMs": 60000 },
+      "ai": { "maxRequests": 30, "windowMs": 60000 },
+      "system": { "maxRequests": 10, "windowMs": 60000 },
+      "event": { "maxRequests": 10, "windowMs": 60000 },
+      "env": { "maxRequests": 60, "windowMs": 60000 },
+      "pane": { "maxRequests": 30, "windowMs": 60000 }
+    }
+  },
+
+  "security": {
+    "riskLevels": {
+      "SAFE": {
+        "description": "Read-only, no side effects. Auto-approved from localhost.",
+        "approval": "auto",
+        "examples": ["terminal.read", "session.list", "system.info"]
+      },
+      "MODERATE": {
+        "description": "Modifies state in a controlled way. Auto-approved from localhost by default, configurable.",
+        "approval": "auto (configurable to prompt)",
+        "examples": ["session.create", "terminal.resize", "ui.set_theme"]
+      },
+      "DANGEROUS": {
+        "description": "Arbitrary execution, file writes, process signals. Requires explicit user approval via UI dialog.",
+        "approval": "prompt",
+        "examples": ["terminal.write", "fs.write", "fs.delete", "process.signal"]
+      },
+      "CRITICAL": {
+        "description": "Irreversible destructive operations. Always requires user approval + confirmation.",
+        "approval": "double-prompt",
+        "examples": ["session.close_all", "fs.delete_recursive"]
+      }
+    },
+    "blockedCommands": [
+      "rm -rf /",
+      "rm -rf /*",
+      "mkfs*",
+      "dd if=/dev/*",
+      "fork bomb variants",
+      "chmod -R 777 /"
+    ],
+    "blockedPaths": ["/system", "/vendor", "/proc", "/sys"],
+    "localhostOnly": true,
+    "auditLog": {
+      "enabled": true,
+      "storage": "sqlite",
+      "retention": "7 days",
+      "fields": ["timestamp", "client_id", "tool", "arguments_hash", "risk_level", "approval_result", "execution_time_ms", "result_status"]
+    }
+  },
+
+  "endpoints": {
+    "mcp": {
+      "method": "POST",
+      "path": "/mcp/v1",
+      "contentType": "application/json",
+      "protocol": "JSON-RPC 2.0",
+      "description": "Main MCP endpoint for tool calls and lifecycle methods"
+    },
+    "sse": {
+      "method": "GET",
+      "path": "/mcp/v1/events",
+      "contentType": "text/event-stream",
+      "description": "Server-Sent Events for real-time notifications",
+      "queryParams": {
+        "subscribe": "Comma-separated event types to subscribe to",
+        "session": "Optional session filter (index or 'all')"
+      }
+    },
+    "health": {
+      "method": "GET",
+      "path": "/health",
+      "auth": true,
+      "description": "Health check with server status"
+    },
+    "discover": {
+      "method": "GET",
+      "path": "/mcp/v1/discover",
+      "auth": true,
+      "description": "Returns all available tools with full schemas, risk levels, and namespace info"
+    }
+  },
+
+  "namespaces": {
+    "terminal": {
+      "description": "Core terminal I/O operations — read, write, and control the terminal emulator",
+      "icon": "terminal",
+      "defaultRateLimit": 120
+    },
+    "session": {
+      "description": "Session lifecycle management — create, close, switch, list terminal sessions",
+      "icon": "layers",
+      "defaultRateLimit": 30
+    },
+    "pane": {
+      "description": "Split pane / multiplexer control — split, resize, swap panes within a session",
+      "icon": "grid",
+      "defaultRateLimit": 30
+    },
+    "fs": {
+      "description": "Filesystem operations — read, write, list, search files and directories",
+      "icon": "folder",
+      "defaultRateLimit": 60
+    },
+    "env": {
+      "description": "Environment variables and working directory management",
+      "icon": "settings",
+      "defaultRateLimit": 60
+    },
+    "process": {
+      "description": "Process management — list, signal, wait for running processes",
+      "icon": "cpu",
+      "defaultRateLimit": 30
+    },
+    "ui": {
+      "description": "UI control — theme, font, notifications, layout for the NovaTerm interface",
+      "icon": "palette",
+      "defaultRateLimit": 20
+    },
+    "ai": {
+      "description": "AI-specific features — predictions, suggestions, semantic blocks, terminal context",
+      "icon": "sparkle",
+      "defaultRateLimit": 30
+    },
+    "system": {
+      "description": "Device and terminal system information — capabilities, battery, network",
+      "icon": "smartphone",
+      "defaultRateLimit": 10
+    },
+    "event": {
+      "description": "Event subscriptions for real-time streaming — output, command lifecycle, session events",
+      "icon": "radio",
+      "defaultRateLimit": 10
+    }
+  },
+
+  "tools": {
+
+    "terminal.write": {
+      "name": "terminal.write",
+      "description": "Write text or raw bytes to the active terminal PTY, as if typed by the user. Supports sending control sequences (e.g., \\x03 for Ctrl+C).",
+      "namespace": "terminal",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to write to the terminal PTY. Supports escape sequences (\\n, \\t, \\x03, etc.)."
+          },
+          "session": {
+            "type": "integer",
+            "description": "Session index to write to. Defaults to the active session.",
+            "default": 0
+          },
+          "newline": {
+            "type": "boolean",
+            "description": "Whether to append a newline after the text (simulates pressing Enter).",
+            "default": true
+          }
+        },
+        "required": ["text"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "bytes_written": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.read": {
+      "name": "terminal.read",
+      "description": "Read the current visible screen content from the terminal (what the user can see right now). Returns rows x cols grid of text.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "integer",
+            "description": "Session index. Defaults to active session.",
+            "default": 0
+          },
+          "format": {
+            "type": "string",
+            "description": "Output format: 'text' (plain text), 'ansi' (with ANSI escape codes), 'json' (structured cells with attributes).",
+            "enum": ["text", "ansi", "json"],
+            "default": "text"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "Screen content in requested format" },
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" },
+          "cursor": {
+            "type": "object",
+            "properties": {
+              "row": { "type": "integer" },
+              "col": { "type": "integer" },
+              "visible": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "terminal.read_scrollback": {
+      "name": "terminal.read_scrollback",
+      "description": "Read from the terminal scrollback buffer. Supports pagination with offset and limit for navigating large output history.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "integer",
+            "description": "Session index.",
+            "default": 0
+          },
+          "lines": {
+            "type": "integer",
+            "description": "Number of lines to read from scrollback.",
+            "default": 100,
+            "maximum": 10000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset from the bottom of scrollback (0 = most recent). For pagination.",
+            "default": 0
+          },
+          "format": {
+            "type": "string",
+            "enum": ["text", "ansi"],
+            "default": "text"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string" },
+          "lines_returned": { "type": "integer" },
+          "total_scrollback_lines": { "type": "integer" },
+          "has_more": { "type": "boolean" }
+        }
+      }
+    },
+
+    "terminal.resize": {
+      "name": "terminal.resize",
+      "description": "Resize the terminal to the specified dimensions. Sends SIGWINCH to the running process.",
+      "namespace": "terminal",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rows": { "type": "integer", "description": "Number of rows.", "minimum": 1, "maximum": 500 },
+          "cols": { "type": "integer", "description": "Number of columns.", "minimum": 1, "maximum": 500 },
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": ["rows", "cols"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.clear": {
+      "name": "terminal.clear",
+      "description": "Clear the terminal screen. Equivalent to sending CSI 2J + CSI H.",
+      "namespace": "terminal",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "clear_scrollback": {
+            "type": "boolean",
+            "description": "Also clear the scrollback buffer.",
+            "default": false
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "terminal.reset": {
+      "name": "terminal.reset",
+      "description": "Perform a full terminal reset (RIS). Resets all terminal state: modes, colors, character set, scrollback.",
+      "namespace": "terminal",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "terminal.get_cursor": {
+      "name": "terminal.get_cursor",
+      "description": "Get the current cursor position and style in the terminal.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "row": { "type": "integer" },
+          "col": { "type": "integer" },
+          "visible": { "type": "boolean" },
+          "style": { "type": "string", "enum": ["block", "underline", "bar"] },
+          "blink": { "type": "boolean" }
+        }
+      }
+    },
+
+    "terminal.get_dimensions": {
+      "name": "terminal.get_dimensions",
+      "description": "Get terminal dimensions: rows, columns, and cell size in pixels.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" },
+          "cell_width_px": { "type": "number" },
+          "cell_height_px": { "type": "number" },
+          "width_px": { "type": "integer" },
+          "height_px": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.screenshot": {
+      "name": "terminal.screenshot",
+      "description": "Render the current terminal screen as a PNG image. Returns base64-encoded image data. Useful for visual debugging or sharing.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "scale": {
+            "type": "number",
+            "description": "Scale factor (1.0 = native resolution, 0.5 = half).",
+            "default": 1.0,
+            "minimum": 0.25,
+            "maximum": 3.0
+          },
+          "format": {
+            "type": "string",
+            "enum": ["png", "webp"],
+            "default": "png"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "image": { "type": "string", "description": "Base64-encoded image data" },
+          "mime_type": { "type": "string" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.search": {
+      "name": "terminal.search",
+      "description": "Search for a pattern in the terminal scrollback buffer. Supports plain text and regex.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Search pattern (plain text or regex)." },
+          "session": { "type": "integer", "default": 0 },
+          "regex": { "type": "boolean", "description": "Treat pattern as regex.", "default": false },
+          "case_sensitive": { "type": "boolean", "default": false },
+          "max_results": { "type": "integer", "default": 50, "maximum": 500 }
+        },
+        "required": ["pattern"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "line_number": { "type": "integer" },
+                "content": { "type": "string" },
+                "match_start": { "type": "integer" },
+                "match_end": { "type": "integer" }
+              }
+            }
+          },
+          "total_matches": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.run_command": {
+      "name": "terminal.run_command",
+      "description": "Execute a shell command in a terminal session and return the output. Writes the command, waits for completion, and captures the result. This is the primary tool for AI agents to interact with the shell.",
+      "namespace": "terminal",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string", "description": "The shell command to execute." },
+          "session": { "type": "integer", "description": "Session index.", "default": 0 },
+          "wait_ms": {
+            "type": "integer",
+            "description": "Maximum time to wait for output in milliseconds.",
+            "default": 3000,
+            "minimum": 500,
+            "maximum": 60000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "Hard timeout after which the command is killed.",
+            "default": 30000,
+            "maximum": 300000
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory to cd into before running the command. Optional."
+          }
+        },
+        "required": ["command"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "output": { "type": "string", "description": "Command output captured from the terminal." },
+          "exit_code": { "type": "integer", "description": "Exit code (0 = success). Null if not determinable." },
+          "timed_out": { "type": "boolean" },
+          "duration_ms": { "type": "integer" }
+        }
+      }
+    },
+
+    "terminal.wait_for_output": {
+      "name": "terminal.wait_for_output",
+      "description": "Wait until specific output appears in the terminal, or until timeout. Useful for waiting for prompts, compilation results, or long-running processes.",
+      "namespace": "terminal",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Text or regex pattern to wait for." },
+          "session": { "type": "integer", "default": 0 },
+          "timeout_ms": { "type": "integer", "default": 30000, "maximum": 300000 },
+          "regex": { "type": "boolean", "default": false },
+          "poll_interval_ms": { "type": "integer", "default": 500, "minimum": 100 }
+        },
+        "required": ["pattern"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "found": { "type": "boolean" },
+          "output": { "type": "string", "description": "Terminal output captured while waiting." },
+          "elapsed_ms": { "type": "integer" }
+        }
+      }
+    },
+
+
+    "session.list": {
+      "name": "session.list",
+      "description": "List all active terminal sessions with their status, PID, title, and working directory.",
+      "namespace": "session",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer" },
+                "title": { "type": "string" },
+                "cwd": { "type": "string" },
+                "is_running": { "type": "boolean" },
+                "pid": { "type": "integer" },
+                "created_at": { "type": "string", "format": "date-time" },
+                "shell": { "type": "string" }
+              }
+            }
+          },
+          "active_index": { "type": "integer" },
+          "count": { "type": "integer" }
+        }
+      }
+    },
+
+    "session.create": {
+      "name": "session.create",
+      "description": "Create a new terminal session. Optionally specify a working directory, shell, or initial command.",
+      "namespace": "session",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cwd": { "type": "string", "description": "Initial working directory." },
+          "shell": { "type": "string", "description": "Shell to use (e.g., 'bash', 'zsh'). Default: user's configured shell." },
+          "title": { "type": "string", "description": "Session title." },
+          "command": { "type": "string", "description": "Initial command to run after session creation." },
+          "env": {
+            "type": "object",
+            "description": "Additional environment variables to set.",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "description": "Index of the newly created session." },
+          "pid": { "type": "integer" },
+          "success": { "type": "boolean" }
+        }
+      }
+    },
+
+    "session.close": {
+      "name": "session.close",
+      "description": "Close a terminal session. Sends SIGHUP to the shell process and cleans up resources.",
+      "namespace": "session",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "description": "Session index to close." },
+          "force": { "type": "boolean", "description": "Force close (SIGKILL) if session doesn't terminate within 5 seconds.", "default": false }
+        },
+        "required": ["index"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "session.rename": {
+      "name": "session.rename",
+      "description": "Rename a terminal session's title.",
+      "namespace": "session",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer" },
+          "title": { "type": "string", "description": "New session title.", "maxLength": 64 }
+        },
+        "required": ["index", "title"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "session.switch": {
+      "name": "session.switch",
+      "description": "Switch the active (focused) terminal session by index or title.",
+      "namespace": "session",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "description": "Session index to switch to." },
+          "title": { "type": "string", "description": "Session title to switch to (alternative to index)." }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "active_index": { "type": "integer" }
+        }
+      }
+    },
+
+    "session.get_info": {
+      "name": "session.get_info",
+      "description": "Get detailed information about a specific session: PID, CWD, title, running process, shell, environment.",
+      "namespace": "session",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer" },
+          "title": { "type": "string" },
+          "cwd": { "type": "string" },
+          "pid": { "type": "integer" },
+          "is_running": { "type": "boolean" },
+          "shell": { "type": "string" },
+          "foreground_process": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" }
+        }
+      }
+    },
+
+    "session.get_history": {
+      "name": "session.get_history",
+      "description": "Get command history for a session. Returns the list of commands executed, with timestamps if available.",
+      "namespace": "session",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "default": 0 },
+          "limit": { "type": "integer", "default": 50, "maximum": 1000 },
+          "offset": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "commands": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "command": { "type": "string" },
+                "timestamp": { "type": "string", "format": "date-time" },
+                "exit_code": { "type": "integer" },
+                "cwd": { "type": "string" }
+              }
+            }
+          },
+          "total": { "type": "integer" },
+          "has_more": { "type": "boolean" }
+        }
+      }
+    },
+
+
+    "pane.split": {
+      "name": "pane.split",
+      "description": "Split the current pane into two, creating a new terminal within the same session view.",
+      "namespace": "pane",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": ["horizontal", "vertical"],
+            "description": "Split direction. 'horizontal' creates a left/right split, 'vertical' creates a top/bottom split."
+          },
+          "session": { "type": "integer", "default": 0 },
+          "pane_id": { "type": "string", "description": "Pane to split. Defaults to the focused pane." },
+          "ratio": { "type": "number", "description": "Split ratio (0.1 to 0.9). 0.5 = equal halves.", "default": 0.5, "minimum": 0.1, "maximum": 0.9 },
+          "command": { "type": "string", "description": "Command to run in the new pane." }
+        },
+        "required": ["direction"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "pane_id": { "type": "string", "description": "ID of the newly created pane." },
+          "success": { "type": "boolean" }
+        }
+      }
+    },
+
+    "pane.close": {
+      "name": "pane.close",
+      "description": "Close a specific pane. The sibling pane expands to fill the space.",
+      "namespace": "pane",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pane_id": { "type": "string", "description": "Pane ID to close." }
+        },
+        "required": ["pane_id"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "pane.focus": {
+      "name": "pane.focus",
+      "description": "Focus a specific pane, making it the active input target.",
+      "namespace": "pane",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pane_id": { "type": "string" }
+        },
+        "required": ["pane_id"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "pane.list": {
+      "name": "pane.list",
+      "description": "List the pane tree for a session, showing the layout hierarchy, sizes, and focused pane.",
+      "namespace": "pane",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "panes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pane_id": { "type": "string" },
+                "rows": { "type": "integer" },
+                "cols": { "type": "integer" },
+                "is_focused": { "type": "boolean" },
+                "pid": { "type": "integer" },
+                "cwd": { "type": "string" }
+              }
+            }
+          },
+          "layout": { "type": "string", "description": "Layout description (e.g., 'horizontal[50%|50%]')." },
+          "focused_pane_id": { "type": "string" }
+        }
+      }
+    },
+
+    "pane.resize": {
+      "name": "pane.resize",
+      "description": "Resize a pane by adjusting its split ratio relative to its sibling.",
+      "namespace": "pane",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pane_id": { "type": "string" },
+          "ratio": { "type": "number", "description": "New ratio (0.1 to 0.9).", "minimum": 0.1, "maximum": 0.9 }
+        },
+        "required": ["pane_id", "ratio"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "pane.swap": {
+      "name": "pane.swap",
+      "description": "Swap the positions of two panes.",
+      "namespace": "pane",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pane_a": { "type": "string", "description": "First pane ID." },
+          "pane_b": { "type": "string", "description": "Second pane ID." }
+        },
+        "required": ["pane_a", "pane_b"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+
+    "fs.read": {
+      "name": "fs.read",
+      "description": "Read the content of a file. Supports text files with optional line range. Binary files are returned as base64.",
+      "namespace": "fs",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file." },
+          "encoding": { "type": "string", "enum": ["utf-8", "base64", "auto"], "default": "auto" },
+          "max_bytes": { "type": "integer", "description": "Maximum bytes to read.", "default": 1000000, "maximum": 10000000 },
+          "line_start": { "type": "integer", "description": "Start reading from this line (1-indexed). For partial reads." },
+          "line_end": { "type": "integer", "description": "Stop reading at this line (inclusive)." }
+        },
+        "required": ["path"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string" },
+          "encoding": { "type": "string" },
+          "size": { "type": "integer" },
+          "mime_type": { "type": "string" },
+          "truncated": { "type": "boolean" },
+          "total_lines": { "type": "integer" }
+        }
+      }
+    },
+
+    "fs.write": {
+      "name": "fs.write",
+      "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Supports creating parent directories.",
+      "namespace": "fs",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "File path to write to." },
+          "content": { "type": "string", "description": "Content to write." },
+          "encoding": { "type": "string", "enum": ["utf-8", "base64"], "default": "utf-8" },
+          "append": { "type": "boolean", "description": "Append to file instead of overwriting.", "default": false },
+          "create_dirs": { "type": "boolean", "description": "Create parent directories if they don't exist.", "default": true },
+          "mode": { "type": "string", "description": "Unix file permissions (e.g., '0644')." }
+        },
+        "required": ["path", "content"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "bytes_written": { "type": "integer" },
+          "path": { "type": "string", "description": "Absolute path of the written file." }
+        }
+      }
+    },
+
+    "fs.list": {
+      "name": "fs.list",
+      "description": "List directory contents with file metadata (size, permissions, modified time).",
+      "namespace": "fs",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory path.", "default": "." },
+          "show_hidden": { "type": "boolean", "description": "Include hidden files (starting with dot).", "default": false },
+          "recursive": { "type": "boolean", "description": "List recursively (max depth 3).", "default": false },
+          "max_depth": { "type": "integer", "default": 3, "maximum": 10 },
+          "pattern": { "type": "string", "description": "Glob pattern to filter entries (e.g., '*.kt')." },
+          "sort_by": { "type": "string", "enum": ["name", "size", "modified", "type"], "default": "name" }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "is_directory": { "type": "boolean" },
+                "is_symlink": { "type": "boolean" },
+                "size": { "type": "integer" },
+                "modified": { "type": "string", "format": "date-time" },
+                "permissions": { "type": "string" }
+              }
+            }
+          },
+          "total": { "type": "integer" }
+        }
+      }
+    },
+
+    "fs.stat": {
+      "name": "fs.stat",
+      "description": "Get detailed file or directory information: size, permissions, timestamps, type, symlink target.",
+      "namespace": "fs",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "exists": { "type": "boolean" },
+          "is_file": { "type": "boolean" },
+          "is_directory": { "type": "boolean" },
+          "is_symlink": { "type": "boolean" },
+          "size": { "type": "integer" },
+          "permissions": { "type": "string" },
+          "owner": { "type": "string" },
+          "modified": { "type": "string", "format": "date-time" },
+          "created": { "type": "string", "format": "date-time" },
+          "accessed": { "type": "string", "format": "date-time" },
+          "symlink_target": { "type": "string" },
+          "mime_type": { "type": "string" }
+        }
+      }
+    },
+
+    "fs.mkdir": {
+      "name": "fs.mkdir",
+      "description": "Create a directory (including parent directories).",
+      "namespace": "fs",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "mode": { "type": "string", "description": "Unix permissions.", "default": "0755" }
+        },
+        "required": ["path"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "path": { "type": "string" }
+        }
+      }
+    },
+
+    "fs.delete": {
+      "name": "fs.delete",
+      "description": "Delete a file or empty directory. For recursive deletion, set recursive=true (CRITICAL risk).",
+      "namespace": "fs",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "recursive": { "type": "boolean", "description": "Delete directory and all contents. Elevates to CRITICAL risk.", "default": false }
+        },
+        "required": ["path"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "deleted_count": { "type": "integer", "description": "Number of files/dirs deleted (for recursive)." }
+        }
+      }
+    },
+
+    "fs.move": {
+      "name": "fs.move",
+      "description": "Move or rename a file or directory.",
+      "namespace": "fs",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" },
+          "overwrite": { "type": "boolean", "default": false }
+        },
+        "required": ["source", "destination"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "source": { "type": "string" },
+          "destination": { "type": "string" }
+        }
+      }
+    },
+
+    "fs.search": {
+      "name": "fs.search",
+      "description": "Search for files by name pattern (glob) or content (grep). Combines find + grep functionality.",
+      "namespace": "fs",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory to search in.", "default": "." },
+          "name_pattern": { "type": "string", "description": "Glob pattern for file names (e.g., '*.kt')." },
+          "content_pattern": { "type": "string", "description": "Regex pattern to search in file contents." },
+          "max_results": { "type": "integer", "default": 100, "maximum": 1000 },
+          "max_depth": { "type": "integer", "default": 10, "maximum": 20 },
+          "include_hidden": { "type": "boolean", "default": false },
+          "file_type": { "type": "string", "enum": ["file", "directory", "symlink", "any"], "default": "any" }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "is_directory": { "type": "boolean" },
+                "size": { "type": "integer" },
+                "content_matches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "line_number": { "type": "integer" },
+                      "content": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "total": { "type": "integer" },
+          "truncated": { "type": "boolean" }
+        }
+      }
+    },
+
+    "fs.copy": {
+      "name": "fs.copy",
+      "description": "Copy a file or directory to a new location.",
+      "namespace": "fs",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" },
+          "recursive": { "type": "boolean", "description": "Copy directories recursively.", "default": true },
+          "overwrite": { "type": "boolean", "default": false }
+        },
+        "required": ["source", "destination"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "bytes_copied": { "type": "integer" }
+        }
+      }
+    },
+
+
+    "env.get": {
+      "name": "env.get",
+      "description": "Get the value of an environment variable from a session.",
+      "namespace": "env",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Environment variable name." },
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": ["name"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": "string" },
+          "exists": { "type": "boolean" }
+        }
+      }
+    },
+
+    "env.set": {
+      "name": "env.set",
+      "description": "Set an environment variable in a session. The variable persists for the session lifetime.",
+      "namespace": "env",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": "string" },
+          "session": { "type": "integer", "default": 0 },
+          "export": { "type": "boolean", "description": "Export to child processes.", "default": true }
+        },
+        "required": ["name", "value"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "env.list": {
+      "name": "env.list",
+      "description": "List all environment variables in a session.",
+      "namespace": "env",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "filter": { "type": "string", "description": "Glob pattern to filter variable names (e.g., 'PATH*', 'ANDROID_*')." }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "count": { "type": "integer" }
+        }
+      }
+    },
+
+    "env.get_cwd": {
+      "name": "env.get_cwd",
+      "description": "Get the current working directory of a session.",
+      "namespace": "env",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "cwd": { "type": "string" },
+          "home": { "type": "string" },
+          "is_git_repo": { "type": "boolean" },
+          "git_branch": { "type": "string" }
+        }
+      }
+    },
+
+    "env.set_cwd": {
+      "name": "env.set_cwd",
+      "description": "Change the working directory in a session.",
+      "namespace": "env",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory to change to. Supports ~ for home." },
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": ["path"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "cwd": { "type": "string", "description": "New absolute working directory." }
+        }
+      }
+    },
+
+
+    "process.list": {
+      "name": "process.list",
+      "description": "List running processes visible to the terminal user. Equivalent to 'ps aux' but structured.",
+      "namespace": "process",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filter": { "type": "string", "description": "Filter by process name or command." },
+          "session": { "type": "integer", "description": "Show only processes in this session's process group." },
+          "sort_by": { "type": "string", "enum": ["pid", "cpu", "memory", "name"], "default": "pid" }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "processes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pid": { "type": "integer" },
+                "ppid": { "type": "integer" },
+                "name": { "type": "string" },
+                "command": { "type": "string" },
+                "state": { "type": "string" },
+                "cpu_percent": { "type": "number" },
+                "memory_kb": { "type": "integer" },
+                "elapsed": { "type": "string" }
+              }
+            }
+          },
+          "count": { "type": "integer" }
+        }
+      }
+    },
+
+    "process.signal": {
+      "name": "process.signal",
+      "description": "Send a signal to a process (SIGINT, SIGTERM, SIGKILL, SIGSTOP, SIGCONT, etc.).",
+      "namespace": "process",
+      "riskLevel": "DANGEROUS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pid": { "type": "integer", "description": "Process ID to signal." },
+          "signal": {
+            "type": "string",
+            "description": "Signal name or number.",
+            "enum": ["SIGINT", "SIGTERM", "SIGKILL", "SIGSTOP", "SIGCONT", "SIGHUP", "SIGUSR1", "SIGUSR2"],
+            "default": "SIGTERM"
+          }
+        },
+        "required": ["pid"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "signal_sent": { "type": "string" }
+        }
+      }
+    },
+
+    "process.wait": {
+      "name": "process.wait",
+      "description": "Wait for a process to exit. Returns the exit code when the process terminates.",
+      "namespace": "process",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pid": { "type": "integer" },
+          "timeout_ms": { "type": "integer", "default": 30000, "maximum": 300000 }
+        },
+        "required": ["pid"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "exited": { "type": "boolean" },
+          "exit_code": { "type": "integer" },
+          "signal": { "type": "string", "description": "Signal that caused exit, if any." },
+          "elapsed_ms": { "type": "integer" }
+        }
+      }
+    },
+
+    "process.get_exit_code": {
+      "name": "process.get_exit_code",
+      "description": "Get the exit code of the last command executed in a session (via $?).",
+      "namespace": "process",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "exit_code": { "type": "integer" },
+          "last_command": { "type": "string" }
+        }
+      }
+    },
+
+
+    "ui.set_theme": {
+      "name": "ui.set_theme",
+      "description": "Change the terminal color scheme. Takes effect immediately (hot-reload).",
+      "namespace": "ui",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scheme": {
+            "type": "string",
+            "description": "Color scheme name.",
+            "enum": ["gruvbox_dark", "gruvbox_light", "catppuccin_mocha", "solarized_dark", "monokai", "nord", "dracula"]
+          }
+        },
+        "required": ["scheme"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "scheme": { "type": "string" },
+          "is_dark": { "type": "boolean" }
+        }
+      }
+    },
+
+    "ui.set_font_size": {
+      "name": "ui.set_font_size",
+      "description": "Change the terminal font size.",
+      "namespace": "ui",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "size_sp": {
+            "type": "integer",
+            "description": "Font size in scaled pixels (sp).",
+            "minimum": 6,
+            "maximum": 48,
+            "default": 12
+          }
+        },
+        "required": ["size_sp"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "size_sp": { "type": "integer" },
+          "rows": { "type": "integer", "description": "New row count after font change." },
+          "cols": { "type": "integer", "description": "New column count after font change." }
+        }
+      }
+    },
+
+    "ui.get_preferences": {
+      "name": "ui.get_preferences",
+      "description": "Get all current UI settings: theme, font, layout, extra keys config.",
+      "namespace": "ui",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "color_scheme": { "type": "string" },
+          "font_size_sp": { "type": "integer" },
+          "is_dark_mode": { "type": "boolean" },
+          "extra_keys_visible": { "type": "boolean" },
+          "hardware_acceleration": { "type": "boolean" },
+          "use_rust_backend": { "type": "boolean" },
+          "mcp_enabled": { "type": "boolean" },
+          "scrollback_lines": { "type": "integer" }
+        }
+      }
+    },
+
+    "ui.notify": {
+      "name": "ui.notify",
+      "description": "Show an Android notification from the terminal. Useful for long-running task completion alerts.",
+      "namespace": "ui",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "Notification title.", "maxLength": 100 },
+          "body": { "type": "string", "description": "Notification body text.", "maxLength": 500 },
+          "priority": { "type": "string", "enum": ["low", "default", "high"], "default": "default" },
+          "vibrate": { "type": "boolean", "default": false },
+          "sound": { "type": "boolean", "default": false }
+        },
+        "required": ["title"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "ui.toast": {
+      "name": "ui.toast",
+      "description": "Show a brief toast message on screen.",
+      "namespace": "ui",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "maxLength": 200 },
+          "duration": { "type": "string", "enum": ["short", "long"], "default": "short" }
+        },
+        "required": ["message"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+    "ui.set_layout": {
+      "name": "ui.set_layout",
+      "description": "Control UI layout: toggle extra keys bar, status line, fullscreen mode.",
+      "namespace": "ui",
+      "riskLevel": "MODERATE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "extra_keys": { "type": "boolean", "description": "Show/hide extra keys bar." },
+          "status_line": { "type": "boolean", "description": "Show/hide status line (CWD + git branch)." },
+          "fullscreen": { "type": "boolean", "description": "Enter/exit fullscreen mode." }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    },
+
+
+    "ai.suggest": {
+      "name": "ai.suggest",
+      "description": "Get N-gram based command suggestions given the current context (previous command, CWD, typing prefix). Uses the on-device prediction engine.",
+      "namespace": "ai",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prefix": { "type": "string", "description": "What the user is currently typing.", "default": "" },
+          "session": { "type": "integer", "default": 0 },
+          "max_results": { "type": "integer", "default": 5, "maximum": 20 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "command": { "type": "string" },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "source": { "type": "string", "enum": ["bigram", "cwd", "unigram", "llm"] }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "ai.predict": {
+      "name": "ai.predict",
+      "description": "Predict the next likely command based on learned patterns. Uses N-gram model + optional NPU inference.",
+      "namespace": "ai",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "count": { "type": "integer", "description": "Number of predictions.", "default": 3, "maximum": 10 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "predictions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "command": { "type": "string" },
+                "confidence": { "type": "number" },
+                "reasoning": { "type": "string" }
+              }
+            }
+          },
+          "model": { "type": "string", "description": "Model used: 'ngram', 'npu', or 'hybrid'." }
+        }
+      }
+    },
+
+    "ai.explain": {
+      "name": "ai.explain",
+      "description": "Get an explanation of the last command output or a specific block. Uses on-device LLM if available, otherwise returns structured data for the calling AI to interpret.",
+      "namespace": "ai",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "block_id": { "type": "string", "description": "Specific semantic block ID to explain. If omitted, explains the last command." },
+          "detail_level": { "type": "string", "enum": ["brief", "detailed", "expert"], "default": "brief" }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "output_summary": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "explanation": { "type": "string" },
+          "had_errors": { "type": "boolean" },
+          "error_lines": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "ai.get_blocks": {
+      "name": "ai.get_blocks",
+      "description": "Get semantic blocks from OSC 133 zones. Each block contains a command prompt, input, and output, providing structured access to terminal history.",
+      "namespace": "ai",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "limit": { "type": "integer", "description": "Number of recent blocks to return.", "default": 10, "maximum": 100 },
+          "offset": { "type": "integer", "default": 0 },
+          "include_output": { "type": "boolean", "description": "Include command output in each block.", "default": true },
+          "max_output_lines": { "type": "integer", "description": "Max output lines per block.", "default": 50, "maximum": 500 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "command": { "type": "string" },
+                "output": { "type": "string" },
+                "exit_code": { "type": "integer" },
+                "cwd": { "type": "string" },
+                "timestamp": { "type": "string", "format": "date-time" },
+                "duration_ms": { "type": "integer" },
+                "zone_type": { "type": "string", "enum": ["prompt", "input", "output"] }
+              }
+            }
+          },
+          "total_blocks": { "type": "integer" },
+          "has_more": { "type": "boolean" }
+        }
+      }
+    },
+
+    "ai.get_context": {
+      "name": "ai.get_context",
+      "description": "Get a comprehensive terminal context snapshot optimized for AI consumption. Includes recent commands, CWD, environment highlights, git status, running processes, and capabilities. This is the recommended first call for any AI agent connecting to NovaTerm.",
+      "namespace": "ai",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session": { "type": "integer", "default": 0 },
+          "include_env": { "type": "boolean", "description": "Include key environment variables.", "default": true },
+          "include_history": { "type": "boolean", "description": "Include recent command history.", "default": true },
+          "history_limit": { "type": "integer", "default": 10, "maximum": 50 }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "terminal": {
+            "type": "object",
+            "properties": {
+              "program": { "type": "string" },
+              "version": { "type": "string" },
+              "rows": { "type": "integer" },
+              "cols": { "type": "integer" },
+              "color_support": { "type": "string" },
+              "features": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "integer" },
+              "cwd": { "type": "string" },
+              "shell": { "type": "string" },
+              "user": { "type": "string" },
+              "home": { "type": "string" }
+            }
+          },
+          "git": {
+            "type": "object",
+            "properties": {
+              "is_repo": { "type": "boolean" },
+              "branch": { "type": "string" },
+              "has_changes": { "type": "boolean" },
+              "remote": { "type": "string" }
+            }
+          },
+          "recent_commands": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "environment": {
+            "type": "object",
+            "description": "Key environment variables (PATH, HOME, PREFIX, TERM, etc.).",
+            "additionalProperties": { "type": "string" }
+          },
+          "platform": {
+            "type": "object",
+            "properties": {
+              "os": { "type": "string" },
+              "arch": { "type": "string" },
+              "android_version": { "type": "integer" },
+              "device": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+
+    "system.info": {
+      "name": "system.info",
+      "description": "Get device and system information: Android version, device model, available RAM, storage.",
+      "namespace": "system",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "device": { "type": "string" },
+          "manufacturer": { "type": "string" },
+          "android_version": { "type": "integer" },
+          "sdk_version": { "type": "integer" },
+          "arch": { "type": "string" },
+          "total_ram_mb": { "type": "integer" },
+          "available_ram_mb": { "type": "integer" },
+          "storage_total_gb": { "type": "number" },
+          "storage_available_gb": { "type": "number" },
+          "screen": {
+            "type": "object",
+            "properties": {
+              "width": { "type": "integer" },
+              "height": { "type": "integer" },
+              "density": { "type": "number" },
+              "refresh_rate": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+
+    "system.capabilities": {
+      "name": "system.capabilities",
+      "description": "Get terminal and device capabilities. AI agents use this to determine what features are available (truecolor, Kitty keyboard, Vulkan, etc.).",
+      "namespace": "system",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "terminal": {
+            "type": "object",
+            "properties": {
+              "truecolor": { "type": "boolean" },
+              "unicode": { "type": "boolean" },
+              "sixel": { "type": "boolean" },
+              "kitty_graphics": { "type": "boolean" },
+              "kitty_keyboard": { "type": "boolean" },
+              "osc_133": { "type": "boolean" },
+              "osc_7": { "type": "boolean" },
+              "bracketed_paste": { "type": "boolean" },
+              "mouse_tracking": { "type": "boolean" },
+              "focus_events": { "type": "boolean" },
+              "shift_enter": { "type": "boolean" }
+            }
+          },
+          "gpu": {
+            "type": "object",
+            "properties": {
+              "vulkan": { "type": "boolean" },
+              "vulkan_version": { "type": "string" },
+              "gpu_renderer": { "type": "boolean" }
+            }
+          },
+          "ai": {
+            "type": "object",
+            "properties": {
+              "mcp_server": { "type": "boolean" },
+              "command_prediction": { "type": "boolean" },
+              "on_device_llm": { "type": "boolean" },
+              "npu_available": { "type": "boolean" }
+            }
+          },
+          "backend": {
+            "type": "string",
+            "enum": ["legacy_termux", "rust", "rust_session"],
+            "description": "Active terminal backend."
+          }
+        }
+      }
+    },
+
+    "system.battery": {
+      "name": "system.battery",
+      "description": "Get battery status: level, charging state, temperature, health.",
+      "namespace": "system",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "level": { "type": "integer", "description": "Battery percentage (0-100)." },
+          "status": { "type": "string", "enum": ["charging", "discharging", "full", "not_charging"] },
+          "plugged": { "type": "string", "enum": ["ac", "usb", "wireless", "none"] },
+          "temperature_c": { "type": "number" },
+          "health": { "type": "string" }
+        }
+      }
+    },
+
+    "system.network": {
+      "name": "system.network",
+      "description": "Get network connectivity status: WiFi, mobile data, IP addresses.",
+      "namespace": "system",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "connected": { "type": "boolean" },
+          "type": { "type": "string", "enum": ["wifi", "mobile", "ethernet", "none"] },
+          "wifi_ssid": { "type": "string" },
+          "ip_v4": { "type": "string" },
+          "ip_v6": { "type": "string" },
+          "signal_strength_dbm": { "type": "integer" }
+        }
+      }
+    },
+
+
+    "event.subscribe": {
+      "name": "event.subscribe",
+      "description": "Subscribe to real-time terminal events via SSE. Returns a subscription ID that can be used to filter the SSE stream at /mcp/v1/events.",
+      "namespace": "event",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "Event types to subscribe to.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "output_received",
+                "command_started",
+                "command_done",
+                "session_created",
+                "session_closed",
+                "session_switched",
+                "pane_split",
+                "pane_closed",
+                "resize",
+                "theme_changed",
+                "bell",
+                "title_changed",
+                "cwd_changed",
+                "error"
+              ]
+            }
+          },
+          "session": {
+            "type": "integer",
+            "description": "Filter events to a specific session. Omit for all sessions."
+          }
+        },
+        "required": ["events"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "subscription_id": { "type": "string" },
+          "sse_url": { "type": "string", "description": "SSE endpoint URL with subscription filter." },
+          "subscribed_events": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "event.unsubscribe": {
+      "name": "event.unsubscribe",
+      "description": "Unsubscribe from real-time events.",
+      "namespace": "event",
+      "riskLevel": "SAFE",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "subscription_id": { "type": "string" }
+        },
+        "required": ["subscription_id"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "success": { "type": "boolean" } }
+      }
+    }
+  },
+
+  "events": {
+    "description": "Real-time event stream via Server-Sent Events (SSE) at GET /mcp/v1/events",
+    "endpoint": "/mcp/v1/events",
+    "transport": "SSE (text/event-stream)",
+    "authentication": "Bearer token in query param (?token=...) or Authorization header",
+    "keepalive": "ping every 30 seconds",
+    "reconnect": "Clients should reconnect on disconnect with exponential backoff (1s, 2s, 4s, max 30s)",
+
+    "types": {
+      "output_received": {
+        "description": "New output appeared in a terminal session.",
+        "data": {
+          "session": { "type": "integer" },
+          "text": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "command_started": {
+        "description": "A command began execution (detected via OSC 133).",
+        "data": {
+          "session": { "type": "integer" },
+          "command": { "type": "string" },
+          "cwd": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "command_done": {
+        "description": "A command finished execution with an exit code.",
+        "data": {
+          "session": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "duration_ms": { "type": "integer" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "session_created": {
+        "description": "A new terminal session was created.",
+        "data": {
+          "index": { "type": "integer" },
+          "title": { "type": "string" },
+          "pid": { "type": "integer" }
+        }
+      },
+      "session_closed": {
+        "description": "A terminal session was closed.",
+        "data": {
+          "index": { "type": "integer" },
+          "exit_code": { "type": "integer" }
+        }
+      },
+      "session_switched": {
+        "description": "The active session changed.",
+        "data": {
+          "from_index": { "type": "integer" },
+          "to_index": { "type": "integer" }
+        }
+      },
+      "pane_split": {
+        "description": "A pane was split.",
+        "data": {
+          "session": { "type": "integer" },
+          "pane_id": { "type": "string" },
+          "direction": { "type": "string" }
+        }
+      },
+      "pane_closed": {
+        "description": "A pane was closed.",
+        "data": {
+          "session": { "type": "integer" },
+          "pane_id": { "type": "string" }
+        }
+      },
+      "resize": {
+        "description": "Terminal was resized.",
+        "data": {
+          "session": { "type": "integer" },
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" }
+        }
+      },
+      "theme_changed": {
+        "description": "Color scheme was changed.",
+        "data": {
+          "scheme": { "type": "string" },
+          "is_dark": { "type": "boolean" }
+        }
+      },
+      "bell": {
+        "description": "Terminal bell was triggered.",
+        "data": {
+          "session": { "type": "integer" }
+        }
+      },
+      "title_changed": {
+        "description": "Session title was updated (via OSC 0/2 or API).",
+        "data": {
+          "session": { "type": "integer" },
+          "title": { "type": "string" }
+        }
+      },
+      "cwd_changed": {
+        "description": "Working directory changed (via OSC 7).",
+        "data": {
+          "session": { "type": "integer" },
+          "cwd": { "type": "string" }
+        }
+      },
+      "error": {
+        "description": "An error occurred in the terminal or MCP server.",
+        "data": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "session": { "type": "integer" }
+        }
+      }
+    }
+  },
+
+  "discovery": {
+    "endpoint": "GET /mcp/v1/discover",
+    "description": "Self-describing API discovery. Returns all available tools with full schemas, organized by namespace.",
+    "response": {
+      "server": "Server info (name, version, protocol)",
+      "namespaces": "List of namespaces with descriptions",
+      "tools": "Complete tool catalog with inputSchema, outputSchema, riskLevel",
+      "events": "Available event types for SSE subscriptions",
+      "security": "Risk levels and approval policies"
+    }
+  },
+
+  "integration": {
+    "description": "How AI coding tools connect to NovaTerm's MCP server.",
+
+    "mcp_handshake": {
+      "description": "Standard MCP protocol handshake (JSON-RPC 2.0 over HTTP).",
+      "steps": [
+        "1. Client discovers server at http://127.0.0.1:8080/mcp/v1",
+        "2. Client reads bearer token from $APP_PRIVATE_DIR/files/mcp-token or user provides it",
+        "3. Client sends 'initialize' request with client capabilities",
+        "4. Server responds with server capabilities and protocol version",
+        "5. Client sends 'initialized' notification",
+        "6. Client calls 'tools/list' to discover available tools",
+        "7. Client calls tools via 'tools/call' with tool name and arguments",
+        "8. Optionally, client subscribes to SSE events at /mcp/v1/events"
+      ]
+    },
+
+    "claude_code": {
+      "tool": "Claude Code (Anthropic)",
+      "config_file": "~/.claude/settings.json or project .claude/settings.json",
+      "config": {
+        "mcpServers": {
+          "novaterm": {
+            "type": "url",
+            "url": "http://127.0.0.1:8080/mcp/v1",
+            "headers": {
+              "Authorization": "Bearer <token-from-mcp-token-file>"
+            }
+          }
+        }
+      },
+      "notes": [
+        "Claude Code supports MCP over streamable HTTP natively",
+        "Token can be read from the mcp-token file or configured manually",
+        "All tools appear as callable functions in Claude Code's tool catalog",
+        "Claude Code's permission system integrates with NovaTerm's risk levels"
+      ]
+    },
+
+    "opencode": {
+      "tool": "OpenCode",
+      "config_file": "opencode.json or ~/.config/opencode/config.json",
+      "config": {
+        "mcpServers": {
+          "novaterm": {
+            "type": "url",
+            "url": "http://127.0.0.1:8080/mcp/v1",
+            "headers": {
+              "Authorization": "Bearer <token>"
+            }
+          }
+        }
+      },
+      "notes": [
+        "OpenCode supports MCP servers via streamable HTTP",
+        "Configure in project-level or global config"
+      ]
+    },
+
+    "gemini_cli": {
+      "tool": "Gemini CLI (Google)",
+      "config_file": "~/.gemini/settings.json",
+      "config": {
+        "mcpServers": {
+          "novaterm": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "http://127.0.0.1:8080/mcp/v1"],
+            "env": {
+              "MCP_AUTH_TOKEN": "<token>"
+            }
+          }
+        }
+      },
+      "notes": [
+        "Gemini CLI supports MCP via stdio transport (use mcp-remote bridge for HTTP)",
+        "Alternative: direct HTTP support if Gemini CLI adds streamable HTTP transport"
+      ]
+    },
+
+    "aider": {
+      "tool": "Aider",
+      "config_file": ".aider.conf.yml or ~/.aider.conf.yml",
+      "setup": "Configure MCP server in aider config when MCP support is available",
+      "notes": [
+        "Aider may require a bridge tool for MCP integration",
+        "Use terminal.run_command as primary interaction tool"
+      ]
+    },
+
+    "copilot_cli": {
+      "tool": "GitHub Copilot CLI",
+      "notes": [
+        "Copilot CLI may add MCP support in future versions",
+        "Meanwhile, use the HTTP API directly via curl or a bridge script"
+      ]
+    },
+
+    "generic_http": {
+      "description": "Any tool can connect via standard HTTP + JSON-RPC 2.0",
+      "example_curl": "curl -X POST http://127.0.0.1:8080/mcp/v1 -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"terminal.read\",\"arguments\":{}}}'",
+      "example_sse": "curl -N http://127.0.0.1:8080/mcp/v1/events?subscribe=output_received,command_done -H 'Authorization: Bearer <token>'"
+    },
+
+    "auto_discovery": {
+      "description": "NovaTerm can auto-configure MCP clients running inside the terminal.",
+      "mechanism": [
+        "Set NOVATERM_MCP_URL=http://127.0.0.1:8080/mcp/v1 in session env",
+        "Set NOVATERM_MCP_TOKEN=<token> in session env",
+        "AI tools that support env-based MCP discovery will auto-connect",
+        "NovaTerm writes ~/.config/novaterm/mcp.json with connection details"
+      ],
+      "env_vars": {
+        "NOVATERM_MCP_URL": "http://127.0.0.1:8080/mcp/v1",
+        "NOVATERM_MCP_TOKEN": "<auto-populated bearer token>",
+        "TERM_PROGRAM": "novaterm",
+        "TERM_PROGRAM_VERSION": "1.0.0",
+        "MCP_SERVER_URL": "http://127.0.0.1:8080/mcp/v1"
+      }
+    }
+  },
+
+  "backward_compatibility": {
+    "v0_to_v1_migration": {
+      "description": "Migration from the current flat tool names to namespaced tools.",
+      "aliases": {
+        "run_command": "terminal.run_command",
+        "read_output": "terminal.read_scrollback",
+        "write_input": "terminal.write",
+        "list_sessions": "session.list",
+        "create_session": "session.create",
+        "get_session_output": "terminal.read_scrollback",
+        "wait_for_output": "terminal.wait_for_output",
+        "get_terminal_info": "ai.get_context",
+        "file_read": "fs.read",
+        "file_write": "fs.write"
+      },
+      "strategy": "Old flat names are accepted as aliases and mapped to namespaced names. Deprecated in v1, removed in v2."
+    }
+  },
+
+  "tool_summary": {
+    "total": 54,
+    "by_namespace": {
+      "terminal": 12,
+      "session": 7,
+      "pane": 6,
+      "fs": 9,
+      "env": 5,
+      "process": 4,
+      "ui": 6,
+      "ai": 5,
+      "system": 4,
+      "event": 2
+    },
+    "by_risk_level": {
+      "SAFE": 28,
+      "MODERATE": 16,
+      "DANGEROUS": 8,
+      "CRITICAL": 2
+    }
+  }
+}
