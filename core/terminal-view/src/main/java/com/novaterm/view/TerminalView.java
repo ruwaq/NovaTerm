@@ -365,18 +365,33 @@ public final class TerminalView extends View {
 
         mTermSession = session;
         // Get emulator immediately — don't set null to avoid InputConnection race condition.
-        // commitText() silently discards input when mEmulator is null.
         mEmulator = session.getEmulator();
         mCombiningAccent = 0;
 
         // Reset synchronized output flag to prevent stuck screen updates.
-        // If previous session had BSU without ESU, this prevents permanent freeze.
         if (mEmulator != null) {
             mEmulator.setSynchronizedOutput(false);
         }
 
         updateSize();
         setVerticalScrollBarEnabled(true);
+
+        // Force complete IME InputConnection recreation.
+        // Without this, Gboard keeps a stale InputConnection from the previous session
+        // and backspace/Enter stop working (key events routed to dead target).
+        if (isAttachedToWindow()) {
+            post(() -> {
+                clearFocus();
+                requestFocus();
+                // Force the IME to call onCreateInputConnection() with fresh state
+                android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getContext()
+                        .getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.restartInput(this);
+                }
+            });
+        }
 
         return true;
     }

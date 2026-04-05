@@ -190,22 +190,10 @@ fun TerminalScreen(
             terminalViewRef.value = view
 
             // Attach new session when tab switches.
+            // attachSession() handles IME restart internally (clearFocus + requestFocus + restartInput).
             if (view.currentSession != session) {
                 view.attachSession(session)
-                // Re-register screen callback for new session
                 onViewReady?.invoke(view)
-                // Full IME reset: hide → clear focus → refocus → show.
-                // restartInput() alone doesn't work — the IME keeps a stale
-                // InputConnection that drops backspace/Enter key events.
-                // This pattern (from Termux) forces a complete InputConnection lifecycle.
-                val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                    as? InputMethodManager
-                imm?.hideSoftInputFromWindow(view.windowToken, 0)
-                view.clearFocus()
-                view.post {
-                    view.requestFocus()
-                    imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
-                }
             }
 
             // Apply font size changes only when actually changed (avoids recreating TerminalRenderer).
