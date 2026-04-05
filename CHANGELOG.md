@@ -6,23 +6,49 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0-alpha] - 2026-04-05
+
 ### Added
-- GitHub organization `nvterm` with professional CI/CD
-- Dependabot auto-merge for minor/patch updates
+- GitHub organization `nvterm` with 6 repos and professional CI/CD
+- Picture-in-Picture floating terminal with UI adaptation (hide chrome in PiP)
+- Voice input via Android SpeechRecognizer (mic button in ExtraKeysBar)
+- Scrollback buffer configurable in Settings (1K, 5K, 10K, 25K, 50K lines)
+- Dynamic session shortcuts (long-press app icon shows active sessions)
+- Notification "Float" action button for PiP from notification
+- Command-not-found bash hook (suggests `pkg install <package>`)
+- API key management for Anthropic, Google, OpenAI, OpenRouter (masked, auto-export)
+- AI tool installer (one-tap install for Claude Code, Gemini CLI, Aider, OpenCode)
+- Session presets with app shortcuts (long-press → Claude Code / Gemini CLI)
+- AI Coding extra keys style (Ctrl+O transcript, ! bash prefix, Ctrl+B scroll)
+- Synchronized output (DEC private mode 2026) for flicker-free AI streaming
+- DECSET 45 reverse wrap-around implementation
+- Shell functions: extract(), weather(), cheat(), command_not_found_handler()
+- Shell aliases: ports, myip, timer
+- Environment: TERM_PROGRAM=novaterm, COLORTERM=truecolor, TERM_PROGRAM_VERSION
+- AI env auto-config: CLAUDE_CODE_SCROLL_SPEED, AIDER_DARK_MODE
+- Dependabot with auto-merge for minor/patch updates
 - Release workflow (automated APK on tag push)
-- AI contribution policy
+- Security audit workflow (weekly cargo-audit)
+- AI contribution policy (AI_POLICY.md)
+- CHANGELOG.md (Keep a Changelog format)
+- .editorconfig, CODEOWNERS, crash report template
 
 ### Changed
-- Migrated all references from `PrometeoDEV` to `nvterm` org
-- Complete `com.termux` → `com.novaterm` Java package migration
+- OSC 52 clipboard buffer expanded from 8KB to 64KB
+- Migrated GitHub org from PrometeoDEV to nvterm
+- Complete com.termux → com.novaterm Java package migration
 - Renamed `LegacyTermuxEngine` → `LegacyEngine`, `TermuxSessionManager` → `SessionManager`
 - Native `libnovaterm_pty.so` replaces `libtermux.so`
+- Notification: replaced Wake Lock toggle with Float action
+- Squash-only merges, auto-delete branches on merge
+- Target: all Android 11+ phones (not just flagships)
 
 ### Fixed
-- 18 bugs fixed in deep audit (memory leaks, race conditions, ANR)
+- 18 bugs in deep audit (memory leaks, race conditions, ANR)
+- Hardcoded Termux paths in Rust tests and renderer
 - dpkg wrapper for recursive dirs and large packages
+- Cursor race condition guard documented
 - Compilation errors (float-to-int cast, missing coroutine imports)
-- Sticky scroll (preserve position while output is flowing)
 
 ## [0.2.0-alpha] - 2026-04-04
 
@@ -73,6 +99,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - OEM battery optimization guides (Xiaomi, Samsung, Huawei)
 - About screen
 
-[Unreleased]: https://github.com/nvterm/NovaTerm/compare/v0.2.0-alpha...HEAD
+[Unreleased]: https://github.com/nvterm/NovaTerm/compare/v0.3.0-alpha...HEAD
+[0.3.0-alpha]: https://github.com/nvterm/NovaTerm/compare/v0.2.0-alpha...v0.3.0-alpha
 [0.2.0-alpha]: https://github.com/nvterm/NovaTerm/compare/v0.1.0-alpha...v0.2.0-alpha
 [0.1.0-alpha]: https://github.com/nvterm/NovaTerm/releases/tag/v0.1.0-alpha
