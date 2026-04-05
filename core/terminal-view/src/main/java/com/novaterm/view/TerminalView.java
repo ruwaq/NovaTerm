@@ -453,10 +453,19 @@ public final class TerminalView extends View {
                     mClient.logInfo(LOG_TAG, "IME: deleteSurroundingText(" + leftLength + ", " + rightLength + ")");
                 }
                 if (mClient == null) return super.deleteSurroundingText(leftLength, rightLength);
-                // The stock Samsung keyboard with 'Auto check spelling' enabled sends leftLength > 1.
+                // Send KEYCODE_DEL for each character to delete.
+                // Samsung keyboard may send leftLength > 1 with 'Auto check spelling'.
+                // Pattern from jackpal: always send at least one DEL, don't call super
+                // (super modifies the internal Editable which causes inconsistencies).
                 KeyEvent deleteKey = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL);
-                for (int i = 0; i < leftLength; i++) sendKeyEvent(deleteKey);
-                return super.deleteSurroundingText(leftLength, rightLength);
+                if (leftLength > 0) {
+                    for (int i = 0; i < leftLength; i++) sendKeyEvent(deleteKey);
+                } else if (leftLength == 0 && rightLength == 0) {
+                    // Edge case: some IMEs send (0,0) as backspace
+                    sendKeyEvent(deleteKey);
+                }
+                // Don't call super — avoid Editable state inconsistencies
+                return true;
             }
 
             void sendTextToTerminal(CharSequence text) {
@@ -1725,6 +1734,25 @@ public final class TerminalView extends View {
             return mTextSelectionCursorController.getActionMode();
         } else {
             return null;
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        super.onWindowFocusChanged(hasWindowFocus);
+        // Re-show keyboard when window regains focus (fixes Android 14+ voice keyboard bug
+        // and keyboard disappearing after app switch). Only if terminal is the active view.
+        if (hasWindowFocus && mTermSession != null && mClient != null && mClient.isTerminalViewSelected()) {
+            post(() -> {
+                if (hasFocus()) {
+                    android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager) getContext()
+                            .getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.showSoftInput(this, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                    }
+                }
+            });
         }
     }
 
