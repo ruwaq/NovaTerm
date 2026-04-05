@@ -61,10 +61,17 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
+                // CI / keystore.properties takes priority
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
+            } else {
+                // Local dev: env vars with fallback to bundled keystore
+                storeFile = file("../release-keystore.jks")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "novaterm2026"
+                keyAlias = "novaterm"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "novaterm2026"
             }
         }
     }
@@ -77,9 +84,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
