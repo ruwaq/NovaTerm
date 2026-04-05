@@ -7,9 +7,9 @@
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
 [![GitHub release](https://img.shields.io/github/v/release/nvterm/NovaTerm?include_prereleases)](https://github.com/nvterm/NovaTerm/releases)
 
-Next-generation Android terminal emulator. First Rust-powered, GPU-accelerated, AI-native terminal for Android.
+Next-generation Android terminal emulator. Rust-powered, GPU-accelerated, AI-native. Runs on any Android 11+ phone.
 
-Modern UI (Kotlin + Jetpack Compose) with a Rust core (wgpu + alacritty_terminal) and on-device AI (Gemma 4). Built for developers who live in the terminal.
+Modern UI (Kotlin + Jetpack Compose) with a Rust core (wgpu + alacritty_terminal) and on-device AI. Built for developers who live in the terminal — from budget phones to flagships.
 
 ## Highlights
 
