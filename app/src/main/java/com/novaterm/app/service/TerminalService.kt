@@ -19,14 +19,10 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
 import com.novaterm.app.receiver.BootReceiver
-import com.novaterm.core.common.contract.TerminalEngine
-import com.novaterm.core.common.model.TerminalDimensions
 import com.novaterm.core.mcp.McpServer
 import com.novaterm.core.mcp.McpServerConfig
-import com.novaterm.core.mcp.bridge.FileEntry
-import com.novaterm.core.mcp.bridge.McpSessionBridge
-import com.novaterm.core.mcp.bridge.McpSessionInfo
-import com.novaterm.core.session.engine.RustEngine
+import com.novaterm.core.mcp.security.ApprovalRequest
+import com.novaterm.core.mcp.security.InteractiveApprovalManager
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
@@ -73,7 +69,7 @@ class TerminalService : Service() {
     // ── Core delegates ────────────────────────────────────
 
     private lateinit var shellProvider: AndroidShellProvider
-    private lateinit var sessionStore: SessionStore
+    private lateinit var persistence: SessionPersistenceManager
     lateinit var blockStore: BlockStore
         private set
     lateinit var predictionEngine: PredictionEngine
@@ -109,14 +105,16 @@ class TerminalService : Service() {
         screenUpdateCallbacks.remove(sessionHandle)
     }
 
-    // Legacy callback removed — use registerScreenCallback per session instead
-
     // ── MCP server ──────────────────────────────────────────
 
     @Volatile private var mcpServer: McpServer? = null
+    private val interactiveApproval = InteractiveApprovalManager()
 
     /** Current MCP auth token (null when server is not running). */
     val mcpAuthToken: String? get() = mcpServer?.authToken
+
+    /** Pending approval request for DANGEROUS tool calls. UI observes this. */
+    val mcpApprovalRequest: StateFlow<ApprovalRequest?> = interactiveApproval.pendingRequest
 
     // ── On-device LLM (optional) ────────────────────────────
 
@@ -141,13 +139,12 @@ class TerminalService : Service() {
     /** Minimum command duration (ms) to trigger a completion notification. */
     private val commandNotifyThresholdMs = 5_000L
 
-    // ── Rust engine instances (Phase 2) ────────────────────
+    // ── Rust engine manager (Phase 2) ──────────────────────
 
-    private val rustEngines = java.util.concurrent.ConcurrentHashMap<String, TerminalEngine>()
-    @Volatile private var rustEngineFactory: RustEngine.Factory? = null
+    private val rustEngineManager = RustEngineManager()
 
     /** Get the Rust engine for a session handle, if one exists. */
-    fun getRustEngine(sessionHandle: String): TerminalEngine? = rustEngines[sessionHandle]
+    fun getRustEngine(sessionHandle: String) = rustEngineManager.getEngine(sessionHandle)
 
     // ── Lifecycle flag ──────────────────────────────────────
 
@@ -171,8 +168,6 @@ class TerminalService : Service() {
     private val sessionClient = object : TerminalSessionClient {
 
         override fun onTextChanged(changedSession: TerminalSession) {
-            // Per-session callback: only invalidates the TerminalView for this session.
-            // Use ?.let to avoid race where callback is removed between get and invoke.
             screenUpdateCallbacks[changedSession.mHandle]?.let { callback ->
                 if (Looper.myLooper() == Looper.getMainLooper()) {
                     callback()
@@ -207,8 +202,6 @@ class TerminalService : Service() {
             val clip = clipboardManager.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0).coerceToText(this@TerminalService).toString()
-                // Use the emulator's paste() method which handles bracketed paste mode
-                // (DECSET 2004: wraps with ESC[200~ / ESC[201~) and strips C1 controls.
                 session?.emulator?.paste(text)
             }
         }
@@ -233,7 +226,6 @@ class TerminalService : Service() {
             }
             vibrator?.vibrate(VibrationEffect.createOneShot(50L, VibrationEffect.DEFAULT_AMPLITUDE))
 
-            // Send notification when app is in background
             val app = application as? NovaTermApp ?: return
             if (!app.appLifecycle.isInForeground.value) {
                 notifications.sendBellNotification(session)
@@ -245,7 +237,6 @@ class TerminalService : Service() {
 
         override fun onOsc9Notification(session: TerminalSession, text: String?) {
             if (text.isNullOrEmpty()) return
-            // Convert OSC 9 to Android notification (used by Claude Code, Codex CLI)
             val app = application as? NovaTermApp ?: return
             if (!app.appLifecycle.isInForeground.value) {
                 notifications.sendOsc9Notification(session, text)
@@ -256,11 +247,9 @@ class TerminalService : Service() {
             if (params.isNullOrEmpty()) return
             Log.d(TAG, "OSC 133: $params (session=${session.mHandle})")
 
-            // Parse marker and optional params (e.g. "D;0" → marker='D', extra="0")
             val marker = params[0]
             val extra = if (params.length > 2 && params[1] == ';') params.substring(2) else null
 
-            // Get or create per-session zone tracker
             val tracker = zoneTrackers.getOrPut(session.mHandle) {
                 SemanticZoneTracker().also { t ->
                     t.onBlockCompleteWithDuration = { command, exitCode, durationMs ->
@@ -274,14 +263,11 @@ class TerminalService : Service() {
             val col = emulator.getCursorCol()
             tracker.onOsc133(marker, extra, row, col)
 
-            // Capture command text on C marker: read the line where B was issued
             if (marker == 'C' && row >= 0) {
                 val screen = emulator.getScreen()
-                // Command is on the line before the output starts (row - 1, or row 0)
                 val bRow = if (row > 0) row - 1 else row
                 val lineText = screen.getSelectedText(0, bRow, emulator.mColumns, bRow + 1)
                     ?.trim() ?: ""
-                // Strip common prompt prefixes ($ , # , % ) to get just the command
                 val command = lineText.replace(Regex("^[^$#%]*[$#%]\\s*"), "")
                 if (command.isNotBlank()) {
                     tracker.setCurrentCommand(command)
@@ -325,19 +311,27 @@ class TerminalService : Service() {
         super.onCreate()
 
         shellProvider = AndroidShellProvider(this, appVersion = com.novaterm.app.BuildConfig.VERSION_NAME)
-        sessionStore = SessionStore(this)
+        val sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
         predictionEngine = PredictionEngine(filesDir).also { it.load() }
         modelManager = ModelManager(this)
         notifications = NotificationHelper(this, { _sessions.value }, { isWakeLockHeld })
         wakeLocks = WakeLockManager(this)
 
+        persistence = SessionPersistenceManager(
+            sessionStore = sessionStore,
+            sessionsSnapshot = { _sessions.value.toList() },
+            shellFinder = { shellProvider.findShell() },
+            defaultCwd = { shellProvider.defaultWorkingDirectory() },
+            predictionEngine = { if (::predictionEngine.isInitialized) predictionEngine else null },
+            mainHandler = mainHandler,
+            serviceScope = serviceScope,
+            isServiceDestroyed = { isServiceDestroyed },
+        )
+
         startForeground(notifications.foregroundNotificationId, notifications.buildForegroundNotification())
 
-        // Periodic session save (every 30s) for crash protection
-        startPeriodicSave()
-
-        // Start MCP server if enabled in preferences
+        persistence.startPeriodicSave()
         startMcpServerIfEnabled()
     }
 
@@ -356,8 +350,20 @@ class TerminalService : Service() {
                 enabled = true,
                 port = mcpPort.get(),
             )
-            val bridge = ServiceMcpBridge()
+            val home = shellProvider.defaultWorkingDirectory()
+            val rootDir = java.io.File(home).parent ?: home
+            val bridge = ServiceMcpBridge(
+                sessionsFlow = _sessions,
+                serviceScope = serviceScope,
+                onCreateSession = { cwd ->
+                    if (cwd != null) createSessionInDir(cwd) else createSession()
+                },
+                onRemoveSession = { index -> removeSession(index) },
+                defaultCwd = { shellProvider.defaultWorkingDirectory() },
+                prefixPath = { "$rootDir/usr" },
+            )
             val server = McpServer(config, bridge, context = this@TerminalService)
+            server.approvalManager = interactiveApproval
             server.start()
             mcpServer = server
             Log.i(TAG, "MCP server started on port ${mcpPort.get()}")
@@ -384,7 +390,6 @@ class TerminalService : Service() {
                 modelFamily = selectedModel?.family ?: ModelCatalog.ModelFamily.GEMMA4,
             )
             val engine = GemmaEngine(config, context = applicationContext)
-            // Initialize on IO dispatcher — only assign llmEngine AFTER successful init
             serviceScope.launch {
                 try {
                     val success = engine.initialize()
@@ -406,38 +411,6 @@ class TerminalService : Service() {
         }
     }
 
-    private val saveRunnable = object : Runnable {
-        override fun run() {
-            if (isServiceDestroyed) return
-            // Run on serviceScope (structured concurrency) instead of raw daemon
-            // threads that can be killed mid-write and corrupt the database
-            serviceScope.launch(Dispatchers.IO) {
-                try {
-                    if (_sessions.value.isNotEmpty()) {
-                        saveSessionMetadata()
-                    }
-                    if (::predictionEngine.isInitialized) {
-                        predictionEngine.save()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Periodic save error", e)
-                }
-            }
-
-            if (!isServiceDestroyed) {
-                mainHandler.postDelayed(this, SAVE_INTERVAL_MS)
-            }
-        }
-    }
-
-    private fun startPeriodicSave() {
-        mainHandler.postDelayed(saveRunnable, SAVE_INTERVAL_MS)
-    }
-
-    private fun stopPeriodicSave() {
-        mainHandler.removeCallbacks(saveRunnable)
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_EXIT -> {
@@ -445,13 +418,10 @@ class TerminalService : Service() {
                 _sessions.update { emptyList() }
                 snapshot.forEach { session ->
                     zoneTrackers.remove(session.mHandle)
-                    rustEngines.remove(session.mHandle)?.destroy()
-                    session.setRawByteInterceptor(null)
-                    session.setResizeListener(null)
                     session.finishIfRunning()
                 }
                 zoneTrackers.clear()
-                rustEngines.clear()
+                rustEngineManager.destroyAll(snapshot)
                 releaseLocks()
                 stopSelf()
             }
@@ -471,7 +441,6 @@ class TerminalService : Service() {
                         createSession()
                     }
                     if (session != null) {
-                        // Write the command followed by newline to execute it
                         session.write(command + "\n")
                         Log.i(TAG, "RUN_COMMAND: executed '${command.take(80)}' in session ${session.mHandle}")
                     } else {
@@ -508,8 +477,7 @@ class TerminalService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // User swiped app away — save state before Android may kill us
-        saveSessionMetadata()
+        persistence.saveSessionMetadata()
         Log.i(TAG, "Task removed, session metadata saved")
     }
 
@@ -521,21 +489,18 @@ class TerminalService : Service() {
         mcpServer = null
         llmEngine?.release()
         llmEngine = null
-        stopPeriodicSave()
-        saveSessionMetadata()
-        // Clear dynamic shortcuts since no sessions will be active
+        persistence.stopPeriodicSave()
+        persistence.saveSessionMetadata()
         getSystemService(ShortcutManager::class.java)?.removeAllDynamicShortcuts()
         if (::predictionEngine.isInitialized) predictionEngine.save()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { session ->
             zoneTrackers.remove(session.mHandle)
-            rustEngines.remove(session.mHandle)?.destroy()
-            session.setRawByteInterceptor(null)
             session.finishIfRunning()
         }
         zoneTrackers.clear()
-        rustEngines.clear()
+        rustEngineManager.destroyAll(snapshot)
         releaseLocks()
         super.onDestroy()
     }
@@ -543,14 +508,12 @@ class TerminalService : Service() {
     // ── Public API ─────────────────────────────────────────
 
     fun createSessionInDir(cwd: String): TerminalSession? {
-        // Ensure home directory exists (initializes first-run if needed)
         shellProvider.defaultWorkingDirectory()
         val dir = if (java.io.File(cwd).isDirectory) cwd else shellProvider.defaultWorkingDirectory()
         return createSessionInternal(dir)
     }
 
     fun createSession(): TerminalSession? {
-        // Limit max sessions to prevent OOM on mobile (each session uses ~2-4MB for PTY + buffers)
         if (_sessions.value.size >= MAX_SESSIONS) {
             Log.w(TAG, "Max sessions reached ($MAX_SESSIONS) — refusing to create more")
             return null
@@ -558,10 +521,6 @@ class TerminalService : Service() {
         return createSessionInternal(shellProvider.defaultWorkingDirectory())
     }
 
-    /**
-     * Create a new session and immediately execute a preset AI tool command.
-     * Supported presets: claude, gemini, aider, opencode.
-     */
     fun createPresetSession(preset: String): TerminalSession? {
         val command = PRESET_COMMANDS[preset.lowercase()]
         if (command == null) {
@@ -570,8 +529,6 @@ class TerminalService : Service() {
         }
         val session = createSession()
         if (session != null) {
-            // Delay to let the shell initialize before writing the command.
-            // 1000ms is safe for slow devices; fast devices are unaffected.
             mainHandler.postDelayed({
                 if (session.isRunning) {
                     session.write(command + "\n")
@@ -589,10 +546,7 @@ class TerminalService : Service() {
     private fun createSessionInternal(cwd: String): TerminalSession? {
         return try {
             val shellCmd = shellProvider.shellCommand()
-            val shell = shellCmd[0] // executable (linker64 or shell)
-            // Pass terminal dimensions so LINES/COLUMNS are set from launch.
-            // The exact size comes from the last known view dimensions;
-            // 40x120 are reasonable defaults if view hasn't measured yet.
+            val shell = shellCmd[0]
             val lastSession = _sessions.value.lastOrNull()
             val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: "40"
             val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: "120"
@@ -613,34 +567,7 @@ class TerminalService : Service() {
 
             // Attach Rust VT engine if enabled (Phase 2 dual-run mode)
             if (useRustBackend.get()) {
-                try {
-                    val factory = rustEngineFactory ?: RustEngine.Factory().also { rustEngineFactory = it }
-                    val engine = factory.create(TerminalDimensions(rows = 24, columns = 80))
-                    session.setRawByteInterceptor { data, length ->
-                        try {
-                            engine.processBytes(data.copyOf(length))
-                            // Write back terminal responses (DA, DSR) to PTY
-                            val ptyResponse = engine.drainPtyWrites()
-                            if (ptyResponse != null) {
-                                session.write(ptyResponse, 0, ptyResponse.size)
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Rust engine processBytes error", e)
-                        }
-                    }
-                    session.setResizeListener { rows, cols ->
-                        try {
-                            engine.resize(TerminalDimensions(rows = rows, columns = cols))
-                            Log.d(TAG, "Rust engine resized: ${rows}x${cols}")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Rust engine resize error", e)
-                        }
-                    }
-                    rustEngines[session.mHandle] = engine
-                    Log.i(TAG, "Rust engine attached to session ${session.mHandle}")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create Rust engine, running Java-only", e)
-                }
+                rustEngineManager.attachEngine(session)
             }
 
             _sessions.update { it + session }
@@ -655,8 +582,6 @@ class TerminalService : Service() {
     }
 
     fun removeSession(index: Int) {
-        // Atomically remove the session from the list to avoid TOCTOU races.
-        // Capture the removed session reference inside the update lambda.
         var removedSession: TerminalSession? = null
         _sessions.update { list ->
             if (index !in list.indices) return@update list
@@ -664,12 +589,9 @@ class TerminalService : Service() {
             list.filterIndexed { i, _ -> i != index }
         }
         val session = removedSession ?: return
-        // Clean up callbacks, trackers, and engines AFTER atomic removal
         screenUpdateCallbacks.remove(session.mHandle)
         zoneTrackers.remove(session.mHandle)
-        rustEngines.remove(session.mHandle)?.destroy()
-        session.setRawByteInterceptor(null)
-        session.setResizeListener(null)
+        rustEngineManager.detachEngine(session)
         session.finishIfRunning()
         updateNotification()
         updateBootReceiverState()
@@ -680,6 +602,11 @@ class TerminalService : Service() {
         wakeLocks.toggle()
         notifications.scheduleUpdate()
     }
+
+    // ── Session persistence — delegated ─────────────────────
+
+    fun getSavedSessions(): List<SessionMetadata> = persistence.getSavedSessions()
+    fun clearSavedSessions() = persistence.clearSavedSessions()
 
     // ── Boot receiver management ────────────────────────────
 
@@ -696,44 +623,12 @@ class TerminalService : Service() {
         )
     }
 
-    // ── Session persistence ──────────────────────────────────
-
-    @Synchronized
-    private fun saveSessionMetadata() {
-        // Snapshot the list inside the synchronized block to prevent
-        // concurrent modification if sessions change on another thread.
-        val snapshot = _sessions.value.toList()
-        val metadata = snapshot.mapIndexed { index, session ->
-            SessionMetadata(
-                id = index,
-                shell = shellProvider.findShell(),
-                cwd = session.cwd ?: shellProvider.defaultWorkingDirectory(),
-                title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
-            )
-        }
-        sessionStore.save(metadata)
-        Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
-    }
-
-    /**
-     * Checks if there are saved sessions from a previous run.
-     * Called by ViewModel to decide whether to offer session restore.
-     */
-    fun getSavedSessions(): List<SessionMetadata> = sessionStore.load()
-
-    fun clearSavedSessions() = sessionStore.clear()
-
     // ── Lock management — delegated to WakeLockManager ──────
 
     private fun releaseLocks() = wakeLocks.release()
 
     // ── Notifications — delegated to NotificationHelper ──────
 
-    /**
-     * Called when a command block completes (OSC 133;D received).
-     * Sends a notification if the command took longer than [commandNotifyThresholdMs]
-     * and the app is currently in the background.
-     */
     private fun onCommandCompleted(
         session: TerminalSession,
         command: String,
@@ -748,140 +643,8 @@ class TerminalService : Service() {
 
     private fun updateNotification() = notifications.scheduleUpdate()
 
-    // ── MCP bridge implementation ───────────────────────────
-
-    /**
-     * Bridge between the MCP server and TerminalService internals.
-     * Delegates all operations to existing service methods.
-     */
-    inner class ServiceMcpBridge : McpSessionBridge {
-
-        override val sessions: StateFlow<List<McpSessionInfo>>
-            get() {
-                // Map TerminalSession list to McpSessionInfo list.
-                // We create a derived StateFlow backed by a MutableStateFlow
-                // that we keep in sync.
-                return _mcpSessions
-            }
-
-        private val _mcpSessions = MutableStateFlow<List<McpSessionInfo>>(emptyList())
-
-        init {
-            // Keep MCP session list continuously in sync with _sessions.
-            // Observing the flow catches unexpected session terminations that
-            // don't go through closeSession() (e.g., process crash).
-            serviceScope.launch {
-                _sessions.collect { syncMcpSessions() }
-            }
-        }
-
-        private fun syncMcpSessions() {
-            _mcpSessions.value = _sessions.value.mapIndexed { index, session ->
-                McpSessionInfo(
-                    index = index,
-                    title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
-                    cwd = session.cwd ?: shellProvider.defaultWorkingDirectory(),
-                    isRunning = session.isRunning,
-                    pid = session.pid,
-                )
-            }
-        }
-
-        override fun createSession(cwd: String?): Int {
-            val session = if (cwd != null) {
-                createSessionInDir(cwd)
-            } else {
-                this@TerminalService.createSession()
-            }
-            syncMcpSessions()
-            return if (session != null) _sessions.value.indexOf(session) else -1
-        }
-
-        override fun closeSession(index: Int) {
-            removeSession(index)
-            syncMcpSessions()
-        }
-
-        override fun writeToSession(index: Int, input: String) {
-            val sessionList = _sessions.value
-            if (index !in sessionList.indices) return
-            sessionList[index].write(input)
-        }
-
-        override fun readOutput(index: Int, lines: Int): String {
-            val sessionList = _sessions.value
-            if (index !in sessionList.indices) return ""
-            val emulator = sessionList[index].emulator ?: return ""
-            val screen = emulator.screen
-            val transcript = screen.getTranscriptText()
-            // Return last N lines from transcript
-            val allLines = transcript.split("\n")
-            return allLines.takeLast(lines.coerceAtLeast(1)).joinToString("\n")
-        }
-
-        override fun getSessionCwd(index: Int): String? {
-            val sessionList = _sessions.value
-            if (index !in sessionList.indices) return null
-            return sessionList[index].cwd
-        }
-
-        override fun homePath(): String = shellProvider.defaultWorkingDirectory()
-
-        override fun prefixPath(): String {
-            // prefix = rootDir/usr, home = rootDir/home
-            // rootDir = context.filesDir.absolutePath
-            val home = shellProvider.defaultWorkingDirectory()
-            // home is <rootDir>/home, prefix is <rootDir>/usr
-            val rootDir = java.io.File(home).parent ?: home
-            return "$rootDir/usr"
-        }
-
-        override fun readFile(path: String, maxBytes: Int): String? {
-            return try {
-                val file = java.io.File(path)
-                if (!file.exists() || !file.isFile || !file.canRead()) return null
-                if (file.length() > maxBytes) return null
-                file.readText()
-            } catch (e: Exception) {
-                Log.e(TAG, "MCP readFile error: $path", e)
-                null
-            }
-        }
-
-        override fun writeFile(path: String, content: String): Boolean {
-            return try {
-                val file = java.io.File(path)
-                file.parentFile?.mkdirs()
-                file.writeText(content)
-                true
-            } catch (e: Exception) {
-                Log.e(TAG, "MCP writeFile error: $path", e)
-                false
-            }
-        }
-
-        override fun listDirectory(path: String): List<FileEntry> {
-            return try {
-                val dir = java.io.File(path)
-                if (!dir.exists() || !dir.isDirectory) return emptyList()
-                dir.listFiles()?.map { file ->
-                    FileEntry(
-                        name = file.name,
-                        isDirectory = file.isDirectory,
-                        size = if (file.isFile) file.length() else 0L,
-                    )
-                }?.sortedWith(compareByDescending<FileEntry> { it.isDirectory }.thenBy { it.name })
-                    ?: emptyList()
-            } catch (e: Exception) {
-                Log.e(TAG, "MCP listDirectory error: $path", e)
-                emptyList()
-            }
-        }
-    }
-
     companion object {
         private const val TAG = "NovaTerm"
-        private const val SAVE_INTERVAL_MS = 30_000L // 30s periodic session save
 
         const val ACTION_EXIT = "com.nvterm.action.EXIT"
         const val ACTION_NEW_SESSION = "com.nvterm.action.NEW_SESSION"

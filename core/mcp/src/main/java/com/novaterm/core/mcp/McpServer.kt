@@ -67,7 +67,6 @@ class McpServer(
 ) {
     val toolRegistry = ToolRegistry()
     var approvalManager: ApprovalManager = AutoApprovalManager()
-        private set
 
     private var server: EmbeddedServer<*, *>? = null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }

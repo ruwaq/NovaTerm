@@ -111,9 +111,8 @@ class SessionManager(
         synchronized(lock) {
             sessionMap[id] = managed
             newIndex = sessionMap.size - 1
+            publishState()
         }
-
-        publishState()
         _activeSessionIndex.value = newIndex
         // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.Created(id))
@@ -126,10 +125,11 @@ class SessionManager(
         synchronized(lock) {
             managed = sessionMap.remove(sessionId)
             remainingSize = sessionMap.size
+            if (managed != null) publishState()
         }
         managed ?: return
 
-        // Clean up Rust engine resources
+        // Clean up Rust engine resources outside lock (may be slow)
         managed.engine?.destroy()
         managed.ptySession.setRawByteInterceptor(null)
 
@@ -139,8 +139,6 @@ class SessionManager(
         } else {
             managed.ptySession.exitStatus
         }
-
-        publishState()
         // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.Destroyed(sessionId, exitCode))
 
@@ -203,6 +201,7 @@ class SessionManager(
         synchronized(lock) {
             sessions = sessionMap.values.toList()
             sessionMap.clear()
+            publishState()
         }
         sessions.forEach { managed ->
             managed.engine?.destroy()
@@ -213,24 +212,22 @@ class SessionManager(
             } else {
                 managed.ptySession.exitStatus
             }
-            // Channel.UNLIMITED never returns failure, safe to ignore result
             _events.trySend(SessionEvent.Destroyed(managed.id, exitCode))
         }
-        publishState()
     }
 
     /** Notify that a session title changed (called from TerminalSessionClient). */
     fun notifyTitleChanged(sessionId: Int, title: String) {
-        // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.TitleChanged(sessionId, title))
-        publishState()
+        synchronized(lock) { publishState() }
     }
 
     private fun getManaged(sessionId: Int): ManagedSession? =
         synchronized(lock) { sessionMap[sessionId] }
 
+    /** Must be called while holding [lock]. */
     private fun publishState() {
-        val entries = synchronized(lock) { sessionMap.entries.toList() }
+        val entries = sessionMap.entries.toList()
         _sessions.value = entries.map { (_, managed) ->
             val ts = managed.ptySession
             val isRunning = ts.isRunning

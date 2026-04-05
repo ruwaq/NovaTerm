@@ -6,9 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
+import com.novaterm.core.mcp.security.ApprovalRequest
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
@@ -54,6 +56,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     val sessions: StateFlow<List<TerminalSession>> = _service
         .flatMapLatest { svc -> svc?.sessions ?: flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Pending MCP approval request for DANGEROUS tool calls (e.g., run_command). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val mcpApprovalRequest: StateFlow<ApprovalRequest?> = _service
+        .flatMapLatest { svc -> svc?.mcpApprovalRequest ?: flowOf(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -453,7 +461,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _suggestion.value = llmSuggestion?.command
                     } catch (e: Exception) {
                         // Engine released while inference was in-flight
-                        Log.w(TAG, "LLM suggest failed (engine released?)", e)
+                        Log.w("NovaTerm", "LLM suggest failed (engine released?)", e)
                         _suggestion.value = null
                     }
                 } else {

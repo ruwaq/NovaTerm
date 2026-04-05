@@ -150,9 +150,9 @@ private fun AppearanceSection(
                 )
                 Slider(
                     value = fontSize,
-                    onValueChange = {
-                        fontSize = it
-                        onPreferencesChanged(preferences.copy(fontSize = it.toInt()))
+                    onValueChange = { fontSize = it },
+                    onValueChangeFinished = {
+                        onPreferencesChanged(preferences.copy(fontSize = fontSize.toInt()))
                     },
                     valueRange = 8f..32f,
                     steps = 23,
@@ -680,6 +680,7 @@ private fun ApiKeyField(
     val focusManager = LocalFocusManager.current
     // Local editing state — only propagate on done/focus loss
     var editingValue by remember(value) { mutableStateOf(value) }
+    val keyMaskTransformation = remember { ApiKeyVisualTransformation() }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
@@ -692,7 +693,7 @@ private fun ApiKeyField(
                     else stringResource(R.string.settings_api_key_hint)
                 )
             },
-            visualTransformation = if (editingValue.isNotEmpty()) remember { ApiKeyVisualTransformation() }
+            visualTransformation = if (editingValue.isNotEmpty()) keyMaskTransformation
             else VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,

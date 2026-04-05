@@ -107,7 +107,7 @@ object UrlDetector {
      * Checks if the given string looks like a URL.
      */
     fun isUrl(text: String): Boolean {
-        return URL_REGEX.containsMatchIn(text)
+        return URL_REGEX.matches(text.trim())
     }
 
     // ── Helpers ──────────────────────────────────────────────

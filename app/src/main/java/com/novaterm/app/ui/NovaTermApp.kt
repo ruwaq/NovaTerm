@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
 import com.novaterm.app.ui.components.CloseSessionDialog
 import com.novaterm.app.ui.components.DrawerContent
+import com.novaterm.app.ui.components.McpApprovalDialog
 import com.novaterm.app.ui.components.RenameSessionDialog
 import com.novaterm.app.ui.components.SessionCreationFailedDialog
 import com.novaterm.app.ui.components.SessionTabBar
@@ -79,6 +80,7 @@ fun NovaTermApp(
     val paneLayout = uiState.currentPaneLayout
     val focusedPaneSession = uiState.focusedPaneSession
     val view = LocalView.current
+    val mcpApproval by viewModel.mcpApprovalRequest.collectAsState()
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -163,6 +165,14 @@ fun NovaTermApp(
         SessionCreationFailedDialog(
             onRetry = { viewModel.dismissSessionCreationError(); viewModel.createSession() },
             onDismiss = viewModel::dismissSessionCreationError,
+        )
+    }
+
+    mcpApproval?.let { request ->
+        McpApprovalDialog(
+            request = request,
+            onApprove = { request.approve() },
+            onDeny = { request.deny() },
         )
     }
 
