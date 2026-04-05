@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 /**
@@ -83,34 +84,46 @@ class BootstrapInstaller(private val context: Context) {
                 return@withContext false
             }
 
-            // 1. Load ZIP from assets (Phase 1) or native library (Phase 2)
-            val zipBytes = try {
-                // Try assets first (simpler, no NDK required)
-                context.assets.open("bootstrap-aarch64.zip").use { it.readBytes() }
-            } catch (assetEx: Exception) {
-                Log.i(TAG, "Bootstrap not in assets, trying native library: ${assetEx.message}")
-                try {
-                    // Fallback to JNI native library (Phase 2, requires NDK build)
-                    NativeBootstrap.getZip()
+            // 1. Resolve ZIP source — prefer streaming from assets (avoids 30MB in-memory peak).
+            //    Fall back to JNI native library only if the asset is absent.
+            val zipStreamProvider: () -> InputStream
+            val assetName = "bootstrap-aarch64.zip"
+            val hasAsset = try {
+                context.assets.open(assetName).close(); true
+            } catch (_: Exception) { false }
+
+            if (hasAsset) {
+                zipStreamProvider = { context.assets.open(assetName) }
+            } else {
+                Log.i(TAG, "Bootstrap not in assets, trying native library")
+                val zipBytes = try {
+                    // Fallback: JNI returns a ByteArray (unavoidable memory load for this path)
+                    NativeBootstrap.getZip().also { b ->
+                        Log.i(TAG, "Bootstrap ZIP loaded from native: ${b.size / 1024 / 1024} MB")
+                    }
                 } catch (linkEx: UnsatisfiedLinkError) {
                     Log.e(TAG, "No bootstrap found in assets or native library", linkEx)
                     _state.value = State.Error("Bootstrap not available.")
                     return@withContext false
                 }
+                zipStreamProvider = { zipBytes.inputStream() }
             }
 
-            Log.i(TAG, "Bootstrap ZIP loaded: ${zipBytes.size} bytes (${zipBytes.size / 1024 / 1024} MB)")
+            // 2. Count entries for progress (first streaming pass — no large buffer retained)
+            var totalEntries = 0
+            zipStreamProvider().use { ZipInputStream(it).use { z -> while (z.nextEntry != null) totalEntries++ } }
+            Log.i(TAG, "Bootstrap ZIP: $totalEntries entries")
 
-            // 2. Clean staging directory
+            // 3. Clean staging directory
             val stagingDir = File(filesDir, "usr-staging")
             stagingDir.deleteRecursively()
             stagingDir.mkdirs()
 
-            // 3. Extract ZIP
+            // 4. Extract ZIP (second streaming pass)
             val symlinks = mutableListOf<Pair<String, String>>()
-            extractZip(zipBytes, stagingDir, symlinks)
+            zipStreamProvider().use { extractZip(ZipInputStream(it), stagingDir, symlinks, totalEntries) }
 
-            // 4. Set permissions
+            // 5. Set permissions
             _state.value = State.Finalizing
             setExecutePermissions(stagingDir)
 
@@ -216,71 +229,64 @@ class BootstrapInstaller(private val context: Context) {
     // ── ZIP extraction ────────────────────────────────────
 
     private fun extractZip(
-        zipBytes: ByteArray,
+        zis: ZipInputStream,
         targetDir: File,
         symlinks: MutableList<Pair<String, String>>,
+        totalEntries: Int,
     ) {
-        // Count entries for progress
-        var totalEntries = 0
-        ZipInputStream(zipBytes.inputStream()).use { counter ->
-            while (counter.nextEntry != null) totalEntries++
-        }
-
         var extracted = 0
-        ZipInputStream(zipBytes.inputStream()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val name = entry.name
+        var entry = zis.nextEntry
+        while (entry != null) {
+            val name = entry.name
 
-                when {
-                    name == "SYMLINKS.txt" -> {
-                        // Format: target←link (Unicode left arrow as delimiter)
-                        val content = zis.readBytes().toString(Charsets.UTF_8)
-                        content.lines()
-                            .filter { "←" in it }
-                            .forEach { line ->
-                                val parts = line.split("←", limit = 2)
-                                if (parts.size == 2) {
-                                    symlinks.add(parts[0].trim() to parts[1].trim())
-                                }
+            when {
+                name == "SYMLINKS.txt" -> {
+                    // Format: target←link (Unicode left arrow as delimiter)
+                    val content = zis.readBytes().toString(Charsets.UTF_8)
+                    content.lines()
+                        .filter { "←" in it }
+                        .forEach { line ->
+                            val parts = line.split("←", limit = 2)
+                            if (parts.size == 2) {
+                                symlinks.add(parts[0].trim() to parts[1].trim())
                             }
-                    }
-                    !entry.isDirectory -> {
-                        val outFile = File(targetDir, name)
-                        // Security: block path traversal
-                        val canonical = outFile.canonicalPath
-                        val targetCanonical = targetDir.canonicalPath + File.separator
-                        if (!canonical.startsWith(targetCanonical)) {
-                            Log.w(TAG, "Skipping path traversal entry: $name")
-                            entry = zis.nextEntry
-                            continue
                         }
-                        outFile.parentFile?.mkdirs()
-
-                        // Read into memory, patch com.termux→com.nvterm, write out.
-                        // Same-length replacement (10 bytes each) — safe for ALL files
-                        // including ELF binaries. Zero extra I/O passes.
-                        val data = zis.readBytes()
-                        val ext = outFile.extension.lowercase()
-                        val shouldPatch = ext !in SKIP_PATCH_EXTENSIONS
-                            && name !in SKIP_PATCH_FILES
-                        if (shouldPatch) {
-                            patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
-                        }
-                        outFile.writeBytes(data)
+                }
+                !entry.isDirectory -> {
+                    val outFile = File(targetDir, name)
+                    // Security: block path traversal
+                    val canonical = outFile.canonicalPath
+                    val targetCanonical = targetDir.canonicalPath + File.separator
+                    if (!canonical.startsWith(targetCanonical)) {
+                        Log.w(TAG, "Skipping path traversal entry: $name")
+                        entry = zis.nextEntry
+                        continue
                     }
-                }
+                    outFile.parentFile?.mkdirs()
 
-                extracted++
-                if (totalEntries > 0) {
-                    _state.value = State.Extracting(
-                        progress = extracted.toFloat() / totalEntries,
-                        currentFile = name.substringAfterLast('/'),
-                    )
+                    // Read into memory, patch com.termux→com.nvterm, write out.
+                    // Same-length replacement (10 bytes each) — safe for ALL files
+                    // including ELF binaries. Zero extra I/O passes.
+                    val data = zis.readBytes()
+                    val ext = outFile.extension.lowercase()
+                    val shouldPatch = ext !in SKIP_PATCH_EXTENSIONS
+                        && name !in SKIP_PATCH_FILES
+                    if (shouldPatch) {
+                        patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
+                    }
+                    outFile.writeBytes(data)
                 }
-
-                entry = zis.nextEntry
             }
+
+            extracted++
+            if (totalEntries > 0) {
+                _state.value = State.Extracting(
+                    progress = extracted.toFloat() / totalEntries,
+                    currentFile = name.substringAfterLast('/'),
+                )
+            }
+
+            entry = zis.nextEntry
         }
 
         Log.i(TAG, "Extracted $extracted files, found ${symlinks.size} symlinks")

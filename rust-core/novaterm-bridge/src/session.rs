@@ -43,6 +43,8 @@ pub struct RustSession {
     master_fd: OwnedFd,
     child_pid: i32,
     alive: Arc<AtomicBool>,
+    /// Writer thread handle — used to unpark it immediately on write/stop.
+    writer_thread: thread::Thread,
     rows: u16,
     cols: u16,
 }
@@ -94,8 +96,10 @@ impl RustSession {
                         Ok(0) => break,
                         Ok(n) => rb.push(&buf[..n]),
                         Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            // No data available yet — sleep briefly to avoid busy-spin
-                            thread::park_timeout(std::time::Duration::from_millis(1));
+                            // No data available yet — sleep up to 10ms (one frame at 60fps).
+                            // Reader latency is not critical: process_pending() is called by
+                            // the Kotlin render loop anyway.
+                            thread::park_timeout(std::time::Duration::from_millis(10));
                         }
                         Err(_) => break,
                     }
@@ -109,16 +113,21 @@ impl RustSession {
         }
 
         // Writer: write_buffer → PTY
+        // Uses park/unpark instead of polling: write() unparks immediately,
+        // so keystroke latency is ~0ms instead of up to 1ms.
         let wb = write_buffer.clone();
         let aw = alive.clone();
-        let writer_thread = thread::Builder::new()
+        let writer_handle = thread::Builder::new()
             .name(format!("nova-write[{}]", child_pid))
             .spawn(move || {
                 let mut file = unsafe { std::fs::File::from_raw_fd(writer_raw) };
                 while aw.load(Ordering::Acquire) {
                     let data = wb.drain();
                     if data.is_empty() {
-                        thread::park_timeout(std::time::Duration::from_millis(1));
+                        // Park until write() or stop() calls unpark().
+                        // If unpark() raced before park(), park() returns immediately —
+                        // the unpark token ensures no data is silently missed.
+                        thread::park();
                         continue;
                     }
                     if file.write_all(&data).is_err() {
@@ -126,12 +135,18 @@ impl RustSession {
                     }
                 }
             });
-        if let Err(e) = writer_thread {
-            // Writer spawn failed — stop the reader thread and close writer fd.
-            alive.store(false, Ordering::Release);
-            unsafe { libc::close(writer_raw); }
-            return Err(novaterm_pty::Error::Io(e));
-        }
+        let writer_handle = match writer_handle {
+            Ok(h) => h,
+            Err(e) => {
+                // Writer spawn failed — stop the reader thread and close writer fd.
+                alive.store(false, Ordering::Release);
+                unsafe { libc::close(writer_raw); }
+                return Err(novaterm_pty::Error::Io(e));
+            }
+        };
+        let writer_thread = writer_handle.thread().clone();
+        // Drop the JoinHandle — we don't join I/O threads on cleanup.
+        drop(writer_handle);
 
         Ok(RustSession {
             backend: AlacrittyBackend::new(rows as u32, cols as u32),
@@ -140,6 +155,7 @@ impl RustSession {
             master_fd,
             child_pid,
             alive,
+            writer_thread,
             rows,
             cols,
         })
@@ -165,6 +181,8 @@ impl RustSession {
             return false;
         }
         self.write_buffer.push(data);
+        // Wake writer immediately — eliminates polling latency for keystrokes.
+        self.writer_thread.unpark();
         true
     }
 
@@ -201,6 +219,8 @@ impl RustSession {
 
     pub fn stop(&self) {
         self.alive.store(false, Ordering::Release);
+        // Unpark writer so it sees alive=false and exits cleanly.
+        self.writer_thread.unpark();
         unsafe { libc::kill(self.child_pid, libc::SIGKILL); }
     }
 
