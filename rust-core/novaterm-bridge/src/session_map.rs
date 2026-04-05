@@ -1,4 +1,7 @@
 // Handle map for RustSession objects.
+//
+// Uses try_read + try_lock (like handle_map) to prevent deadlock:
+// if destroy() holds a write lock, JNI calls return None instead of blocking.
 
 use crate::session::RustSession;
 use parking_lot::{Mutex, RwLock};
@@ -17,22 +20,24 @@ pub fn insert(session: RustSession) -> u64 {
     handle
 }
 
+/// Execute a closure with mutable access to a session.
+/// Returns None if handle is invalid or lock is contended (prevents deadlock).
 pub fn with_session<F, R>(handle: u64, f: F) -> Option<R>
 where F: FnOnce(&mut RustSession) -> R {
-    let sessions = SESSIONS.read();
+    let sessions = SESSIONS.try_read()?;
     let mutex = sessions.get(&handle)?;
-    let mut guard = mutex.lock();
-    let result = f(&mut *guard);
-    Some(result)
+    let mut guard = mutex.try_lock()?;
+    Some(f(&mut *guard))
 }
 
+/// Execute a closure with shared access to a session.
+/// Returns None if handle is invalid or lock is contended (prevents deadlock).
 pub fn with_session_ref<F, R>(handle: u64, f: F) -> Option<R>
 where F: FnOnce(&RustSession) -> R {
-    let sessions = SESSIONS.read();
+    let sessions = SESSIONS.try_read()?;
     let mutex = sessions.get(&handle)?;
-    let guard = mutex.lock();
-    let result = f(&*guard);
-    Some(result)
+    let guard = mutex.try_lock()?;
+    Some(f(&*guard))
 }
 
 pub fn destroy(handle: u64) -> bool {

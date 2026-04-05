@@ -40,6 +40,9 @@ pub trait TerminalBackend: Send {
     /// Get pending events (bell, title change, etc.) and drain them.
     fn drain_events(&self) -> Vec<crate::event::BackendEvent>;
 
+    /// Check if there are pending events without consuming them.
+    fn has_pending_events(&self) -> bool;
+
     /// Reset terminal state (like `reset` command).
     fn reset(&mut self);
 
@@ -173,6 +176,10 @@ impl TerminalBackend for AlacrittyBackend {
         self.event_collector.drain()
     }
 
+    fn has_pending_events(&self) -> bool {
+        self.event_collector.has_pending()
+    }
+
     fn reset(&mut self) {
         *self = Self::new(self.rows, self.cols);
     }
@@ -182,16 +189,9 @@ impl TerminalBackend for AlacrittyBackend {
     }
 
     fn drain_pty_writes(&self) -> Vec<u8> {
-        let events = self.event_collector.drain();
-        let mut bytes = Vec::new();
-        for event in events {
-            match event {
-                crate::event::BackendEvent::PtyWrite(data) => bytes.extend_from_slice(&data),
-                // Re-push non-PtyWrite events back (they're still needed)
-                other => self.event_collector.push(other),
-            }
-        }
-        bytes
+        // Use atomic drain that filters PtyWrite inside the lock,
+        // avoiding the race condition of drain-all → filter → re-push.
+        self.event_collector.drain_pty_writes()
     }
 }
 

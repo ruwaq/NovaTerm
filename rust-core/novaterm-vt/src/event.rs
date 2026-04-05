@@ -53,11 +53,28 @@ impl EventCollector {
         std::mem::take(&mut *events)
     }
 
+    /// Drain only PtyWrite events, leaving other events in the buffer.
+    /// This avoids the race condition of drain-filter-reinsert.
+    pub fn drain_pty_writes(&self) -> Vec<u8> {
+        let mut events = self.events.lock();
+        let mut bytes = Vec::new();
+        events.retain(|event| {
+            match event {
+                BackendEvent::PtyWrite(data) => {
+                    bytes.extend_from_slice(data);
+                    false // remove from buffer
+                }
+                _ => true, // keep in buffer
+            }
+        });
+        bytes
+    }
+
     pub fn has_pending(&self) -> bool {
         !self.events.lock().is_empty()
     }
 
-    /// Push an event back into the buffer (used when filtering PtyWrite events).
+    /// Push an event back into the buffer.
     pub fn push(&self, event: BackendEvent) {
         self.events.lock().push(event);
     }

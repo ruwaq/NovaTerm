@@ -411,7 +411,7 @@ private fun SplitPaneButton(
     ) {
         Text(
             // Vertical bar icon for horizontal split; X when panes exist (long press to close)
-            text = if (hasSplitPanes) "\u2590\u258C" else "\u2590\u258C",
+            text = if (hasSplitPanes) "\u2573" else "\u2590\u258C",
             color = if (hasSplitPanes) accentColor else textColor,
             fontSize = 14.sp,
             fontFamily = FontFamily.Monospace,

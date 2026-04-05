@@ -158,7 +158,7 @@ class McpServer(
             // Verify the socket actually bound by checking the engine
             _bound = true
             Log.i(TAG, "MCP server started on ${config.host}:${config.port} with ${toolRegistry.size} tools")
-            Log.i(TAG, "MCP auth token: $authToken")
+            Log.i(TAG, "MCP auth token: ...${authToken.takeLast(4)}")
         } catch (e: Exception) {
             Log.e(TAG, "MCP server failed to bind on ${config.host}:${config.port}", e)
             server?.stop(0, 0)

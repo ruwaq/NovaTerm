@@ -100,112 +100,42 @@ fun PaneTreeView(
         is PaneNode.Split -> {
             val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
+            // Helper: recursively render a child node (avoids repeating all params 4 times)
+            val childView: @Composable (PaneNode) -> Unit = { child ->
+                PaneTreeView(
+                    node = child,
+                    sessions = sessions,
+                    focusedSessionIndex = focusedSessionIndex,
+                    fontSize = fontSize,
+                    fontFamily = fontFamily,
+                    colorScheme = colorScheme,
+                    keepScreenOn = keepScreenOn,
+                    ctrlActive = ctrlActive,
+                    altActive = altActive,
+                    backIsEscape = backIsEscape,
+                    onModifiersConsumed = onModifiersConsumed,
+                    onFocusPane = onFocusPane,
+                    onBlockComplete = onBlockComplete,
+                    onTabAcceptSuggestion = onTabAcceptSuggestion,
+                    onViewReady = onViewReady,
+                    onPromptNavigatorReady = onPromptNavigatorReady,
+                )
+            }
+
             when (node.direction) {
                 SplitDirection.HORIZONTAL -> {
                     Row(modifier = modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(node.ratio).fillMaxHeight()) {
-                            PaneTreeView(
-                                node = node.first,
-                                sessions = sessions,
-                                focusedSessionIndex = focusedSessionIndex,
-                                fontSize = fontSize,
-                                fontFamily = fontFamily,
-                                colorScheme = colorScheme,
-                                keepScreenOn = keepScreenOn,
-                                ctrlActive = ctrlActive,
-                                altActive = altActive,
-                                backIsEscape = backIsEscape,
-                                onModifiersConsumed = onModifiersConsumed,
-                                onFocusPane = onFocusPane,
-                                onBlockComplete = onBlockComplete,
-                                onTabAcceptSuggestion = onTabAcceptSuggestion,
-                                onViewReady = onViewReady,
-                                onPromptNavigatorReady = onPromptNavigatorReady,
-                            )
-                        }
-
-                        // Vertical divider between left and right panes
-                        Box(
-                            modifier = Modifier
-                                .width(2.dp)
-                                .fillMaxHeight()
-                                .background(dividerColor),
-                        )
-
-                        Box(modifier = Modifier.weight(1f - node.ratio).fillMaxHeight()) {
-                            PaneTreeView(
-                                node = node.second,
-                                sessions = sessions,
-                                focusedSessionIndex = focusedSessionIndex,
-                                fontSize = fontSize,
-                                fontFamily = fontFamily,
-                                colorScheme = colorScheme,
-                                keepScreenOn = keepScreenOn,
-                                ctrlActive = ctrlActive,
-                                altActive = altActive,
-                                backIsEscape = backIsEscape,
-                                onModifiersConsumed = onModifiersConsumed,
-                                onFocusPane = onFocusPane,
-                                onBlockComplete = onBlockComplete,
-                                onTabAcceptSuggestion = onTabAcceptSuggestion,
-                                onViewReady = onViewReady,
-                                onPromptNavigatorReady = onPromptNavigatorReady,
-                            )
-                        }
+                        Box(modifier = Modifier.weight(node.ratio).fillMaxHeight()) { childView(node.first) }
+                        Box(modifier = Modifier.width(2.dp).fillMaxHeight().background(dividerColor))
+                        Box(modifier = Modifier.weight(1f - node.ratio).fillMaxHeight()) { childView(node.second) }
                     }
                 }
 
                 SplitDirection.VERTICAL -> {
                     Column(modifier = modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(node.ratio).fillMaxWidth()) {
-                            PaneTreeView(
-                                node = node.first,
-                                sessions = sessions,
-                                focusedSessionIndex = focusedSessionIndex,
-                                fontSize = fontSize,
-                                fontFamily = fontFamily,
-                                colorScheme = colorScheme,
-                                keepScreenOn = keepScreenOn,
-                                ctrlActive = ctrlActive,
-                                altActive = altActive,
-                                backIsEscape = backIsEscape,
-                                onModifiersConsumed = onModifiersConsumed,
-                                onFocusPane = onFocusPane,
-                                onBlockComplete = onBlockComplete,
-                                onTabAcceptSuggestion = onTabAcceptSuggestion,
-                                onViewReady = onViewReady,
-                                onPromptNavigatorReady = onPromptNavigatorReady,
-                            )
-                        }
-
-                        // Horizontal divider between top and bottom panes
-                        Box(
-                            modifier = Modifier
-                                .height(2.dp)
-                                .fillMaxWidth()
-                                .background(dividerColor),
-                        )
-
-                        Box(modifier = Modifier.weight(1f - node.ratio).fillMaxWidth()) {
-                            PaneTreeView(
-                                node = node.second,
-                                sessions = sessions,
-                                focusedSessionIndex = focusedSessionIndex,
-                                fontSize = fontSize,
-                                fontFamily = fontFamily,
-                                colorScheme = colorScheme,
-                                keepScreenOn = keepScreenOn,
-                                ctrlActive = ctrlActive,
-                                altActive = altActive,
-                                backIsEscape = backIsEscape,
-                                onModifiersConsumed = onModifiersConsumed,
-                                onFocusPane = onFocusPane,
-                                onBlockComplete = onBlockComplete,
-                                onTabAcceptSuggestion = onTabAcceptSuggestion,
-                                onViewReady = onViewReady,
-                                onPromptNavigatorReady = onPromptNavigatorReady,
-                            )
-                        }
+                        Box(modifier = Modifier.weight(node.ratio).fillMaxWidth()) { childView(node.first) }
+                        Box(modifier = Modifier.height(2.dp).fillMaxWidth().background(dividerColor))
+                        Box(modifier = Modifier.weight(1f - node.ratio).fillMaxWidth()) { childView(node.second) }
                     }
                 }
             }

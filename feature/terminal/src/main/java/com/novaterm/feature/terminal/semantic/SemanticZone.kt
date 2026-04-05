@@ -48,13 +48,16 @@ class SemanticZoneTracker {
     /** Maximum zones to keep in memory to prevent unbounded growth. */
     private val maxZones = 1000
 
+    // All access to _zones is synchronized via this lock.
+    // onOsc133 is called from the terminal I/O thread; getPromptPositions/findZoneAt from UI.
+    private val lock = Any()
+
     private val _zones = mutableListOf<SemanticZone>()
-    val zones: List<SemanticZone> get() = _zones
+    val zones: List<SemanticZone> get() = synchronized(lock) { _zones.toList() }
 
     /** Trim oldest zones when we exceed maxZones to prevent memory leak. */
     private fun trimIfNeeded() {
         if (_zones.size > maxZones) {
-            // Remove oldest 20% to avoid frequent trimming
             val removeCount = maxZones / 5
             repeat(removeCount) { _zones.removeFirstOrNull() }
         }
@@ -62,119 +65,97 @@ class SemanticZoneTracker {
 
     private var currentZone: SemanticZone? = null
     private var currentCommand: String? = null
-
-    /** Timestamp (SystemClock.elapsedRealtime) when the command started executing (C marker). */
     private var commandStartTimeMs: Long = 0L
 
     /** Callback when a complete command block is detected (prompt → input → output → done). */
-    var onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null
+    @Volatile var onBlockComplete: ((command: String, exitCode: Int?) -> Unit)? = null
 
-    /**
-     * Enhanced callback that also provides command duration in milliseconds.
-     * Duration is measured from the C marker (output start) to the D marker (command done).
-     * If only [onBlockComplete] is set, it is still called; this provides additional timing data.
-     */
-    var onBlockCompleteWithDuration: ((command: String, exitCode: Int?, durationMs: Long) -> Unit)? = null
+    /** Enhanced callback with command duration (C marker → D marker). */
+    @Volatile var onBlockCompleteWithDuration: ((command: String, exitCode: Int?, durationMs: Long) -> Unit)? = null
 
-    /**
-     * Process an OSC 133 marker from the terminal emulator.
-     *
-     * @param marker The marker character: 'A', 'B', 'C', or 'D'
-     * @param params Optional parameters (e.g., exit code for 'D')
-     * @param row Current cursor row in the terminal buffer
-     * @param col Current cursor column
-     */
     fun onOsc133(marker: Char, params: String?, row: Int, col: Int) {
-        when (marker) {
-            'A' -> {
-                // Fresh prompt — new command cycle
-                closeCurrentZone(row, col)
-                val zone = SemanticZone(ZoneType.PROMPT, startRow = row, startCol = col)
-                currentZone = zone
-                _zones.add(zone)
-                trimIfNeeded()
-                currentCommand = null
-            }
-            'B' -> {
-                // Command started (user pressed Enter)
-                closeCurrentZone(row, col)
-                val zone = SemanticZone(ZoneType.INPUT, startRow = row, startCol = col)
-                currentZone = zone
-                _zones.add(zone)
-                trimIfNeeded()
-            }
-            'C' -> {
-                // Command output begins — start timing
-                closeCurrentZone(row, col)
-                val zone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
-                currentZone = zone
-                _zones.add(zone)
-                trimIfNeeded()
-                commandStartTimeMs = System.currentTimeMillis()
-            }
-            'D' -> {
-                // Command finished with exit code
-                val exitCode = params?.toIntOrNull()
-                closeCurrentZone(row, col)
+        // Callbacks are invoked outside the lock to avoid holding it during user code.
+        var blockCmd: String? = null
+        var blockExitCode: Int? = null
+        var blockDurationMs = 0L
 
-                // Calculate duration (from C marker to D marker)
-                val durationMs = if (commandStartTimeMs > 0L) {
-                    System.currentTimeMillis() - commandStartTimeMs
-                } else {
-                    0L
+        synchronized(lock) {
+            when (marker) {
+                'A' -> {
+                    closeCurrentZone(row, col)
+                    val zone = SemanticZone(ZoneType.PROMPT, startRow = row, startCol = col)
+                    currentZone = zone
+                    _zones.add(zone)
+                    trimIfNeeded()
+                    currentCommand = null
                 }
-                commandStartTimeMs = 0L
-
-                // Emit complete block
-                val cmd = currentCommand
-                if (cmd != null) {
-                    onBlockComplete?.invoke(cmd, exitCode)
-                    onBlockCompleteWithDuration?.invoke(cmd, exitCode, durationMs)
+                'B' -> {
+                    closeCurrentZone(row, col)
+                    val zone = SemanticZone(ZoneType.INPUT, startRow = row, startCol = col)
+                    currentZone = zone
+                    _zones.add(zone)
+                    trimIfNeeded()
                 }
-                currentCommand = null
+                'C' -> {
+                    closeCurrentZone(row, col)
+                    val zone = SemanticZone(ZoneType.OUTPUT, startRow = row, startCol = col)
+                    currentZone = zone
+                    _zones.add(zone)
+                    trimIfNeeded()
+                    commandStartTimeMs = System.currentTimeMillis()
+                }
+                'D' -> {
+                    blockExitCode = params?.toIntOrNull()
+                    closeCurrentZone(row, col)
+                    blockDurationMs = if (commandStartTimeMs > 0L) {
+                        System.currentTimeMillis() - commandStartTimeMs
+                    } else { 0L }
+                    commandStartTimeMs = 0L
+                    blockCmd = currentCommand
+                    currentCommand = null
+                }
             }
+        }
+
+        // Invoke callbacks outside lock
+        if (blockCmd != null) {
+            onBlockComplete?.invoke(blockCmd!!, blockExitCode)
+            onBlockCompleteWithDuration?.invoke(blockCmd!!, blockExitCode, blockDurationMs)
         }
     }
 
-    /**
-     * Set the command text for the current input zone.
-     * Called when the terminal detects the command text between B and C markers.
-     */
     fun setCurrentCommand(command: String) {
-        currentCommand = command
+        synchronized(lock) { currentCommand = command }
     }
 
-    /**
-     * Find the zone at a given terminal row.
-     * Useful for "jump to previous/next prompt" navigation.
-     */
     fun findZoneAt(row: Int): SemanticZone? {
-        return _zones.lastOrNull { zone ->
-            row >= zone.startRow && (zone.endRow == -1 || row <= zone.endRow)
+        synchronized(lock) {
+            return _zones.lastOrNull { zone ->
+                row >= zone.startRow && (zone.endRow == -1 || row <= zone.endRow)
+            }
         }
     }
 
-    /**
-     * Get all prompt positions for jump-to-prompt navigation.
-     */
     fun getPromptPositions(): List<Int> {
-        return _zones.filter { it.type == ZoneType.PROMPT }.map { it.startRow }
+        synchronized(lock) {
+            return _zones.filter { it.type == ZoneType.PROMPT }.map { it.startRow }
+        }
     }
 
-    /**
-     * Clear all zones (e.g., on terminal reset).
-     */
     fun clear() {
-        _zones.clear()
-        currentZone = null
-        currentCommand = null
+        synchronized(lock) {
+            _zones.clear()
+            currentZone = null
+            currentCommand = null
+        }
     }
 
     private fun closeCurrentZone(row: Int, col: Int) {
         val zone = currentZone ?: return
-        val index = _zones.indexOf(zone)
-        if (index >= 0) {
-            _zones[index] = zone.copy(endRow = row, endCol = col)
+        // Current zone is always the last added element — O(1) instead of indexOf O(n)
+        val lastIdx = _zones.lastIndex
+        if (lastIdx >= 0 && _zones[lastIdx] === zone) {
+            _zones[lastIdx] = zone.copy(endRow = row, endCol = col)
         }
         currentZone = null
     }

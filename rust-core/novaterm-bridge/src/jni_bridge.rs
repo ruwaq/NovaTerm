@@ -234,7 +234,7 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
     handle: jlong,
 ) -> jboolean {
     let result = panic::catch_unwind(|| {
-        handle_map::with_backend(handle as u64, |b| !b.drain_events().is_empty())
+        handle_map::with_backend(handle as u64, |b| b.has_pending_events())
             .unwrap_or(false)
     });
     if result.unwrap_or(false) { JNI_TRUE } else { JNI_FALSE }

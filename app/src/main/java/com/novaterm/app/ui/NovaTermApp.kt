@@ -204,27 +204,7 @@ fun NovaTermApp(
                     },
                     onPromptNavigatorReady = {},
                     onViewReady = { terminalView ->
-                        val handle = pipSession.mHandle
-                        service?.registerScreenCallback(handle) {
-                            if (service?.useRustBackend?.get() == true) {
-                                val engine = service?.getRustEngine(handle)
-                                if (engine != null) {
-                                    val grid = engine.getGrid()
-                                    val cursor = engine.getCursor()
-                                    if (grid != null) {
-                                        val dims = engine.getDimensions()
-                                        terminalView.setRustGrid(
-                                            grid, dims.rows, dims.columns,
-                                            cursor.row, cursor.column,
-                                            2, true,
-                                        )
-                                    }
-                                }
-                            } else {
-                                terminalView.clearRustGrid()
-                            }
-                            terminalView.onScreenUpdated()
-                        }
+                        registerRustScreenCallback(service, pipSession.mHandle, terminalView)
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -391,27 +371,7 @@ fun NovaTermApp(
                                     activeTerminalView = terminalView
                                 }
                                 val s = sessions.getOrNull(sessionIndex) ?: return@PaneTreeView
-                                val handle = s.mHandle
-                                service?.registerScreenCallback(handle) {
-                                    if (service?.useRustBackend?.get() == true) {
-                                        val engine = service?.getRustEngine(handle)
-                                        if (engine != null) {
-                                            val grid = engine.getGrid()
-                                            val cursor = engine.getCursor()
-                                            if (grid != null) {
-                                                val dims = engine.getDimensions()
-                                                terminalView.setRustGrid(
-                                                    grid, dims.rows, dims.columns,
-                                                    cursor.row, cursor.column,
-                                                    2, true,
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        terminalView.clearRustGrid()
-                                    }
-                                    terminalView.onScreenUpdated()
-                                }
+                                registerRustScreenCallback(service, s.mHandle, terminalView)
                             },
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             modifier = Modifier.fillMaxSize(),
@@ -448,27 +408,7 @@ fun NovaTermApp(
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             onViewReady = { terminalView ->
                                 activeTerminalView = terminalView
-                                val handle = currentSession.mHandle
-                                service?.registerScreenCallback(handle) {
-                                    if (service?.useRustBackend?.get() == true) {
-                                        val engine = service?.getRustEngine(handle)
-                                        if (engine != null) {
-                                            val grid = engine.getGrid()
-                                            val cursor = engine.getCursor()
-                                            if (grid != null) {
-                                                val dims = engine.getDimensions()
-                                                terminalView.setRustGrid(
-                                                    grid, dims.rows, dims.columns,
-                                                    cursor.row, cursor.column,
-                                                    2, true,
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        terminalView.clearRustGrid()
-                                    }
-                                    terminalView.onScreenUpdated()
-                                }
+                                registerRustScreenCallback(service, currentSession.mHandle, terminalView)
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -532,5 +472,36 @@ private fun resolveKeyInput(code: String, ctrlActive: Boolean, altActive: Boolea
         }
         altActive -> "\u001b$code"
         else -> code
+    }
+}
+
+/**
+ * Register the Rust engine screen callback on a [TerminalView].
+ * Extracted to avoid repeating the same 15-line block in PiP, split-pane, and single-screen modes.
+ */
+internal fun registerRustScreenCallback(
+    service: com.novaterm.app.service.TerminalService?,
+    handle: String,
+    terminalView: TerminalView,
+) {
+    service?.registerScreenCallback(handle) {
+        if (service.useRustBackend.get()) {
+            val engine = service.getRustEngine(handle)
+            if (engine != null) {
+                val grid = engine.getGrid()
+                val cursor = engine.getCursor()
+                if (grid != null) {
+                    val dims = engine.getDimensions()
+                    terminalView.setRustGrid(
+                        grid, dims.rows, dims.columns,
+                        cursor.row, cursor.column,
+                        2, true,
+                    )
+                }
+            }
+        } else {
+            terminalView.clearRustGrid()
+        }
+        terminalView.onScreenUpdated()
     }
 }

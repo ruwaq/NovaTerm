@@ -89,7 +89,7 @@ impl RustSession {
             .spawn(move || {
                 let mut file = unsafe { std::fs::File::from_raw_fd(reader_raw) };
                 let mut buf = [0u8; 8192];
-                while ar.load(Ordering::Relaxed) {
+                while ar.load(Ordering::Acquire) {
                     match file.read(&mut buf) {
                         Ok(0) => break,
                         Ok(n) => rb.push(&buf[..n]),
@@ -115,7 +115,7 @@ impl RustSession {
             .name(format!("nova-write[{}]", child_pid))
             .spawn(move || {
                 let mut file = unsafe { std::fs::File::from_raw_fd(writer_raw) };
-                while aw.load(Ordering::Relaxed) {
+                while aw.load(Ordering::Acquire) {
                     let data = wb.drain();
                     if data.is_empty() {
                         thread::park_timeout(std::time::Duration::from_millis(1));
@@ -128,7 +128,7 @@ impl RustSession {
             });
         if let Err(e) = writer_thread {
             // Writer spawn failed — stop the reader thread and close writer fd.
-            alive.store(false, Ordering::Relaxed);
+            alive.store(false, Ordering::Release);
             unsafe { libc::close(writer_raw); }
             return Err(novaterm_pty::Error::Io(e));
         }
@@ -200,7 +200,7 @@ impl RustSession {
     }
 
     pub fn stop(&self) {
-        self.alive.store(false, Ordering::Relaxed);
+        self.alive.store(false, Ordering::Release);
         unsafe { libc::kill(self.child_pid, libc::SIGKILL); }
     }
 

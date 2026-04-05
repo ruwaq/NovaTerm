@@ -117,9 +117,7 @@ class TerminalService : Service() {
         screenUpdateCallbacks.remove(sessionHandle)
     }
 
-    // Legacy single callback — kept for backward compatibility during migration
-    @Deprecated("Use registerScreenCallback per session instead")
-    var onScreenUpdated: (() -> Unit)? = null
+    // Legacy callback removed — use registerScreenCallback per session instead
 
     // ── MCP server ──────────────────────────────────────────
 
@@ -525,7 +523,6 @@ class TerminalService : Service() {
         isServiceDestroyed = true
         serviceScope.cancel()
         screenUpdateCallbacks.clear()
-        onScreenUpdated = null
         mcpServer?.stop()
         mcpServer = null
         llmEngine?.release()
@@ -668,7 +665,7 @@ class TerminalService : Service() {
         // Capture the removed session reference inside the update lambda.
         var removedSession: TerminalSession? = null
         _sessions.update { list ->
-            if (index !in list.indices) return
+            if (index !in list.indices) return@update list
             removedSession = list[index]
             list.filterIndexed { i, _ -> i != index }
         }
@@ -707,38 +704,6 @@ class TerminalService : Service() {
         packageManager.setComponentEnabledSetting(
             component, newState, PackageManager.DONT_KILL_APP,
         )
-    }
-
-    // ── Phase 2 validation ────────────────────────────────────
-
-    private val validationCount = java.util.concurrent.atomic.AtomicLong(0L)
-
-    /**
-     * Compare Java emulator cursor with Rust engine cursor.
-     * Logs mismatches to help validate Rust parser correctness.
-     * Only runs when useRustBackend is enabled.
-     */
-    private fun validateRustEngine(session: TerminalSession) {
-        val engine = rustEngines[session.mHandle] ?: return
-        val emulator = session.emulator ?: return
-
-        // Throttle: only validate every 1000th update to avoid log spam
-        val count = validationCount.incrementAndGet()
-        if (count % 1000 != 0L) return
-
-        val javaCursorRow = emulator.cursorRow
-        val javaCursorCol = emulator.cursorCol
-        val rustCursor = engine.getCursor()
-
-        if (javaCursorRow != rustCursor.row || javaCursorCol != rustCursor.column) {
-            Log.w(TAG, "Rust/Java cursor mismatch: " +
-                "Java=($javaCursorRow,$javaCursorCol) " +
-                "Rust=(${rustCursor.row},${rustCursor.column}) " +
-                "[update #$count]")
-        } else {
-            Log.d(TAG, "Rust/Java cursor match OK at ($javaCursorRow,$javaCursorCol) " +
-                "[update #$count]")
-        }
     }
 
     // ── Session persistence ──────────────────────────────────
