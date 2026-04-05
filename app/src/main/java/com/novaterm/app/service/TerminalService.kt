@@ -123,7 +123,7 @@ class TerminalService : Service() {
 
     // ── MCP server ──────────────────────────────────────────
 
-    private var mcpServer: McpServer? = null
+    @Volatile private var mcpServer: McpServer? = null
 
     /** Current MCP auth token (null when server is not running). */
     val mcpAuthToken: String? get() = mcpServer?.authToken
@@ -154,7 +154,7 @@ class TerminalService : Service() {
     // ── Rust engine instances (Phase 2) ────────────────────
 
     private val rustEngines = java.util.concurrent.ConcurrentHashMap<String, TerminalEngine>()
-    private var rustEngineFactory: RustEngine.Factory? = null
+    @Volatile private var rustEngineFactory: RustEngine.Factory? = null
 
     /** Get the Rust engine for a session handle, if one exists. */
     fun getRustEngine(sessionHandle: String): TerminalEngine? = rustEngines[sessionHandle]
@@ -182,13 +182,13 @@ class TerminalService : Service() {
 
         override fun onTextChanged(changedSession: TerminalSession) {
             // Per-session callback: only invalidates the TerminalView for this session.
-            // If no callback registered yet (session just created, view not composed),
-            // silently skip — registerScreenCallback() will force a redraw when ready.
-            val callback = screenUpdateCallbacks[changedSession.mHandle] ?: return
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                callback()
-            } else {
-                mainHandler.post(callback)
+            // Use ?.let to avoid race where callback is removed between get and invoke.
+            screenUpdateCallbacks[changedSession.mHandle]?.let { callback ->
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    callback()
+                } else {
+                    mainHandler.post(callback)
+                }
             }
         }
 
@@ -450,7 +450,7 @@ class TerminalService : Service() {
         when (intent?.action) {
             ACTION_EXIT -> {
                 val snapshot = _sessions.value.toList()
-                _sessions.value = emptyList()
+                _sessions.update { emptyList() }
                 snapshot.forEach { session ->
                     zoneTrackers.remove(session.mHandle)
                     rustEngines.remove(session.mHandle)?.destroy()
@@ -708,7 +708,7 @@ class TerminalService : Service() {
 
     // ── Phase 2 validation ────────────────────────────────────
 
-    private var validationCount = 0L
+    private val validationCount = java.util.concurrent.atomic.AtomicLong(0L)
 
     /**
      * Compare Java emulator cursor with Rust engine cursor.
@@ -720,7 +720,8 @@ class TerminalService : Service() {
         val emulator = session.emulator ?: return
 
         // Throttle: only validate every 1000th update to avoid log spam
-        if (++validationCount % 1000 != 0L) return
+        val count = validationCount.incrementAndGet()
+        if (count % 1000 != 0L) return
 
         val javaCursorRow = emulator.cursorRow
         val javaCursorCol = emulator.cursorCol
@@ -730,10 +731,10 @@ class TerminalService : Service() {
             Log.w(TAG, "Rust/Java cursor mismatch: " +
                 "Java=($javaCursorRow,$javaCursorCol) " +
                 "Rust=(${rustCursor.row},${rustCursor.column}) " +
-                "[update #$validationCount]")
-        } else if (validationCount % 1000 == 0L) {
+                "[update #$count]")
+        } else {
             Log.d(TAG, "Rust/Java cursor match OK at ($javaCursorRow,$javaCursorCol) " +
-                "[update #$validationCount]")
+                "[update #$count]")
         }
     }
 
@@ -947,7 +948,7 @@ class TerminalService : Service() {
             .build()
     }
 
-    private var notificationUpdateScheduled = false
+    @Volatile private var notificationUpdateScheduled = false
 
     private fun updateNotification() {
         // Debounce: batch rapid updates (session create/close) into a single notification rebuild

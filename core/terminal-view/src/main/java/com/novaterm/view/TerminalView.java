@@ -422,9 +422,11 @@ public final class TerminalView extends View {
 
             @Override
             public boolean finishComposingText() {
-                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED) mClient.logInfo(LOG_TAG, "IME: finishComposingText()");
+                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED && mClient != null)
+                    mClient.logInfo(LOG_TAG, "IME: finishComposingText()");
                 super.finishComposingText();
 
+                if (mClient == null) return true;
                 sendTextToTerminal(getEditable());
                 getEditable().clear();
                 return true;
@@ -432,12 +434,12 @@ public final class TerminalView extends View {
 
             @Override
             public boolean commitText(CharSequence text, int newCursorPosition) {
-                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED) {
+                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED && mClient != null) {
                     mClient.logInfo(LOG_TAG, "IME: commitText(\"" + text + "\", " + newCursorPosition + ")");
                 }
                 super.commitText(text, newCursorPosition);
 
-                if (mEmulator == null) return true;
+                if (mEmulator == null || mClient == null) return true;
 
                 Editable content = getEditable();
                 sendTextToTerminal(content);
@@ -447,9 +449,10 @@ public final class TerminalView extends View {
 
             @Override
             public boolean deleteSurroundingText(int leftLength, int rightLength) {
-                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED) {
+                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED && mClient != null) {
                     mClient.logInfo(LOG_TAG, "IME: deleteSurroundingText(" + leftLength + ", " + rightLength + ")");
                 }
+                if (mClient == null) return super.deleteSurroundingText(leftLength, rightLength);
                 // The stock Samsung keyboard with 'Auto check spelling' enabled sends leftLength > 1.
                 KeyEvent deleteKey = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL);
                 for (int i = 0; i < leftLength; i++) sendKeyEvent(deleteKey);
@@ -457,6 +460,7 @@ public final class TerminalView extends View {
             }
 
             void sendTextToTerminal(CharSequence text) {
+                if (mClient == null) return;
                 stopTextSelectionMode();
                 final int textLengthInChars = text.length();
                 for (int i = 0; i < textLengthInChars; i++) {

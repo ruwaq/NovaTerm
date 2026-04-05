@@ -4,17 +4,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,7 +28,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.Alignment
@@ -60,7 +56,7 @@ import com.novaterm.feature.terminal.ui.screen.TerminalScreen
 import com.novaterm.view.TerminalView
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovaTermApp(
     viewModel: TerminalViewModel,
@@ -152,24 +148,6 @@ fun NovaTermApp(
     val scope = rememberCoroutineScope()
     val safeIndex = selectedTab.coerceIn(0, (sessions.size - 1).coerceAtLeast(0))
 
-    // ── Pager ────────────────────────────────────────────────
-    val pagerState = rememberPagerState(
-        initialPage = safeIndex,
-        pageCount = { sessions.size.coerceAtLeast(1) },
-    )
-
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.settledPage }.collect { page ->
-            if (page != selectedTab && page in sessions.indices) viewModel.selectSession(page)
-        }
-    }
-
-    LaunchedEffect(safeIndex) {
-        if (pagerState.currentPage != safeIndex && sessions.isNotEmpty()) {
-            pagerState.animateScrollToPage(safeIndex)
-        }
-    }
-
     // ── Dialogs ──────────────────────────────────────────────
     val sessionToClose by viewModel.sessionToClose.collectAsState()
     sessionToClose?.let { index ->
@@ -201,67 +179,59 @@ fun NovaTermApp(
     // ── PiP mode — terminal only, no chrome ────────────────
     if (isInPipMode) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (sessions.isNotEmpty()) {
-                HorizontalPager(
-                    state = pagerState,
-                    userScrollEnabled = false,
-                                        modifier = Modifier.fillMaxSize(),
-                ) { page ->
-                    if (page in sessions.indices) {
-                        val session = sessions[page]
-                        TerminalScreen(
-                            session = session,
-                            fontSize = preferences.fontSize,
-                            fontFamily = preferences.fontFamily,
-                            colorScheme = preferences.colorScheme,
-                            keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
-                            ctrlActive = false,
-                            altActive = false,
-                            backIsEscape = false,
-                            onModifiersConsumed = {},
-                            onTabAcceptSuggestion = { null },
-                            onBlockComplete = { command, exitCode ->
-                                val sessionId = "session_$page"
-                                val cwd = sessions.getOrNull(page)?.cwd
-                                service?.blockStore?.insertBlock(
-                                    sessionId = sessionId,
-                                    command = command,
-                                    exitCode = exitCode,
-                                    cwd = cwd,
-                                )
-                            },
-                            onPromptNavigatorReady = {},
-                            onViewReady = { terminalView ->
-                                val handle = session.mHandle
-                                service?.registerScreenCallback(handle) {
-                                    if (service?.useRustBackend?.get() == true) {
-                                        val engine = service?.getRustEngine(handle)
-                                        if (engine != null) {
-                                            val grid = engine.getGrid()
-                                            val cursor = engine.getCursor()
-                                            if (grid != null) {
-                                                val dims = engine.getDimensions()
-                                                terminalView.setRustGrid(
-                                                    grid, dims.rows, dims.columns,
-                                                    cursor.row, cursor.column,
-                                                    2, true,
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        terminalView.clearRustGrid()
-                                    }
-                                    terminalView.onScreenUpdated()
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
+            if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
+                val pipSession = sessions[safeIndex]
+                TerminalScreen(
+                    session = pipSession,
+                    fontSize = preferences.fontSize,
+                    fontFamily = preferences.fontFamily,
+                    colorScheme = preferences.colorScheme,
+                    keepScreenOn = preferences.keepScreenOn,
+                    ctrlActive = false,
+                    altActive = false,
+                    backIsEscape = false,
+                    onModifiersConsumed = {},
+                    onTabAcceptSuggestion = { null },
+                    onBlockComplete = { command, exitCode ->
+                        val sessionId = "session_$safeIndex"
+                        val cwd = pipSession.cwd
+                        service?.blockStore?.insertBlock(
+                            sessionId = sessionId,
+                            command = command,
+                            exitCode = exitCode,
+                            cwd = cwd,
                         )
-
-                        androidx.compose.runtime.DisposableEffect(session.mHandle) {
-                            onDispose {
-                                service?.unregisterScreenCallback(session.mHandle)
+                    },
+                    onPromptNavigatorReady = {},
+                    onViewReady = { terminalView ->
+                        val handle = pipSession.mHandle
+                        service?.registerScreenCallback(handle) {
+                            if (service?.useRustBackend?.get() == true) {
+                                val engine = service?.getRustEngine(handle)
+                                if (engine != null) {
+                                    val grid = engine.getGrid()
+                                    val cursor = engine.getCursor()
+                                    if (grid != null) {
+                                        val dims = engine.getDimensions()
+                                        terminalView.setRustGrid(
+                                            grid, dims.rows, dims.columns,
+                                            cursor.row, cursor.column,
+                                            2, true,
+                                        )
+                                    }
+                                }
+                            } else {
+                                terminalView.clearRustGrid()
                             }
+                            terminalView.onScreenUpdated()
                         }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                DisposableEffect(pipSession.mHandle) {
+                    onDispose {
+                        service?.unregisterScreenCallback(pipSession.mHandle)
                     }
                 }
             }
@@ -290,16 +260,16 @@ fun NovaTermApp(
                 Column(modifier = Modifier.imePadding()) {
                     if (sessions.isNotEmpty()) {
                         StatusLine(
-                            cwd = sessions.getOrNull(pagerState.currentPage)?.cwd ?: "",
+                            cwd = sessions.getOrNull(safeIndex)?.cwd ?: "",
                             onPromptUp = jumpToPrompt?.let { jump -> { jump(-1) } },
                             onPromptDown = jumpToPrompt?.let { jump -> { jump(1) } },
                         )
 
                         SessionTabBar(
                             sessions = sessions,
-                            selectedPage = pagerState.currentPage,
+                            selectedPage = safeIndex,
                             sessionNames = sessionNames,
-                            onSelectTab = { scope.launch { pagerState.animateScrollToPage(it) } },
+                            onSelectTab = { viewModel.selectSession(it) },
                             onLongClickTab = { index ->
                                 renameText = sessions.getOrNull(index)?.title?.takeIf { it.isNotBlank() } ?: ""
                                 renamingTabIndex = index
@@ -383,151 +353,136 @@ fun NovaTermApp(
                 // bottomBar above the keyboard. Adding imePadding would double the
                 // space, pushing terminal content to the middle of the screen.
             ) {
-                if (sessions.isNotEmpty()) {
-                    HorizontalPager(
-                        state = pagerState,
-                        userScrollEnabled = false,
-                                                modifier = Modifier.fillMaxSize(),
-                    ) { page ->
-                        if (page in sessions.indices) {
-                            val session = sessions[page]
-                            val currentPaneLayout = if (page == safeIndex) paneLayout else null
+                if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
+                    val currentSession = sessions[safeIndex]
 
-                            if (currentPaneLayout != null) {
-                                // Split pane mode — render pane tree
-                                PaneTreeView(
-                                    node = currentPaneLayout,
-                                    sessions = sessions,
-                                    focusedSessionIndex = focusedPaneSession,
-                                    fontSize = preferences.fontSize,
-                                    fontFamily = preferences.fontFamily,
-                                    colorScheme = preferences.colorScheme,
-                                    keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
-                                    ctrlActive = ctrlActive,
-                                    altActive = altActive,
-                                    backIsEscape = preferences.backIsEscape,
-                                    onModifiersConsumed = viewModel::resetModifiers,
-                                    onFocusPane = viewModel::focusPane,
-                                    onBlockComplete = { sessionIndex, command, exitCode ->
-                                        val sessionId = "session_$sessionIndex"
-                                        val cwd = sessions.getOrNull(sessionIndex)?.cwd
-                                        service?.blockStore?.insertBlock(
-                                            sessionId = sessionId,
-                                            command = command,
-                                            exitCode = exitCode,
-                                            cwd = cwd,
-                                        )
-                                        service?.predictionEngine?.onCommandExecuted(
-                                            sessionId = sessionId,
-                                            command = command,
-                                            cwd = cwd,
-                                        )
-                                        viewModel.refreshSuggestion()
-                                    },
-                                    onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
-                                    onViewReady = { sessionIndex, terminalView ->
-                                        if (page == pagerState.settledPage && sessionIndex == focusedPaneSession) {
-                                            activeTerminalView = terminalView
-                                        }
-                                        val s = sessions.getOrNull(sessionIndex) ?: return@PaneTreeView
-                                        val handle = s.mHandle
-                                        service?.registerScreenCallback(handle) {
-                                            if (service?.useRustBackend?.get() == true) {
-                                                val engine = service?.getRustEngine(handle)
-                                                if (engine != null) {
-                                                    val grid = engine.getGrid()
-                                                    val cursor = engine.getCursor()
-                                                    if (grid != null) {
-                                                        val dims = engine.getDimensions()
-                                                        terminalView.setRustGrid(
-                                                            grid, dims.rows, dims.columns,
-                                                            cursor.row, cursor.column,
-                                                            2, true,
-                                                        )
-                                                    }
-                                                }
-                                            } else {
-                                                terminalView.clearRustGrid()
-                                            }
-                                            terminalView.onScreenUpdated()
-                                        }
-                                    },
-                                    onPromptNavigatorReady = { nav ->
-                                        if (page == pagerState.settledPage) jumpToPrompt = nav
-                                    },
-                                    modifier = Modifier.fillMaxSize(),
+                    if (paneLayout != null) {
+                        // Split pane mode — render pane tree
+                        PaneTreeView(
+                            node = paneLayout!!,
+                            sessions = sessions,
+                            focusedSessionIndex = focusedPaneSession,
+                            fontSize = preferences.fontSize,
+                            fontFamily = preferences.fontFamily,
+                            colorScheme = preferences.colorScheme,
+                            keepScreenOn = preferences.keepScreenOn,
+                            ctrlActive = ctrlActive,
+                            altActive = altActive,
+                            backIsEscape = preferences.backIsEscape,
+                            onModifiersConsumed = viewModel::resetModifiers,
+                            onFocusPane = viewModel::focusPane,
+                            onBlockComplete = { sessionIndex, command, exitCode ->
+                                val sessionId = "session_$sessionIndex"
+                                val cwd = sessions.getOrNull(sessionIndex)?.cwd
+                                service?.blockStore?.insertBlock(
+                                    sessionId = sessionId,
+                                    command = command,
+                                    exitCode = exitCode,
+                                    cwd = cwd,
                                 )
-                            } else {
-                                // Single pane mode — original behavior
-                                TerminalScreen(
-                                    session = session,
-                                    fontSize = preferences.fontSize,
-                                    fontFamily = preferences.fontFamily,
-                                    colorScheme = preferences.colorScheme,
-                                    keepScreenOn = preferences.keepScreenOn && page == pagerState.settledPage,
-                                    ctrlActive = ctrlActive,
-                                    altActive = altActive,
-                                    backIsEscape = preferences.backIsEscape,
-                                    onModifiersConsumed = viewModel::resetModifiers,
-                                    onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
-                                    onBlockComplete = { command, exitCode ->
-                                        val sessionId = "session_$page"
-                                        val cwd = sessions.getOrNull(page)?.cwd
-                                        service?.blockStore?.insertBlock(
-                                            sessionId = sessionId,
-                                            command = command,
-                                            exitCode = exitCode,
-                                            cwd = cwd,
-                                        )
-                                        service?.predictionEngine?.onCommandExecuted(
-                                            sessionId = sessionId,
-                                            command = command,
-                                            cwd = cwd,
-                                        )
-                                        viewModel.refreshSuggestion()
-                                    },
-                                    onPromptNavigatorReady = { nav ->
-                                        if (page == pagerState.settledPage) jumpToPrompt = nav
-                                    },
-                                    onViewReady = { terminalView ->
-                                        // Track active tab's TerminalView for output search
-                                        if (page == pagerState.settledPage) activeTerminalView = terminalView
-                                        // Register per-session callback so ALL tabs get updates
-                                        val handle = session.mHandle
-                                        service?.registerScreenCallback(handle) {
-                                            if (service?.useRustBackend?.get() == true) {
-                                                val engine = service?.getRustEngine(handle)
-                                                if (engine != null) {
-                                                    val grid = engine.getGrid()
-                                                    val cursor = engine.getCursor()
-                                                    if (grid != null) {
-                                                        val dims = engine.getDimensions()
-                                                        terminalView.setRustGrid(
-                                                            grid, dims.rows, dims.columns,
-                                                            cursor.row, cursor.column,
-                                                            2, true,
-                                                        )
-                                                    }
-                                                }
-                                            } else {
-                                                terminalView.clearRustGrid()
-                                            }
-                                            terminalView.onScreenUpdated()
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxSize(),
+                                service?.predictionEngine?.onCommandExecuted(
+                                    sessionId = sessionId,
+                                    command = command,
+                                    cwd = cwd,
                                 )
-                            }
-
-                            // Unregister callback when this page leaves composition
-                            androidx.compose.runtime.DisposableEffect(session.mHandle) {
-                                onDispose {
-                                    service?.unregisterScreenCallback(session.mHandle)
+                                viewModel.refreshSuggestion()
+                            },
+                            onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
+                            onViewReady = { sessionIndex, terminalView ->
+                                if (sessionIndex == focusedPaneSession) {
+                                    activeTerminalView = terminalView
                                 }
-                            }
+                                val s = sessions.getOrNull(sessionIndex) ?: return@PaneTreeView
+                                val handle = s.mHandle
+                                service?.registerScreenCallback(handle) {
+                                    if (service?.useRustBackend?.get() == true) {
+                                        val engine = service?.getRustEngine(handle)
+                                        if (engine != null) {
+                                            val grid = engine.getGrid()
+                                            val cursor = engine.getCursor()
+                                            if (grid != null) {
+                                                val dims = engine.getDimensions()
+                                                terminalView.setRustGrid(
+                                                    grid, dims.rows, dims.columns,
+                                                    cursor.row, cursor.column,
+                                                    2, true,
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        terminalView.clearRustGrid()
+                                    }
+                                    terminalView.onScreenUpdated()
+                                }
+                            },
+                            onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        // Single TerminalScreen — one View, one InputConnection, swap sessions via attachSession()
+                        TerminalScreen(
+                            session = currentSession,
+                            fontSize = preferences.fontSize,
+                            fontFamily = preferences.fontFamily,
+                            colorScheme = preferences.colorScheme,
+                            keepScreenOn = preferences.keepScreenOn,
+                            ctrlActive = ctrlActive,
+                            altActive = altActive,
+                            backIsEscape = preferences.backIsEscape,
+                            onModifiersConsumed = viewModel::resetModifiers,
+                            onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
+                            onBlockComplete = { command, exitCode ->
+                                val sessionId = "session_$safeIndex"
+                                val cwd = currentSession.cwd
+                                service?.blockStore?.insertBlock(
+                                    sessionId = sessionId,
+                                    command = command,
+                                    exitCode = exitCode,
+                                    cwd = cwd,
+                                )
+                                service?.predictionEngine?.onCommandExecuted(
+                                    sessionId = sessionId,
+                                    command = command,
+                                    cwd = cwd,
+                                )
+                                viewModel.refreshSuggestion()
+                            },
+                            onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
+                            onViewReady = { terminalView ->
+                                activeTerminalView = terminalView
+                                val handle = currentSession.mHandle
+                                service?.registerScreenCallback(handle) {
+                                    if (service?.useRustBackend?.get() == true) {
+                                        val engine = service?.getRustEngine(handle)
+                                        if (engine != null) {
+                                            val grid = engine.getGrid()
+                                            val cursor = engine.getCursor()
+                                            if (grid != null) {
+                                                val dims = engine.getDimensions()
+                                                terminalView.setRustGrid(
+                                                    grid, dims.rows, dims.columns,
+                                                    cursor.row, cursor.column,
+                                                    2, true,
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        terminalView.clearRustGrid()
+                                    }
+                                    terminalView.onScreenUpdated()
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // Cleanup old callbacks when session changes
+                    DisposableEffect(currentSession.mHandle) {
+                        onDispose {
+                            service?.unregisterScreenCallback(currentSession.mHandle)
                         }
                     }
-                } else {
+                } else if (sessions.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -546,7 +501,7 @@ fun NovaTermApp(
 
     // ── History search ───────────────────────────────────────
     if (showHistory) {
-        val sessionId = remember(pagerState.currentPage) { "session_${pagerState.currentPage}" }
+        val sessionId = remember(safeIndex) { "session_$safeIndex" }
         val blocks = remember(service, sessionId) {
             service?.blockStore?.getRecentBlocks(sessionId)
                 ?.map { block ->
@@ -557,7 +512,7 @@ fun NovaTermApp(
                     )
                 } ?: emptyList()
         }
-        val currentSession = sessions.getOrNull(pagerState.currentPage)
+        val currentSession = sessions.getOrNull(safeIndex)
         HistorySearchSheet(
             entries = blocks,
             onSelect = { currentSession?.write(it) },
