@@ -171,6 +171,8 @@ public final class TerminalView extends View {
 
     /** Throttle accessibility announcements to avoid spamming TalkBack. */
     private long mLastAccessibilityAnnounceMs = 0;
+    /** Tracks when synchronized output (BSU) started, for 2s safety timeout. */
+    private long mSyncOutputStartMs = 0;
     private static final long ACCESSIBILITY_ANNOUNCE_INTERVAL_MS = 1000;
 
     /** The {@link KeyEvent} is generated from a virtual keyboard, like manually with the {@link KeyEvent#KeyEvent(int, int)} constructor. */
@@ -531,7 +533,7 @@ public final class TerminalView extends View {
     }
 
     public void onScreenUpdated(boolean skipScrolling) {
-        if (mEmulator == null) return;
+        if (mEmulator == null || !isAttachedToWindow()) return;
 
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
         if (mTopRow < -rowsInHistory) mTopRow = -rowsInHistory;
@@ -577,9 +579,19 @@ public final class TerminalView extends View {
 
         // DEC private mode 2026: Synchronized Output.
         // While BSU is active, defer invalidation to avoid flickering during rapid output.
-        // When ESU arrives (synchronized output becomes false), the next onScreenUpdated()
-        // call will flush everything in a single invalidate().
-        if (mEmulator.isSynchronizedOutput()) return;
+        // Safety: auto-reset after 2 seconds to prevent stuck screens if ESU is lost.
+        if (mEmulator.isSynchronizedOutput()) {
+            if (mSyncOutputStartMs == 0) {
+                mSyncOutputStartMs = SystemClock.elapsedRealtime();
+            } else if (SystemClock.elapsedRealtime() - mSyncOutputStartMs > 2000) {
+                mEmulator.setSynchronizedOutput(false);
+                mSyncOutputStartMs = 0;
+            } else {
+                return;
+            }
+        } else {
+            mSyncOutputStartMs = 0;
+        }
 
         invalidate();
         if (mAccessibilityEnabled) {
