@@ -47,8 +47,8 @@ class LlmConfigTest {
 
     @Test
     fun `constants reflect Gemma 4 E2B`() {
-        assertEquals(1500, LlmConfig.MODEL_SIZE_MB)
-        assertEquals(1800, LlmConfig.MODEL_RAM_MB)
+        assertEquals(2583, LlmConfig.MODEL_SIZE_MB)
+        assertEquals(1733, LlmConfig.MODEL_RAM_MB)
         assertTrue(LlmConfig.MODEL_URL.contains("huggingface"))
         assertTrue(LlmConfig.MODEL_URL.contains("gemma-4"))
         assertTrue(LlmConfig.DEFAULT_MODEL_NAME.contains("gemma-4"))

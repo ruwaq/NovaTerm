@@ -33,11 +33,11 @@ data class LlmConfig(
         /** Default model filename (user downloads this). */
         const val DEFAULT_MODEL_NAME = "gemma-4-E2B-it-Q4_K_M.gguf"
 
-        /** Approximate model size for download UI (Q4_K_M quantization). */
-        const val MODEL_SIZE_MB = 1500
+        /** Approximate model size for download UI (mixed 2/4/8-bit quantization). */
+        const val MODEL_SIZE_MB = 2583
 
-        /** Approximate RAM usage when loaded. */
-        const val MODEL_RAM_MB = 1800
+        /** Approximate RAM usage when loaded (CPU backend). */
+        const val MODEL_RAM_MB = 1733
 
         /** Model download URL — GGUF Q4_K_M from Unsloth. */
         const val MODEL_URL = "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
