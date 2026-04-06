@@ -49,9 +49,19 @@ class ModelManagerTest {
     }
 
     @Test
-    fun `models are sorted by size ascending`() {
-        val sizes = ModelCatalog.ALL.map { it.sizeMb }
-        assertEquals(sizes, sizes.sorted())
+    fun `GGUF models are sorted by size ascending`() {
+        val ggufSizes = ModelCatalog.ALL
+            .filter { it.format == ModelCatalog.ModelFormat.GGUF }
+            .map { it.sizeMb }
+        assertEquals(ggufSizes, ggufSizes.sorted())
+    }
+
+    @Test
+    fun `LiteRT-LM models are sorted by size ascending`() {
+        val litertSizes = ModelCatalog.ALL
+            .filter { it.format == ModelCatalog.ModelFormat.LITERT_LM }
+            .map { it.sizeMb }
+        assertEquals(litertSizes, litertSizes.sorted())
     }
 
     @Test

@@ -60,6 +60,15 @@ class GemmaEngine(
             try {
                 val modelFile = File(config.modelPath)
                 val b: InferenceBackend = when {
+                    // LiteRT-LM → hardware-accelerated (NPU/GPU/CPU)
+                    config.modelPath.endsWith(".litertlm", ignoreCase = true) && context != null ->
+                        LiteRtLmBackend(
+                            context = context,
+                            modelFile = modelFile,
+                            maxTokens = config.maxTokens,
+                            temperature = config.temperature,
+                            accelerator = LiteRtLmBackend.Accelerator.AUTO,
+                        )
                     // GGUF → MediaPipe (llama.cpp). Requires context from app module.
                     config.modelPath.endsWith(".gguf", ignoreCase = true) && context != null ->
                         MediaPipeLlmBackend(

@@ -136,6 +136,7 @@ dependencies {
 
     // On-device LLM inference (GGUF models via llama.cpp, optional feature)
     implementation(libs.mediapipe.tasks.genai)
+    implementation(libs.litertlm.android)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

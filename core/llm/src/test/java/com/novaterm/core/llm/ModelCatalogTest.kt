@@ -27,12 +27,27 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `all models have GGUF extension`() {
+    fun `all models have valid extension`() {
+        val validExtensions = listOf(".gguf", ".litertlm", ".tflite")
         ModelCatalog.ALL.forEach { model ->
             assertTrue(
-                "${model.id} filename should end with .gguf",
-                model.filename.endsWith(".gguf"),
+                "${model.id} filename should have a valid model extension",
+                validExtensions.any { model.filename.endsWith(it) },
             )
+        }
+    }
+
+    @Test
+    fun `model format matches file extension`() {
+        ModelCatalog.ALL.forEach { model ->
+            when (model.format) {
+                ModelCatalog.ModelFormat.GGUF ->
+                    assertTrue("${model.id} GGUF format should have .gguf extension",
+                        model.filename.endsWith(".gguf"))
+                ModelCatalog.ModelFormat.LITERT_LM ->
+                    assertTrue("${model.id} LiteRT-LM format should have .litertlm extension",
+                        model.filename.endsWith(".litertlm"))
+            }
         }
     }
 

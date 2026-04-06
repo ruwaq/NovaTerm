@@ -34,6 +34,8 @@ object ModelCatalog {
         val isDefault: Boolean = false,
         /** Model family for prompt format selection. */
         val family: ModelFamily = ModelFamily.GEMMA,
+        /** Model format: GGUF (llama.cpp/MediaPipe) or LiteRT-LM (NPU/GPU). */
+        val format: ModelFormat = ModelFormat.GGUF,
     )
 
     /** Model family determines prompt format and capabilities. */
@@ -46,6 +48,14 @@ object ModelCatalog {
         SMOLLM,
         /** Qwen: ChatML format. */
         QWEN,
+    }
+
+    /** Model file format determines which inference backend to use. */
+    enum class ModelFormat {
+        /** GGUF: llama.cpp via MediaPipe Tasks GenAI (CPU-only). */
+        GGUF,
+        /** LiteRT-LM: Google's on-device LLM runtime (NPU/GPU/CPU). */
+        LITERT_LM,
     }
 
     // ── Gemma 4 (recommended) ───────────────────────────────
@@ -112,6 +122,30 @@ object ModelCatalog {
             sizeMb = 2800,
             ramMb = 3500,
             family = ModelFamily.GEMMA4,
+        ),
+
+        // ── LiteRT-LM models (NPU/GPU accelerated) ──
+        ModelInfo(
+            id = "gemma3-1b-litertlm",
+            displayName = "Gemma 3 1B (NPU)",
+            description = "NPU-accelerated. 85 tok/s on NPU, 44 tok/s on GPU. Best for always-on suggestions.",
+            url = "https://huggingface.co/google/gemma-3-1b-it-litert-lm/resolve/main/gemma-3-1b-it.litertlm",
+            filename = "gemma-3-1b-it.litertlm",
+            sizeMb = 557,
+            ramMb = 800,
+            family = ModelFamily.GEMMA,
+            format = ModelFormat.LITERT_LM,
+        ),
+        ModelInfo(
+            id = "gemma3n-e2b-litertlm",
+            displayName = "Gemma 3n E2B (NPU)",
+            description = "Best quality-to-speed on NPU. MatFormer architecture, 128+ languages.",
+            url = "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it.litertlm",
+            filename = "gemma-3n-E2B-it.litertlm",
+            sizeMb = 2965,
+            ramMb = 2000,
+            family = ModelFamily.GEMMA,
+            format = ModelFormat.LITERT_LM,
         ),
     )
 
