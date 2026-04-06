@@ -15,5 +15,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
     testImplementation("org.json:json:20250107") // org.json for JVM tests
 }

@@ -3,13 +3,13 @@
     native <methods>;
 }
 
-# === Termux terminal core (used via reflection and JNI callbacks) ===
--keep class com.termux.terminal.** { *; }
--keep class com.termux.view.** { *; }
+# === NovaTerm terminal core (used via reflection and JNI callbacks) ===
+-keep class com.novaterm.terminal.** { *; }
+-keep class com.novaterm.view.** { *; }
 
 # === Keep TerminalSession callback interfaces ===
 # TerminalView uses TerminalSession.SessionChangedCallback via interface
--keep interface com.termux.terminal.TerminalSessionClient { *; }
+-keep interface com.novaterm.terminal.TerminalSessionClient { *; }
 
 # === Kotlin coroutines ===
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
@@ -102,6 +102,25 @@
 # java.lang.management not available on Android
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# === MediaPipe / LiteRT protobuf internals (not on Android classpath) ===
+-dontwarn com.google.protobuf.Internal$ProtoNonnullApi
+-dontwarn com.google.protobuf.Internal$ProtoMethodMayReturnNull
+-dontwarn com.google.protobuf.ProtoField
+-dontwarn com.google.protobuf.ProtoPresenceBits
+-dontwarn com.google.protobuf.ProtoPresenceCheckedField
+
+# === MediaPipe framework image classes (optional vision dependency, not used) ===
+-dontwarn com.google.mediapipe.framework.image.BitmapExtractor
+-dontwarn com.google.mediapipe.framework.image.ByteBufferExtractor
+-dontwarn com.google.mediapipe.framework.image.MPImage
+-dontwarn com.google.mediapipe.framework.image.MPImageProperties
+-dontwarn com.google.mediapipe.framework.image.MediaImageExtractor
+
+# === AutoValue annotation processor internals (compile-time only) ===
+-dontwarn javax.lang.model.**
+-dontwarn autovalue.shaded.**
+-dontwarn com.google.auto.value.**
 
 # === Google Tink / ErrorProne annotations (compile-only, not on Android) ===
 -dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue

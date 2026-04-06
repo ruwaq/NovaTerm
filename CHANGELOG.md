@@ -4,7 +4,38 @@ All notable changes to NovaTerm are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1-alpha] - 2026-04-06
+
+### Added
+- LiteRT-LM backend with NPU/GPU/CPU auto-detection for on-device LLM inference
+- Camera OCR → terminal pipe (CameraX + ML Kit Text Recognition v2) wired to ExtraKeysBar
+- Gemma 4 model support: E2B and E4B variants with verified specs
+- GGUF inference via MediaPipe Tasks GenAI (initial integration)
+- 75+ new tests for 6 previously untested extracted classes
+- 30 new tests from deep codebase audit (total test suite: 300+ Kotlin)
+- ProGuard rules for LiteRT-LM and MediaPipe reflection
+
+### Changed
+- Magic numbers extracted to named constants across codebase
+- Debug log calls gated behind `BuildConfig.DEBUG` / `Log.isLoggable` checks
+- 54 hardcoded strings extracted to string resources (i18n groundwork)
+- `BackHandler` added for onboarding flow and OEM battery optimization guide
+- Download progress polling wired to UI (real progress feedback)
+- Service auto-rebind on `onServiceDisconnected` / `onBindingDied`
+
+### Fixed
+- Accessibility: touch targets raised to 48dp minimum, roles and semantics added, `contentDescription` coverage improved
+- `toggleSoftInput` replaced with `WindowInsetsController` (deprecated API)
+- `WIFI_MODE_FULL_LOW_LATENCY` replaced with `WifiManager.WIFI_MODE_FULL_HIGH_PERF` (deprecated API)
+- `AtomicBoolean` guards for TOCTOU races in `ModelManager` and `NotificationHelper`
+- Thread-safe state transitions in LLM backend initialization
+- Null safety hardening across session and config layers
+- Input validation tightened in path-handling and shell-command paths
+
+### Security
+- Path traversal hardening in 15 additional files (thread safety + null safety pass)
+- Credential lifecycle cleanup (API keys cleared from memory after use)
+- ProGuard rules prevent reflection-based access to internal LLM classes
 
 ## [0.3.0-alpha] - 2026-04-05
 
@@ -120,7 +151,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - OEM battery optimization guides (Xiaomi, Samsung, Huawei)
 - About screen
 
-[Unreleased]: https://github.com/nvterm/NovaTerm/compare/v0.3.0-alpha...HEAD
+[Unreleased]: https://github.com/nvterm/NovaTerm/compare/v0.3.1-alpha...HEAD
+[0.3.1-alpha]: https://github.com/nvterm/NovaTerm/compare/v0.3.0-alpha...v0.3.1-alpha
 [0.3.0-alpha]: https://github.com/nvterm/NovaTerm/compare/v0.2.0-alpha...v0.3.0-alpha
 [0.2.0-alpha]: https://github.com/nvterm/NovaTerm/compare/v0.1.0-alpha...v0.2.0-alpha
 [0.1.0-alpha]: https://github.com/nvterm/NovaTerm/releases/tag/v0.1.0-alpha
