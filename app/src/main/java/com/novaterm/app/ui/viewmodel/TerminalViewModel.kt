@@ -468,7 +468,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     _suggestion.value = null
                 }
             } catch (e: Exception) {
-                // Service destroyed or engine uninitialized during execution
+                Log.d("NovaTerm", "Suggestion failed: ${e.message}")
                 _suggestion.value = null
             }
         }

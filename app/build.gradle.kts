@@ -67,11 +67,13 @@ android {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
             } else {
-                // Local dev: env vars with fallback to bundled keystore
+                // Local dev: env vars required (no hardcoded passwords)
                 storeFile = file("../release-keystore.jks")
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "novaterm2026"
-                keyAlias = "novaterm"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "novaterm2026"
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                    ?: keystoreProperties.getProperty("storePassword", "")
+                keyAlias = System.getenv("KEY_ALIAS") ?: "novaterm"
+                keyPassword = System.getenv("KEY_PASSWORD")
+                    ?: keystoreProperties.getProperty("keyPassword", "")
             }
         }
     }

@@ -68,6 +68,21 @@
     public <fields>;
 }
 
+# === LiteRT-LM (NPU/GPU accelerated inference, loaded via reflection) ===
+-keep class com.google.ai.edge.litertlm.** { *; }
+-keepclassmembers class com.google.ai.edge.litertlm.** {
+    public <methods>;
+    public <fields>;
+    <init>(...);
+}
+
+# === MediaPipe Tasks GenAI (GGUF inference, loaded via reflection) ===
+-keep class com.google.mediapipe.tasks.genai.** { *; }
+-keepclassmembers class com.google.mediapipe.tasks.genai.** {
+    public <methods>;
+    public <fields>;
+}
+
 # === Kotlinx Serialization (used by Ktor/MCP JSON) ===
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt

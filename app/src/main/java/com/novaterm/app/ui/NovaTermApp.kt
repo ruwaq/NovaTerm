@@ -350,10 +350,11 @@ fun NovaTermApp(
                 if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
                     val currentSession = sessions[safeIndex]
 
-                    if (paneLayout != null) {
+                    val currentPaneLayout = paneLayout
+                    if (currentPaneLayout != null) {
                         // Split pane mode — render pane tree
                         PaneTreeView(
-                            node = paneLayout!!,
+                            node = currentPaneLayout,
                             sessions = sessions,
                             focusedSessionIndex = focusedPaneSession,
                             fontSize = preferences.fontSize,

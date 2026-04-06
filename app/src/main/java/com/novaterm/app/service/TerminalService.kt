@@ -121,7 +121,7 @@ class TerminalService : Service() {
 
     lateinit var modelManager: ModelManager
         private set
-    var llmEngine: LlmEngine? = null
+    @Volatile var llmEngine: LlmEngine? = null
         private set
     val llmEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -340,6 +340,7 @@ class TerminalService : Service() {
      * Start or restart the MCP server based on current preference state.
      * Safe to call multiple times — stops existing server first.
      */
+    @Synchronized
     fun startMcpServerIfEnabled() {
         mcpServer?.stop()
         mcpServer = null
