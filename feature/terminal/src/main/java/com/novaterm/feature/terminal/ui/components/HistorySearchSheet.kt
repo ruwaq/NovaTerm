@@ -297,7 +297,7 @@ private fun OutputSearchTab(
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         isError = regexError,
         supportingText = if (regexError) {
-            { Text("Invalid regex pattern") }
+            { Text(stringResource(R.string.search_invalid_regex)) }
         } else {
             null
         },

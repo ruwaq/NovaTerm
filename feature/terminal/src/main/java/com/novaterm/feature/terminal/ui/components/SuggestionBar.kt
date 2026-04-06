@@ -22,8 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import com.novaterm.feature.terminal.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +57,7 @@ fun SuggestionBar(
     ) {
         val text = suggestion ?: return@AnimatedVisibility
 
+        val suggestionDesc = stringResource(R.string.cd_suggestion, text)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -78,7 +81,7 @@ fun SuggestionBar(
                     .clickable { onAccept(text) }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
                     .semantics {
-                        contentDescription = "Suggestion: $text. Tap or press Tab to accept."
+                        contentDescription = suggestionDesc
                     },
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontSize = 12.sp,

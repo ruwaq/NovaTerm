@@ -324,7 +324,7 @@ class BlockStore(context: Context) {
 
     private fun sha256(data: ByteArray): String {
         // ThreadLocal avoids the cost of getInstance() on every call (reflection + init).
-        val digest = SHA256_DIGEST.get()!!
+        val digest = requireNotNull(SHA256_DIGEST.get()) { "SHA-256 digest unavailable" }
         digest.reset()
         val bytes = digest.digest(data)
         // Manual hex is ~3x faster than joinToString + String.format
