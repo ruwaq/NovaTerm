@@ -250,24 +250,19 @@ public final class TerminalView extends View {
             @Override
             public boolean onFling(final MotionEvent e2, float velocityX, float velocityY) {
                 if (mEmulator == null) return true;
-                // Do not start scrolling until last fling has been taken care of:
-                if (!mScroller.isFinished()) return true;
+                // Abort previous fling so the user can chain swipes for momentum scrolling.
+                // Without this, a second swipe during an active fling is silently dropped.
+                if (!mScroller.isFinished()) mScroller.abortAnimation();
 
                 final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
-                // 0.35 gives smooth, controllable scrolling on touch screens.
-                // Higher values cause the view to fly to the top/bottom of scrollback.
-                float SCALE = 0.35f;
-                // Clamp velocity to prevent extreme flings that jump thousands of lines
-                float clampedVelocity = Math.max(-6000f, Math.min(6000f, velocityY));
+                float SCALE = 0.5f;
+                float clampedVelocity = Math.max(-10000f, Math.min(10000f, velocityY));
                 if (mouseTrackingAtStartOfFling) {
                     mScroller.fling(0, 0, 0, -(int) (clampedVelocity * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
                 } else {
-                    // Cap fling range: max 3 screenfuls in either direction from current position
-                    int maxFlingRows = mEmulator.mRows * 3;
+                    // Allow fling across entire scrollback — no artificial range cap.
                     int transcriptRows = mEmulator.getScreen().getActiveTranscriptRows();
-                    int minRow = Math.max(-transcriptRows, mTopRow - maxFlingRows);
-                    int maxRow = Math.min(0, mTopRow + maxFlingRows);
-                    mScroller.fling(0, mTopRow, 0, -(int) (clampedVelocity * SCALE), 0, 0, minRow, maxRow);
+                    mScroller.fling(0, mTopRow, 0, -(int) (clampedVelocity * SCALE), 0, 0, -transcriptRows, 0);
                 }
 
                 // Use postOnAnimation to sync with vsync (60/120 Hz) for smooth animation.
@@ -296,9 +291,11 @@ public final class TerminalView extends View {
 
             @Override
             public boolean onDown(float x, float y) {
+                // Stop any in-progress fling so the user can grab the scroll immediately.
+                // Without this, touching the screen during a fling has no effect until
+                // the animation finishes, making scrollback feel unresponsive.
+                if (!mScroller.isFinished()) mScroller.abortAnimation();
                 // Must return true so GestureDetector processes subsequent onScroll/onFling events.
-                // Returning false causes GestureDetector to skip scroll detection on some Android versions.
-                // The ViewDragHelper log warning ("Ignoring pointerId=0...") is harmless and cosmetic.
                 return true;
             }
 
@@ -318,9 +315,10 @@ public final class TerminalView extends View {
                 }
             }
         });
-        // Higher friction (3x default) for smoother, more controllable scrollback on touch
+        // Slightly higher friction than system default for controllable scrollback on touch.
+        // 1.5x balances smooth momentum with precise control (3x felt sluggish).
         mScroller = new OverScroller(context);
-        mScroller.setFriction(android.view.ViewConfiguration.getScrollFriction() * 3f);
+        mScroller.setFriction(android.view.ViewConfiguration.getScrollFriction() * 1.5f);
         mEdgeGlowTop = new EdgeEffect(context);
         mEdgeGlowBottom = new EdgeEffect(context);
         // Match Material3 overscroll color (subtle, not jarring)

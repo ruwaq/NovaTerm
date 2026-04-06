@@ -403,10 +403,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onStop() {
-        super.onStop()
-        viewModel.unbindService()
-    }
+    // NOTE: We intentionally do NOT unbind in onStop().
+    // Unbinding in onStop allows the OS (especially aggressive OEMs like Xiaomi)
+    // to kill the foreground service when the user switches apps, erasing all
+    // terminal content. The ViewModel manages unbinding in onCleared() instead,
+    // which only fires when the Activity is truly finishing.
 
     /**
      * Start terminal foreground service with proper error handling.
