@@ -1,36 +1,67 @@
 package com.novaterm.app.ui
 
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
+import com.novaterm.app.crash.CrashReporter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
+    var crashLogCount by remember { mutableStateOf(CrashReporter.getCrashLogCount(context)) }
+    var showCrashDialog by remember { mutableStateOf(false) }
+    var crashLogContent by remember { mutableStateOf<String?>(null) }
+
+    if (showCrashDialog && crashLogContent != null) {
+        CrashLogDialog(
+            content = crashLogContent!!,
+            onShare = { shareCrashLog(context, crashLogContent!!) },
+            onDismiss = { showCrashDialog = false },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -117,9 +148,102 @@ fun AboutScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Crash logs
+            SectionHeader(stringResource(R.string.about_section_crash_logs))
+            if (crashLogCount == 0) {
+                Text(
+                    text = stringResource(R.string.about_crash_logs_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.about_crash_logs_count, crashLogCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            crashLogContent = CrashReporter.getLatestCrashLog(context)
+                            showCrashDialog = true
+                        },
+                    ) {
+                        Text(stringResource(R.string.about_crash_logs_view))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            CrashReporter.clearCrashLogs(context)
+                            crashLogCount = 0
+                        },
+                    ) {
+                        Text(stringResource(R.string.about_crash_logs_clear))
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+private fun CrashLogDialog(
+    content: String,
+    onShare: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.about_crash_dialog_title)) },
+        text = {
+            Surface(
+                modifier = Modifier
+                    .heightIn(max = 320.dp)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .horizontalScroll(rememberScrollState())
+                        .padding(8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            FilledTonalButton(onClick = onShare) {
+                Text(stringResource(R.string.about_crash_dialog_share))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.about_crash_dialog_close))
+            }
+        },
+    )
+}
+
+private fun shareCrashLog(context: Context, content: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "NovaTerm crash report")
+        putExtra(Intent.EXTRA_TEXT, content)
+    }
+    context.startActivity(
+        Intent.createChooser(intent, context.getString(R.string.about_crash_share_chooser))
+    )
 }
 
 @Composable

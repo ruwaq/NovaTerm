@@ -120,6 +120,17 @@
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>
 
+    <!-- Crash logs (AboutScreen) -->
+    <string name="about_section_crash_logs">Crash Logs</string>
+    <string name="about_crash_logs_none">No crash logs on this device.</string>
+    <string name="about_crash_logs_count">%d crash log(s) stored locally</string>
+    <string name="about_crash_logs_view">View</string>
+    <string name="about_crash_logs_clear">Clear</string>
+    <string name="about_crash_dialog_title">Latest Crash</string>
+    <string name="about_crash_dialog_share">Share</string>
+    <string name="about_crash_dialog_close">Close</string>
+    <string name="about_crash_share_chooser">Share crash log via\u2026</string>
+
     <!-- MCP approval dialog -->
     <string name="mcp_approval_title">MCP: %s</string>
     <string name="mcp_approval_body">An AI tool wants to execute a dangerous operation.</string>

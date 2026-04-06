@@ -3,18 +3,13 @@ package com.novaterm.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.novaterm.app.crash.CrashReporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
-import java.io.PrintWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class NovaTermApp : Application() {
 
@@ -22,41 +17,9 @@ class NovaTermApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        installCrashHandler()
+        CrashReporter.install(this)
         createNotificationChannels()
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycle)
-    }
-
-    private fun installCrashHandler() {
-        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e(TAG, "Uncaught exception in ${thread.name}", throwable)
-            try {
-                val crashDir = File(filesDir, "crash-logs")
-                crashDir.mkdirs()
-                // Keep only last 5 crash logs
-                crashDir.listFiles()
-                    ?.sortedByDescending { it.lastModified() }
-                    ?.drop(4)
-                    ?.forEach { it.delete() }
-                val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
-                val crashFile = File(crashDir, "crash_$timestamp.log")
-                PrintWriter(crashFile).use { pw ->
-                    pw.println("NovaTerm crash report")
-                    pw.println("Time: $timestamp")
-                    pw.println("Thread: ${thread.name}")
-                    pw.println("Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-                    pw.println("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
-                    pw.println("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-                    pw.println()
-                    throwable.printStackTrace(pw)
-                }
-                Log.i(TAG, "Crash log saved: ${crashFile.absolutePath}")
-            } catch (e: Throwable) {
-                Log.e(TAG, "Failed to write crash log", e)
-            }
-            defaultHandler?.uncaughtException(thread, throwable)
-        }
     }
 
     private fun createNotificationChannels() {
