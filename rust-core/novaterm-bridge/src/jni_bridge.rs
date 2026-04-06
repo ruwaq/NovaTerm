@@ -303,8 +303,16 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_pars
             None => return ptr::null_mut(),
         };
 
+        // Guard against malicious sixel payloads claiming huge dimensions
+        if width > 8192 || height > 8192 {
+            return ptr::null_mut();
+        }
+
         // Pack into int[]: [width, height, argb0, argb1, ...]
-        let pixel_count = (width as usize) * (height as usize);
+        let pixel_count = match (width as usize).checked_mul(height as usize) {
+            Some(n) if n <= 67_108_864 => n, // 8192^2 max
+            _ => return ptr::null_mut(),
+        };
         let mut flat = Vec::with_capacity(2 + pixel_count);
         flat.push(width as i32);
         flat.push(height as i32);

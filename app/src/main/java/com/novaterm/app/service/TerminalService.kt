@@ -23,6 +23,7 @@ import com.novaterm.core.mcp.McpServer
 import com.novaterm.core.mcp.McpServerConfig
 import com.novaterm.core.mcp.security.ApprovalRequest
 import com.novaterm.core.mcp.security.InteractiveApprovalManager
+import com.novaterm.core.mcp.security.SecurityPolicy
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
@@ -362,8 +363,7 @@ class TerminalService : Service() {
                 defaultCwd = { shellProvider.defaultWorkingDirectory() },
                 prefixPath = { "$rootDir/usr" },
             )
-            val server = McpServer(config, bridge, context = this@TerminalService)
-            server.approvalManager = interactiveApproval
+            val server = McpServer(config, bridge, interactiveApproval, context = this@TerminalService)
             server.start()
             mcpServer = server
             Log.i(TAG, "MCP server started on port ${mcpPort.get()}")
@@ -434,17 +434,24 @@ class TerminalService : Service() {
             ACTION_RUN_COMMAND -> {
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
-                    val cwd = intent.getStringExtra("cwd")
-                    val session = if (!cwd.isNullOrBlank()) {
-                        createSessionInDir(cwd)
+                    // Security: validate command before execution
+                    if (command.length > MAX_COMMAND_LENGTH) {
+                        Log.w(TAG, "RUN_COMMAND: command exceeds max length (${command.length})")
+                    } else if (SecurityPolicy.isBlockedCommand(command)) {
+                        Log.w(TAG, "RUN_COMMAND: blocked by security policy")
                     } else {
-                        createSession()
-                    }
-                    if (session != null) {
-                        session.write(command + "\n")
-                        Log.i(TAG, "RUN_COMMAND: executed '${command.take(80)}' in session ${session.mHandle}")
-                    } else {
-                        Log.e(TAG, "RUN_COMMAND: failed to create session")
+                        val cwd = intent.getStringExtra("cwd")
+                        val session = if (!cwd.isNullOrBlank()) {
+                            createSessionInDir(cwd)
+                        } else {
+                            createSession()
+                        }
+                        if (session != null) {
+                            session.write(command + "\n")
+                            Log.i(TAG, "RUN_COMMAND: executed '${command.take(80)}' in session ${session.mHandle}")
+                        } else {
+                            Log.e(TAG, "RUN_COMMAND: failed to create session")
+                        }
                     }
                 }
             }
@@ -459,11 +466,14 @@ class TerminalService : Service() {
             ACTION_WRITE_INPUT -> {
                 val input = intent.getStringExtra("input")
                 if (!input.isNullOrBlank()) {
+                    // Security: strip newlines to prevent terminal injection
+                    // from ACTION_SEND shared text. User must press Enter manually.
+                    val sanitized = input.replace(Regex("[\r\n]"), " ")
                     val currentSessions = _sessions.value
                     val session = currentSessions.lastOrNull() ?: createSession()
                     if (session != null) {
-                        session.write(input)
-                        Log.i(TAG, "WRITE_INPUT: wrote ${input.length} chars to session ${session.mHandle}")
+                        session.write(sanitized)
+                        Log.i(TAG, "WRITE_INPUT: wrote ${sanitized.length} chars to session ${session.mHandle}")
                     } else {
                         Log.e(TAG, "WRITE_INPUT: no session available")
                     }
@@ -656,6 +666,8 @@ class TerminalService : Service() {
         const val ACTION_LAUNCH_PRESET = "com.nvterm.LAUNCH_PRESET"
         /** Max sessions to prevent OOM. Each session uses ~2-4MB (PTY + scrollback buffer). */
         private const val MAX_SESSIONS = 8
+        /** Max command length accepted via ACTION_RUN_COMMAND intent. */
+        private const val MAX_COMMAND_LENGTH = 4096
 
         /** Map of preset names to commands that should be executed in a new session. */
         private val PRESET_COMMANDS = mapOf(

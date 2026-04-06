@@ -62,11 +62,11 @@ import java.io.File
 class McpServer(
     private val config: McpServerConfig,
     private val bridge: McpSessionBridge,
+    val approvalManager: ApprovalManager,
     private val context: Context? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) {
     val toolRegistry = ToolRegistry()
-    var approvalManager: ApprovalManager = AutoApprovalManager()
 
     private var server: EmbeddedServer<*, *>? = null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
@@ -124,7 +124,7 @@ class McpServer(
                     }
                     if (!validateBearerToken(call)) return@post
                     val body = call.receiveText()
-                    val clientAddress = call.request.local.remoteAddress
+                    val clientAddress = call.request.local.remoteHost
                     val response = handleJsonRpc(body, clientAddress)
                     call.respondText(response, ContentType.Application.Json)
                 }
@@ -187,7 +187,7 @@ class McpServer(
 
         val token = authHeader.removePrefix("Bearer ").trim()
         if (token != authToken) {
-            Log.w(TAG, "MCP auth rejected: invalid bearer token from ${call.request.local.remoteAddress}")
+            Log.w(TAG, "MCP auth rejected: invalid bearer token from ${call.request.local.remoteHost}")
             call.respondText(
                 buildJsonObject {
                     put("error", "Invalid bearer token")

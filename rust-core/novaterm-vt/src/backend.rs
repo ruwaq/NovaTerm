@@ -121,13 +121,9 @@ impl AlacrittyBackend {
     /// Get cursor state without taking a full grid snapshot.
     pub fn cursor_state(&self) -> crate::grid_snapshot::CursorState {
         let point = self.term.grid().cursor.point;
-        debug_assert!(
-            point.column.0 <= i32::MAX as usize,
-            "column index {} exceeds i32::MAX", point.column.0
-        );
         crate::grid_snapshot::CursorState {
             row: point.line.0,
-            col: point.column.0 as i32,
+            col: point.column.0.min(i32::MAX as usize) as i32,
             shape: crate::grid_snapshot::cursor_shape_to_u8(self.term.cursor_style().shape),
             visible: true,
         }

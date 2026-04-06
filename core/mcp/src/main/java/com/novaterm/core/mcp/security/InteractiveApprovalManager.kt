@@ -1,6 +1,7 @@
 package com.novaterm.core.mcp.security
 
 import com.novaterm.core.mcp.tool.McpTool
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +43,7 @@ class InteractiveApprovalManager : ApprovalManager {
     /** Observable pending approval request. UI should show a dialog when non-null. */
     val pendingRequest: StateFlow<ApprovalRequest?> = _pendingRequest.asStateFlow()
 
-    private var nextId = 0L
+    private val nextId = AtomicLong(0)
 
     override suspend fun requestApproval(
         tool: McpTool,
@@ -67,7 +68,7 @@ class InteractiveApprovalManager : ApprovalManager {
     ): ApprovalResult {
         val deferred = CompletableDeferred<Boolean>()
         val request = ApprovalRequest(
-            id = nextId++,
+            id = nextId.getAndIncrement(),
             toolName = tool.name,
             riskLevel = tool.riskLevel,
             arguments = arguments,

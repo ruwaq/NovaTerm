@@ -106,4 +106,70 @@ class SecurityPolicyTest {
     fun `storage path is allowed`() {
         assertFalse(SecurityPolicy.isBlockedPath("/storage/emulated/0/Download/file.txt"))
     }
+
+    // ── Blocked path prefix collision ────────────────────────
+
+    @Test
+    fun `procedure path is NOT blocked (not a prefix of proc)`() {
+        assertFalse(SecurityPolicy.isBlockedPath("/procedure/something"))
+    }
+
+    @Test
+    fun `systemic path is NOT blocked (not a prefix of system)`() {
+        assertFalse(SecurityPolicy.isBlockedPath("/systemic/path"))
+    }
+
+    @Test
+    fun `exact proc path is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedPath("/proc"))
+    }
+
+    @Test
+    fun `sys kernel path is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedPath("/sys/kernel"))
+    }
+
+    // ── Injection via chaining ────────────────────────────────
+
+    @Test
+    fun `injection via semicolon is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("cat file ; rm -rf /"))
+    }
+
+    @Test
+    fun `injection via double ampersand is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("echo ok && dd if=/dev/zero of=/dev/sda"))
+    }
+
+    @Test
+    fun `injection via pipe is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("echo ok | rm -rf /"))
+    }
+
+    @Test
+    fun `injection via newline is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("ls\nrm -rf /"))
+    }
+
+    @Test
+    fun `dd from device is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("dd if=/dev/zero of=/dev/sda"))
+    }
+
+    @Test
+    fun `chmod 777 root is blocked`() {
+        assertTrue(SecurityPolicy.isBlockedCommand("chmod -R 777 /"))
+    }
+
+    // ── Origin edge cases ────────────────────────────────────
+
+    @Test
+    fun `localhost prefix in domain is NOT allowed`() {
+        assertFalse(SecurityPolicy.isAllowedOrigin("localhost.evil.com"))
+    }
+
+    @Test
+    fun `127 dot 0 dot 0 dot 1 dot evil is NOT allowed`() {
+        assertFalse(SecurityPolicy.isAllowedOrigin("127.0.0.1.evil.com"))
+    }
 }

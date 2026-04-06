@@ -31,9 +31,9 @@ pub fn with_renderer<F, R>(handle: u64, f: F) -> Option<R>
 where
     F: FnOnce(&mut VulkanRenderer) -> R,
 {
-    let renderers = RENDERERS.read();
+    let renderers = RENDERERS.try_read()?;
     let mutex = renderers.get(&handle)?;
-    let mut guard = mutex.lock();
+    let mut guard = mutex.try_lock()?;
     Some(f(&mut *guard))
 }
 

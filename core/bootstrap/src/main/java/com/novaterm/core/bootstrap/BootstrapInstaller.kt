@@ -519,9 +519,17 @@ class BootstrapInstaller(private val context: Context) {
         var failed = 0
         val criticalFailures = mutableListOf<String>()
 
+        val prefixCanonical = prefix.canonicalPath + File.separator
         for ((target, linkPath) in symlinks) {
             try {
                 val linkFile = File(prefix, linkPath)
+                // Security: verify the link path stays within prefix (prevent path traversal via SYMLINKS.txt)
+                val linkCanonicalParent = linkFile.parentFile?.canonicalPath ?: continue
+                if (!linkCanonicalParent.startsWith(prefixCanonical) && linkCanonicalParent != prefix.canonicalPath) {
+                    Log.w(TAG, "Symlink path escapes prefix, skipping: $linkPath")
+                    failed++
+                    continue
+                }
                 linkFile.parentFile?.mkdirs()
                 linkFile.delete()
                 Os.symlink(target, linkFile.absolutePath)

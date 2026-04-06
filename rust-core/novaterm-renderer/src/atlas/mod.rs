@@ -50,7 +50,7 @@ pub struct GlyphAtlas {
     swash_cache: SwashCache,
     packer: BucketedAtlasAllocator,
     cache: HashMap<GlyphKey, CachedGlyph>,
-    lru: Vec<GlyphKey>,
+    lru: std::collections::VecDeque<GlyphKey>,
     bitmap: Vec<u8>,
     dirty_rects: Vec<Rect>,
     cell_width: f32,
@@ -110,7 +110,7 @@ impl GlyphAtlas {
             swash_cache,
             packer,
             cache: HashMap::with_capacity(256),
-            lru: Vec::with_capacity(256),
+            lru: std::collections::VecDeque::with_capacity(256),
             bitmap: vec![0u8; (ATLAS_WIDTH * ATLAS_HEIGHT * 4) as usize],
             dirty_rects: Vec::new(),
             cell_width: cw,
@@ -135,7 +135,7 @@ impl GlyphAtlas {
         if let Some(cached) = self.cache.get(&key) {
             // Update LRU
             self.lru.retain(|k| k != &key);
-            self.lru.push(key);
+            self.lru.push_back(key);
             return Some(cached.entry);
         }
 
@@ -152,7 +152,7 @@ impl GlyphAtlas {
                 entry,
                 alloc_id: AllocId::deserialize(0), // Dummy
             });
-            self.lru.push(key);
+            self.lru.push_back(key);
             return Some(entry);
         }
 
@@ -208,7 +208,7 @@ impl GlyphAtlas {
             entry,
             alloc_id: alloc.id,
         });
-        self.lru.push(key);
+        self.lru.push_back(key);
 
         Some(entry)
     }
@@ -270,7 +270,10 @@ impl GlyphAtlas {
         if self.lru.is_empty() {
             return false;
         }
-        let key = self.lru.remove(0);
+        let key = match self.lru.pop_front() {
+            Some(k) => k,
+            None => return false,
+        };
         if let Some(cached) = self.cache.remove(&key) {
             self.packer.deallocate(cached.alloc_id);
             true

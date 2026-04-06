@@ -190,11 +190,13 @@ class PreferencesRepository(private val context: Context) {
             }
 
             if (migrated) {
-                editor.apply()
-                plainEditor.apply()
+                // Use commit() (synchronous) for security-critical migration:
+                // apply() is async and could leave keys in both stores if process is killed.
+                editor.commit()
+                plainEditor.commit()
             }
             // Mark migration as done even if no keys existed (don't re-check every time)
-            prefs.edit().putBoolean(KEY_MIGRATION_DONE, true).apply()
+            prefs.edit().putBoolean(KEY_MIGRATION_DONE, true).commit()
         } catch (e: Exception) {
             Log.w(TAG, "API key migration failed — keys remain in plain prefs", e)
         }

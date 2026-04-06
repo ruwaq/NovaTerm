@@ -82,7 +82,14 @@ impl RustSession {
         // Set O_NONBLOCK so read() won't hang when the child exits and we set alive=false.
         unsafe {
             let flags = libc::fcntl(reader_raw, libc::F_GETFL);
-            libc::fcntl(reader_raw, libc::F_SETFL, flags | libc::O_NONBLOCK);
+            if flags == -1 {
+                log::warn!("fcntl F_GETFL failed: {}", std::io::Error::last_os_error());
+            } else {
+                let rc = libc::fcntl(reader_raw, libc::F_SETFL, flags | libc::O_NONBLOCK);
+                if rc == -1 {
+                    log::warn!("fcntl F_SETFL O_NONBLOCK failed: {}", std::io::Error::last_os_error());
+                }
+            }
         }
         let rb = read_buffer.clone();
         let ar = alive.clone();
@@ -221,7 +228,10 @@ impl RustSession {
         self.alive.store(false, Ordering::Release);
         // Unpark writer so it sees alive=false and exits cleanly.
         self.writer_thread.unpark();
-        unsafe { libc::kill(self.child_pid, libc::SIGKILL); }
+        let rc = unsafe { libc::kill(self.child_pid, libc::SIGKILL) };
+        if rc != 0 {
+            log::debug!("kill({}, SIGKILL) returned {}", self.child_pid, std::io::Error::last_os_error());
+        }
     }
 
     pub fn wait(&self) -> i32 {

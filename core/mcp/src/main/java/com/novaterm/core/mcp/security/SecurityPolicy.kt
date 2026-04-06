@@ -85,7 +85,7 @@ object SecurityPolicy {
 
     /** Check if a file path is blocked by policy. */
     fun isBlockedPath(path: String): Boolean {
-        return BLOCKED_PATHS.any { path.startsWith(it) }
+        return BLOCKED_PATHS.any { blocked -> path == blocked || path.startsWith("$blocked/") }
     }
 
     private val LOCALHOST_ADDRESSES = setOf(

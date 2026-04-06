@@ -157,11 +157,17 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
         val canonical = file.canonicalFile
         val homeCanonical = homeDir.canonicalFile
         val homePath = homeCanonical.path + File.separator
-        // Only allow symlinks to user's own shared storage, not arbitrary /storage paths.
-        // /storage/emulated/0/ is the current user's storage; block access to other users.
-        val allowedStoragePath = "/storage/emulated/0/"
+        // Only allow symlinks to user's own public storage directories.
+        // Restrict to standard subdirectories to prevent access to other apps' data.
+        val sdcard = android.os.Environment.getExternalStorageDirectory().canonicalPath
+        val allowedStorageDirs = listOf(
+            "$sdcard/Download", "$sdcard/Documents", "$sdcard/DCIM",
+            "$sdcard/Pictures", "$sdcard/Music", "$sdcard/Movies",
+        )
         val isInsideHome = canonical == homeCanonical || canonical.path.startsWith(homePath)
-        val isStorageLink = canonical.path.startsWith(allowedStoragePath)
+        val isStorageLink = allowedStorageDirs.any { dir ->
+            canonical.path == dir || canonical.path.startsWith("$dir/")
+        }
         if (!isInsideHome && !isStorageLink) {
             throw FileNotFoundException("Access denied: $docId resolves outside home directory")
         }

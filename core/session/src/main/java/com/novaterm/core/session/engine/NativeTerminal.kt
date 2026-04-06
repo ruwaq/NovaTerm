@@ -12,7 +12,7 @@ package com.novaterm.core.session.engine
  */
 internal object NativeTerminal {
 
-    private var initialized = false
+    @Volatile private var initialized = false
 
     /**
      * Load the native library and initialize the Rust logger.
