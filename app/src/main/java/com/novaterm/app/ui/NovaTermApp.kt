@@ -28,9 +28,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import android.content.Context
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.Alignment
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -81,6 +81,7 @@ fun NovaTermApp(
     val focusedPaneSession = uiState.focusedPaneSession
     val view = LocalView.current
     val mcpApproval by viewModel.mcpApprovalRequest.collectAsState()
+    var showCameraOcr by remember { mutableStateOf(false) }
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -173,6 +174,22 @@ fun NovaTermApp(
             request = request,
             onApprove = { request.approve() },
             onDeny = { request.deny() },
+        )
+    }
+
+    if (showCameraOcr) {
+        val context = LocalView.current.context
+        val ocrManager = remember { com.novaterm.feature.terminal.ocr.CameraOcrManager(context) }
+        com.novaterm.feature.terminal.ocr.CameraOcrSheet(
+            ocrManager = ocrManager,
+            onDismiss = { showCameraOcr = false },
+            onTextConfirmed = { text ->
+                showCameraOcr = false
+                val safeIdx = uiState.currentSessionIndex
+                if (safeIdx in sessions.indices) {
+                    sessions[safeIdx].write(text)
+                }
+            },
         )
     }
 
@@ -318,12 +335,21 @@ fun NovaTermApp(
                             onCtrlToggle = viewModel::toggleCtrl,
                             onAltToggle = viewModel::toggleAlt,
                             onKeyboardToggle = {
-                                val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                                    as? InputMethodManager
-                                @Suppress("DEPRECATION")
-                                imm?.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0)
+                                val controller = WindowCompat.getInsetsController(
+                                    (view.context as? android.app.Activity)?.window ?: return@ExtraKeysBar,
+                                    view,
+                                )
+                                // Toggle: hide if currently visible, show otherwise
+                                val imeVisible = androidx.core.view.ViewCompat.getRootWindowInsets(view)
+                                    ?.isVisible(WindowInsetsCompat.Type.ime()) == true
+                                if (imeVisible) {
+                                    controller.hide(WindowInsetsCompat.Type.ime())
+                                } else {
+                                    controller.show(WindowInsetsCompat.Type.ime())
+                                }
                             },
                             onVoiceInput = onVoiceInput,
+                            onCameraOcr = { showCameraOcr = true },
                             onSplitHorizontal = { viewModel.splitPane(SplitDirection.HORIZONTAL) },
                             onSplitVertical = { viewModel.splitPane(SplitDirection.VERTICAL) },
                             onCloseSplitPane = { viewModel.closeSplitPane() },

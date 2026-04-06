@@ -2,8 +2,10 @@ package com.novaterm.app.service
 
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.PowerManager
 import android.util.Log
+import com.novaterm.app.BuildConfig
 
 /**
  * Manages CPU wake lock and WiFi lock for [TerminalService].
@@ -25,7 +27,7 @@ internal class WakeLockManager(private val context: Context) {
 
     fun acquire() {
         if (isHeld) {
-            Log.d(TAG, "Wake lock already held, skipping acquire")
+            if (BuildConfig.DEBUG) Log.d(TAG, "Wake lock already held, skipping acquire")
             return
         }
         if (wakeLock == null) {
@@ -40,14 +42,16 @@ internal class WakeLockManager(private val context: Context) {
         if (wifiLock == null) {
             val wm = context.applicationContext
                 .getSystemService(Context.WIFI_SERVICE) as WifiManager
-            @Suppress("DEPRECATION")
-            wifiLock = wm.createWifiLock(
-                WifiManager.WIFI_MODE_FULL_HIGH_PERF,
-                "novaterm:service-wifilock",
-            )
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                @Suppress("DEPRECATION")
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            }
+            wifiLock = wm.createWifiLock(mode, "novaterm:service-wifilock")
         }
         if (wifiLock?.isHeld == false) wifiLock?.acquire()
-        Log.d(TAG, "Locks acquired")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Locks acquired")
     }
 
     fun release() {
@@ -55,7 +59,7 @@ internal class WakeLockManager(private val context: Context) {
         wakeLock = null
         if (wifiLock?.isHeld == true) wifiLock?.release()
         wifiLock = null
-        Log.d(TAG, "Locks released")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Locks released")
     }
 
     companion object {

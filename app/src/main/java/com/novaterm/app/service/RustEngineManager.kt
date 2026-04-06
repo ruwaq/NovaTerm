@@ -1,6 +1,7 @@
 package com.novaterm.app.service
 
 import android.util.Log
+import com.novaterm.app.BuildConfig
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.model.TerminalDimensions
 import com.novaterm.core.session.engine.RustEngine
@@ -45,7 +46,7 @@ class RustEngineManager {
             session.setResizeListener { rows, cols ->
                 try {
                     engine.resize(TerminalDimensions(rows = rows, columns = cols))
-                    Log.d(TAG, "Rust engine resized: ${rows}x${cols}")
+                    if (BuildConfig.DEBUG) Log.d(TAG, "Rust engine resized: ${rows}x${cols}")
                 } catch (e: Exception) {
                     Log.e(TAG, "Rust engine resize error", e)
                 }

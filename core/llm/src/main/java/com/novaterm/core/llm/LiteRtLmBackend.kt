@@ -185,7 +185,7 @@ class LiteRtLmBackend(
             val constructor = npuClass.getConstructor(String::class.java)
             constructor.newInstance(context.applicationInfo.nativeLibraryDir)
         } catch (_: ClassNotFoundException) {
-            Log.d(TAG, "NPU backend not available (class not found)")
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "NPU backend not available (class not found)")
             null
         } catch (e: Exception) {
             Log.w(TAG, "NPU backend failed to initialize", e)
@@ -198,7 +198,7 @@ class LiteRtLmBackend(
             val gpuClass = Class.forName("com.google.ai.edge.litertlm.Backend\$GPU")
             gpuClass.getDeclaredConstructor().newInstance()
         } catch (_: ClassNotFoundException) {
-            Log.d(TAG, "GPU backend not available (class not found)")
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "GPU backend not available (class not found)")
             null
         } catch (e: Exception) {
             Log.w(TAG, "GPU backend failed to initialize", e)

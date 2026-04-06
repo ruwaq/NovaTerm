@@ -500,11 +500,13 @@ private class NovaTermViewClient(
     }
 
     override fun logDebug(tag: String?, message: String?) {
-        Log.d(tag ?: TAG, message ?: "")
+        val t = tag ?: TAG
+        if (Log.isLoggable(t, Log.DEBUG)) Log.d(t, message ?: "")
     }
 
     override fun logVerbose(tag: String?, message: String?) {
-        Log.v(tag ?: TAG, message ?: "")
+        val t = tag ?: TAG
+        if (Log.isLoggable(t, Log.VERBOSE)) Log.v(t, message ?: "")
     }
 
     override fun logStackTraceWithMessage(tag: String?, message: String?, e: Exception?) {

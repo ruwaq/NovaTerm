@@ -101,7 +101,7 @@ class RustEngine private constructor(
         val h = handleRef.getAndSet(-1)
         if (h <= 0) return // Already destroyed or invalid
         NativeTerminal.nativeDestroy(h)
-        Log.d(TAG, "RustEngine destroyed (remaining: ${NativeTerminal.nativeActiveCount()})")
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "RustEngine destroyed (remaining: ${NativeTerminal.nativeActiveCount()})")
     }
 
     companion object {
@@ -121,7 +121,7 @@ class RustEngine private constructor(
             if (handle <= 0) {
                 throw IllegalStateException("Failed to create Rust terminal backend")
             }
-            Log.d(TAG, "RustEngine created: ${dimensions.rows}x${dimensions.columns} (handle=$handle)")
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "RustEngine created: ${dimensions.rows}x${dimensions.columns} (handle=$handle)")
             return RustEngine(handle, dimensions.rows, dimensions.columns)
         }
     }

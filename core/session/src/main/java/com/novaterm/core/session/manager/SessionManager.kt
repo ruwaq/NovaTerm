@@ -92,7 +92,7 @@ class SessionManager(
                         Log.e(TAG, "Rust engine processBytes error", e)
                     }
                 }
-                Log.d(TAG, "Rust engine attached to session $id")
+                if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "Rust engine attached to session $id")
                 eng
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create Rust engine, falling back to Java-only", e)

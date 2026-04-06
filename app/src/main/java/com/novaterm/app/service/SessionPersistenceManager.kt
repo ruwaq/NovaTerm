@@ -2,6 +2,7 @@ package com.novaterm.app.service
 
 import android.os.Handler
 import android.util.Log
+import com.novaterm.app.BuildConfig
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
 import com.novaterm.core.mcp.prediction.PredictionEngine
@@ -66,7 +67,7 @@ class SessionPersistenceManager(
             )
         }
         sessionStore.save(metadata)
-        Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
     }
 
     fun getSavedSessions(): List<SessionMetadata> = sessionStore.load()

@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
 import android.util.Rational
+import com.novaterm.app.BuildConfig
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -78,7 +79,7 @@ class MainActivity : ComponentActivity() {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             val recognizedText = matches?.firstOrNull()
             if (!recognizedText.isNullOrBlank()) {
-                Log.d(TAG, "Voice input received (${recognizedText.length} chars)")
+                if (BuildConfig.DEBUG) Log.d(TAG, "Voice input received (${recognizedText.length} chars)")
                 writeVoiceInputToSession(recognizedText)
             }
         }
@@ -272,7 +273,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val command = intent.getStringExtra("command")
                 if (!command.isNullOrBlank()) {
-                    Log.d(TAG, "RUN_COMMAND intent received")
+                    if (BuildConfig.DEBUG) Log.d(TAG, "RUN_COMMAND intent received")
                     val cwd = intent.getStringExtra("cwd")
                     val serviceIntent = Intent(this, TerminalService::class.java).apply {
                         action = TerminalService.ACTION_RUN_COMMAND
@@ -287,7 +288,7 @@ class MainActivity : ComponentActivity() {
                 if (intent.type == "text/plain") {
                     val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
                     if (!sharedText.isNullOrBlank()) {
-                        Log.d(TAG, "SEND intent received (${sharedText.length} chars)")
+                        if (BuildConfig.DEBUG) Log.d(TAG, "SEND intent received (${sharedText.length} chars)")
                         val serviceIntent = Intent(this, TerminalService::class.java).apply {
                             action = TerminalService.ACTION_WRITE_INPUT
                             putExtra("input", sharedText)
@@ -305,11 +306,11 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> {
                 val uri = intent.data
                 if (uri != null && uri.scheme == "nvterm") {
-                    Log.d(TAG, "VIEW intent: nvterm://${uri.host}")
+                    if (BuildConfig.DEBUG) Log.d(TAG, "VIEW intent: nvterm://${uri.host}")
                     when (uri.host) {
                         "open" -> {
                             // nvterm://open — just bring NovaTerm to foreground
-                            Log.d(TAG, "Deep link: open")
+                            if (BuildConfig.DEBUG) Log.d(TAG, "Deep link: open")
                         }
                         "run" -> {
                             // SECURITY: nvterm://run?cmd= is disabled to prevent
@@ -344,8 +345,7 @@ class MainActivity : ComponentActivity() {
 
     private fun enterPipModeIfEnabled() {
         // Only enter PiP if user has enabled it in settings and has active sessions
-        val prefs = getSharedPreferences("novaterm_prefs", MODE_PRIVATE)
-        if (!prefs.getBoolean("pip_on_leave", false)) return
+        if (!viewModel.preferences.value.pipOnLeave) return
         if (viewModel.sessions.value.isEmpty()) return
 
         try {

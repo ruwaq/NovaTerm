@@ -17,7 +17,7 @@ class ToolRegistry {
     fun register(tool: McpTool) {
         require(tool.name !in tools) { "Tool '${tool.name}' already registered" }
         tools[tool.name] = tool
-        Log.d(TAG, "Registered tool: ${tool.name} (${tool.riskLevel})")
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "Registered tool: ${tool.name} (${tool.riskLevel})")
     }
 
     /** Register multiple tools at once. */

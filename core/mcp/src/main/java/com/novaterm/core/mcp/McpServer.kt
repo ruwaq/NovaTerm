@@ -214,7 +214,7 @@ class McpServer(
             tokenFile.setReadable(true, true)
             tokenFile.setWritable(true, true)
             tokenFile.setExecutable(false)
-            Log.d(TAG, "MCP token saved to ${tokenFile.absolutePath}")
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "MCP token saved to ${tokenFile.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save MCP token file", e)
         }

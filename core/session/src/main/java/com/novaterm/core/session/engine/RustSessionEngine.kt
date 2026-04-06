@@ -116,7 +116,7 @@ class RustSessionEngine private constructor(
         val h = handleRef.getAndSet(-1)
         if (h <= 0) return
         NativeSession.nativeDestroy(h)
-        Log.d(TAG, "RustSessionEngine destroyed (remaining: ${NativeSession.nativeSessionCount()})")
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "RustSessionEngine destroyed (remaining: ${NativeSession.nativeSessionCount()})")
     }
 
     companion object {

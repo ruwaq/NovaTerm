@@ -468,7 +468,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     _suggestion.value = null
                 }
             } catch (e: Exception) {
-                Log.d("NovaTerm", "Suggestion failed: ${e.message}")
+                if (com.novaterm.app.BuildConfig.DEBUG) Log.d("NovaTerm", "Suggestion failed: ${e.message}")
                 _suggestion.value = null
             }
         }

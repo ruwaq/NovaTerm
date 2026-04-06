@@ -13,6 +13,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.novaterm.app.BuildConfig
 import com.novaterm.app.NovaTermApp
 import com.novaterm.app.R
 import android.content.ComponentName
@@ -246,7 +247,7 @@ class TerminalService : Service() {
 
         override fun onOsc133SemanticPrompt(session: TerminalSession, params: String?) {
             if (params.isNullOrEmpty()) return
-            Log.d(TAG, "OSC 133: $params (session=${session.mHandle})")
+            if (BuildConfig.DEBUG) Log.d(TAG, "OSC 133: $params (session=${session.mHandle})")
 
             val marker = params[0]
             val extra = if (params.length > 2 && params[1] == ';') params.substring(2) else null
@@ -277,7 +278,7 @@ class TerminalService : Service() {
         }
 
         override fun setTerminalShellPid(session: TerminalSession, pid: Int) {
-            Log.d(TAG, "Shell PID set: $pid")
+            if (BuildConfig.DEBUG) Log.d(TAG, "Shell PID set: $pid")
         }
 
         override fun getTerminalCursorStyle(): Int =
@@ -293,10 +294,10 @@ class TerminalService : Service() {
             Log.i(tag ?: TAG, message ?: "")
         }
         override fun logDebug(tag: String?, message: String?) {
-            Log.d(tag ?: TAG, message ?: "")
+            if (BuildConfig.DEBUG) Log.d(tag ?: TAG, message ?: "")
         }
         override fun logVerbose(tag: String?, message: String?) {
-            Log.v(tag ?: TAG, message ?: "")
+            if (BuildConfig.DEBUG) Log.v(tag ?: TAG, message ?: "")
         }
         override fun logStackTraceWithMessage(tag: String?, message: String?, e: Exception?) {
             Log.e(tag ?: TAG, message, e)

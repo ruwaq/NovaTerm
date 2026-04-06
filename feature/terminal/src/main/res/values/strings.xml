@@ -20,6 +20,9 @@
     <!-- Voice input -->
     <string name="cd_voice_input">Voice input</string>
 
+    <!-- Camera OCR -->
+    <string name="cd_camera_ocr">Camera text recognition</string>
+
     <!-- History search -->
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="search_results_count">%d commands</string>

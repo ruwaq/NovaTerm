@@ -118,7 +118,7 @@ class GpuRenderer private constructor(handle: Long) {
         val h = handleRef.getAndSet(-1)
         if (h <= 0) return
         NativeRenderer.nativeDestroyGpu(h)
-        Log.d(TAG, "GpuRenderer destroyed")
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "GpuRenderer destroyed")
     }
 
     companion object {

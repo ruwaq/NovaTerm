@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -268,6 +269,7 @@ fun ExtraKeysBar(
     onAltToggle: () -> Unit,
     onKeyboardToggle: () -> Unit = {},
     onVoiceInput: (() -> Unit)? = null,
+    onCameraOcr: (() -> Unit)? = null,
     onSplitHorizontal: (() -> Unit)? = null,
     onSplitVertical: (() -> Unit)? = null,
     onCloseSplitPane: (() -> Unit)? = null,
@@ -306,6 +308,9 @@ fun ExtraKeysBar(
                                 hapticEnabled = hapticEnabled,
                                 haptic = haptic,
                             )
+                        }
+                        if (onCameraOcr != null) {
+                            CameraOcrButton(onCameraOcr, hapticEnabled, haptic)
                         }
                         if (onVoiceInput != null) {
                             VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
@@ -349,6 +354,42 @@ private fun VoiceInputButton(
         Icon(
             imageVector = Icons.Outlined.Mic,
             contentDescription = stringResource(R.string.cd_voice_input),
+        )
+    }
+}
+
+/**
+ * Camera button for OCR text recognition.
+ * Opens the camera sheet to capture and paste text into the terminal.
+ */
+@Composable
+private fun CameraOcrButton(
+    onClick: () -> Unit,
+    hapticEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+
+    IconButton(
+        onClick = {
+            if (hapticEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+            onClick()
+        },
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = surfaceColor,
+            contentColor = textColor,
+        ),
+        modifier = Modifier
+            .height(48.dp)
+            .widthIn(min = 48.dp)
+            .clip(RoundedCornerShape(10.dp)),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.CameraAlt,
+            contentDescription = stringResource(R.string.cd_camera_ocr),
         )
     }
 }
