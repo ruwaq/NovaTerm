@@ -298,7 +298,13 @@ fun ExtraKeysBar(
                 // Trailing buttons at the end of the last row
                 trailingContent = if (index == rows.lastIndex) {
                     {
-                        // Split pane button: tap = horizontal split, long press = vertical split
+                        if (onCameraOcr != null) {
+                            CameraOcrButton(onCameraOcr, hapticEnabled, haptic)
+                        }
+                        if (onVoiceInput != null) {
+                            VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
+                        }
+                        // Split pane button at the end (less accidental)
                         if (onSplitHorizontal != null) {
                             SplitPaneButton(
                                 onSplitHorizontal = onSplitHorizontal,
@@ -308,12 +314,6 @@ fun ExtraKeysBar(
                                 hapticEnabled = hapticEnabled,
                                 haptic = haptic,
                             )
-                        }
-                        if (onCameraOcr != null) {
-                            CameraOcrButton(onCameraOcr, hapticEnabled, haptic)
-                        }
-                        if (onVoiceInput != null) {
-                            VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
                         }
                     }
                 } else null,
@@ -437,15 +437,19 @@ private fun SplitPaneButton(
                         if (hapticEnabled) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
-                        currentOnSplit()
+                        if (hasSplitPanes) {
+                            // Tap closes split when panes are already open
+                            currentOnClose?.invoke()
+                        } else {
+                            currentOnSplit()
+                        }
                     },
                     onLongPress = {
                         if (hapticEnabled) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
-                        if (hasSplitPanes) {
-                            currentOnClose?.invoke()
-                        } else {
+                        if (!hasSplitPanes) {
+                            // Long press for vertical split (only when not split)
                             currentOnSplitV?.invoke()
                         }
                     },
