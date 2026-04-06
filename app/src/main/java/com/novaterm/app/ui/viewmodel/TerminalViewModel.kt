@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -85,6 +86,21 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
         override fun onServiceDisconnected(name: ComponentName) {
             _service.value = null
+            bound = false
+            // Auto-rebind after system kills service
+            viewModelScope.launch {
+                delay(1_000)
+                bindService()
+            }
+        }
+
+        override fun onBindingDied(name: ComponentName) {
+            _service.value = null
+            bound = false
+            viewModelScope.launch {
+                delay(1_000)
+                bindService()
+            }
         }
     }
 

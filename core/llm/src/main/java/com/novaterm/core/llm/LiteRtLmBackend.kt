@@ -141,12 +141,20 @@ class LiteRtLmBackend(
             conversationHandle?.let { conv ->
                 conv.javaClass.getMethod("close").invoke(conv)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            if (android.util.Log.isLoggable(TAG, android.util.Log.WARN)) {
+                android.util.Log.w(TAG, "Failed to close conversation handle", e)
+            }
+        }
         try {
             engineHandle?.let { engine ->
                 engine.javaClass.getMethod("close").invoke(engine)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            if (android.util.Log.isLoggable(TAG, android.util.Log.WARN)) {
+                android.util.Log.w(TAG, "Failed to close engine handle", e)
+            }
+        }
         conversationHandle = null
         engineHandle = null
         Log.i(TAG, "LiteRT-LM engine released")

@@ -163,6 +163,10 @@ class MainActivity : ComponentActivity() {
                 when {
                     // Step 1: OEM battery guide
                     !batteryDismissed -> {
+                        androidx.activity.compose.BackHandler {
+                            prefs.edit().putBoolean("battery_guide_dismissed", true).apply()
+                            batteryDismissed = true
+                        }
                         com.novaterm.feature.oemcompat.ui.OemGuideScreen(
                             oemInfo = oemInfo,
                             needsWhitelist = needsWhitelist,
@@ -241,7 +245,11 @@ class MainActivity : ComponentActivity() {
                 val serviceIntent = Intent(this, TerminalService::class.java).apply {
                     action = TerminalService.ACTION_NEW_SESSION
                 }
-                startForegroundService(serviceIntent)
+                try {
+                    startForegroundService(serviceIntent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cannot start service from background", e)
+                }
             }
 
             ACTION_SWITCH_SESSION -> {
@@ -260,7 +268,11 @@ class MainActivity : ComponentActivity() {
                         action = TerminalService.ACTION_LAUNCH_PRESET
                         putExtra("preset", preset)
                     }
-                    startForegroundService(serviceIntent)
+                    try {
+                        startForegroundService(serviceIntent)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Cannot start service from background", e)
+                    }
                 }
             }
 
@@ -280,7 +292,11 @@ class MainActivity : ComponentActivity() {
                         putExtra("command", command)
                         if (!cwd.isNullOrBlank()) putExtra("cwd", cwd)
                     }
-                    startForegroundService(serviceIntent)
+                    try {
+                        startForegroundService(serviceIntent)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Cannot start service from background", e)
+                    }
                 }
             }
 
@@ -293,7 +309,11 @@ class MainActivity : ComponentActivity() {
                             action = TerminalService.ACTION_WRITE_INPUT
                             putExtra("input", sharedText)
                         }
-                        startForegroundService(serviceIntent)
+                        try {
+                            startForegroundService(serviceIntent)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Cannot start service from background", e)
+                        }
                     }
                 }
             }

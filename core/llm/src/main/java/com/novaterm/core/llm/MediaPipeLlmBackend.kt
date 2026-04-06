@@ -1,6 +1,7 @@
 package com.novaterm.core.llm
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 
 /**
@@ -96,9 +97,15 @@ class MediaPipeLlmBackend(
             llmHandle?.let { handle ->
                 handle.javaClass.getMethod("close").invoke(handle)
             }
-        } catch (_: Exception) {
-            // Best-effort cleanup
+        } catch (e: Exception) {
+            if (Log.isLoggable(TAG, Log.WARN)) {
+                Log.w(TAG, "Failed to close LlmInference handle", e)
+            }
         }
         llmHandle = null
+    }
+
+    companion object {
+        private const val TAG = "MediaPipeLlmBackend"
     }
 }

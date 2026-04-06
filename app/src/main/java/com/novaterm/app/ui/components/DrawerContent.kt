@@ -50,7 +50,7 @@ fun DrawerContent(
                 badge = {
                     IconButton(
                         onClick = { onCloseSession(index) },
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             Icons.Default.Close,

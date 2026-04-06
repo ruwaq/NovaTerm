@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -53,6 +54,7 @@ fun StatusLine(
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier
+                    .minimumInteractiveComponentSize()
                     .clickable(onClick = onPromptUp)
                     .padding(horizontal = 6.dp),
             )
@@ -66,6 +68,7 @@ fun StatusLine(
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier
+                    .minimumInteractiveComponentSize()
                     .clickable(onClick = onPromptDown)
                     .padding(end = 6.dp),
             )

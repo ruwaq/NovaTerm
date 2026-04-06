@@ -309,7 +309,7 @@ private fun OutputSearchTab(
                     selected = useRegex,
                     onClick = { useRegex = !useRegex },
                     label = { Text(stringResource(R.string.search_regex), fontSize = 11.sp) },
-                    modifier = Modifier.height(28.dp),
+                    modifier = Modifier.height(36.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 // Case-sensitive toggle
@@ -317,7 +317,7 @@ private fun OutputSearchTab(
                     selected = caseSensitive,
                     onClick = { caseSensitive = !caseSensitive },
                     label = { Text(stringResource(R.string.search_case_sensitive), fontSize = 11.sp) },
-                    modifier = Modifier.height(28.dp),
+                    modifier = Modifier.height(36.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
             }

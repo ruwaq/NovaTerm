@@ -1,5 +1,6 @@
 package com.novaterm.core.llm
 
+import android.util.Log
 import java.io.Closeable
 import java.io.File
 
@@ -107,9 +108,15 @@ class LiteRtBackend(
                 val closeMethod = interp.javaClass.getMethod("close")
                 closeMethod.invoke(interp)
             }
-        } catch (_: Exception) {
-            // Best effort cleanup
+        } catch (e: Exception) {
+            if (Log.isLoggable(TAG, Log.WARN)) {
+                Log.w(TAG, "Failed to close LiteRT interpreter handle", e)
+            }
         }
         interpreterHandle = null
+    }
+
+    companion object {
+        private const val TAG = "LiteRtBackend"
     }
 }

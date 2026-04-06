@@ -118,10 +118,9 @@ class SemanticZoneTracker {
         }
 
         // Invoke callbacks outside lock
-        if (blockCmd != null) {
-            onBlockComplete?.invoke(blockCmd!!, blockExitCode)
-            onBlockCompleteWithDuration?.invoke(blockCmd!!, blockExitCode, blockDurationMs)
-        }
+        val cmd = blockCmd ?: return
+        onBlockComplete?.invoke(cmd, blockExitCode)
+        onBlockCompleteWithDuration?.invoke(cmd, blockExitCode, blockDurationMs)
     }
 
     fun setCurrentCommand(command: String) {

@@ -103,8 +103,16 @@ fun NovaTermApp(
         service?.updateLlmState()
     }
 
+    // Poll model download progress when downloading
+    LaunchedEffect(modelState, service) {
+        if (modelState is ModelState.Downloading) {
+            service?.modelManager?.pollProgress()
+        }
+    }
+
     // ── Full-screen overlays (onboarding, about, settings) ───
     if (showOnboarding) {
+        BackHandler { /* Trap back press during onboarding */ }
         ColorSchemePickerScreen(onSchemeSelected = viewModel::completeOnboarding)
         return
     }
@@ -180,6 +188,7 @@ fun NovaTermApp(
     if (showCameraOcr) {
         val context = LocalView.current.context
         val ocrManager = remember { com.novaterm.feature.terminal.ocr.CameraOcrManager(context) }
+        DisposableEffect(Unit) { onDispose { ocrManager.release() } }
         com.novaterm.feature.terminal.ocr.CameraOcrSheet(
             ocrManager = ocrManager,
             onDismiss = { showCameraOcr = false },

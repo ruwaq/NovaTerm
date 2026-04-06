@@ -56,7 +56,7 @@ fun SessionTabBar(
             .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onMenuClick, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onMenuClick, modifier = Modifier.size(48.dp)) {
             Icon(
                 Icons.Default.Menu,
                 contentDescription = stringResource(R.string.cd_open_drawer),
@@ -84,10 +84,11 @@ fun SessionTabBar(
                             selected = clampedIndex == index,
                             onClick = { onSelectTab(index) },
                             modifier = Modifier
-                                .height(40.dp)
+                                .height(48.dp)
                                 .combinedClickable(
                                     onClick = { onSelectTab(index) },
                                     onLongClick = { onLongClickTab(index) },
+                                    onLongClickLabel = "Rename session",
                                 ),
                         ) {
                             Row(
@@ -118,7 +119,7 @@ fun SessionTabBar(
             }
         }
 
-        IconButton(onClick = onSearchClick, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onSearchClick, modifier = Modifier.size(48.dp)) {
             Icon(
                 Icons.Default.Search,
                 contentDescription = stringResource(R.string.action_search_history),
@@ -127,7 +128,7 @@ fun SessionTabBar(
             )
         }
 
-        IconButton(onClick = onSettingsClick, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
             Icon(
                 Icons.Default.Settings,
                 contentDescription = stringResource(R.string.action_settings),
@@ -136,7 +137,7 @@ fun SessionTabBar(
             )
         }
 
-        IconButton(onClick = onNewSession, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onNewSession, modifier = Modifier.size(48.dp)) {
             Icon(
                 Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_new_session),
