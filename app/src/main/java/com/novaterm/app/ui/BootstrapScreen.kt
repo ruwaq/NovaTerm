@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.novaterm.app.R
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ fun BootstrapScreen(
 ) {
     val state by installer.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Boot log lines that appear sequentially
     val bootLines = remember { mutableStateListOf<BootLine>() }
@@ -107,8 +109,8 @@ fun BootstrapScreen(
         } else {
             // Bootstrap failed — show error with retry + continue options
             bootLines.add(BootLine("", LineType.BLANK))
-            bootLines.add(BootLine("[!!] Package extraction failed", LineType.ERROR))
-            bootLines.add(BootLine("[!!] Shell will use /system/bin/sh", LineType.ERROR))
+            bootLines.add(BootLine(context.getString(R.string.bootstrap_err_extraction), LineType.ERROR))
+            bootLines.add(BootLine(context.getString(R.string.bootstrap_err_fallback), LineType.ERROR))
             showErrorActions = true
         }
     }
@@ -119,7 +121,7 @@ fun BootstrapScreen(
             is BootstrapInstaller.State.Extracting -> {
                 val pct = (s.progress * 100).toInt()
                 val existingIdx = bootLines.indexOfLast { it.type == LineType.PROGRESS }
-                val line = BootLine("[>>] Extracting packages... $pct%", LineType.PROGRESS)
+                val line = BootLine(context.getString(R.string.bootstrap_progress, pct), LineType.PROGRESS)
                 if (existingIdx >= 0) {
                     bootLines[existingIdx] = line
                 } else {
@@ -127,7 +129,7 @@ fun BootstrapScreen(
                 }
             }
             is BootstrapInstaller.State.Finalizing -> {
-                bootLines.add(BootLine("[>>] Finalizing...", LineType.PROGRESS))
+                bootLines.add(BootLine(context.getString(R.string.bootstrap_finalizing), LineType.PROGRESS))
             }
             is BootstrapInstaller.State.Error -> {
                 bootLines.add(BootLine("", LineType.BLANK))

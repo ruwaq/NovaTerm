@@ -60,10 +60,41 @@
     <string name="about_tagline">Next-gen Android terminal</string>
     <string name="about_rust_powered">Rust-powered \u2022 GPU-accelerated \u2022 AI-native</string>
     <string name="about_apache_license">Apache License 2.0</string>
+    <string name="about_section_device">Device</string>
+    <string name="about_section_terminal">Terminal</string>
+    <string name="about_section_architecture">Architecture</string>
+    <string name="about_section_credits">Credits</string>
+    <string name="about_label_model">Model</string>
+    <string name="about_label_android">Android</string>
+    <string name="about_label_architecture">Architecture</string>
+    <string name="about_label_manufacturer">Manufacturer</string>
+    <string name="about_label_term">TERM</string>
+    <string name="about_label_color">Color</string>
+    <string name="about_label_unicode">Unicode</string>
+    <string name="about_label_scrollback">Scrollback</string>
+    <string name="about_label_ui">UI</string>
+    <string name="about_label_core">Core</string>
+    <string name="about_label_persistence">Persistence</string>
+    <string name="about_label_protocols">Protocols</string>
+    <string name="about_android_value">%1$s (API %2$d)</string>
+    <string name="about_value_term">xterm-256color</string>
+    <string name="about_value_color">Truecolor (24-bit)</string>
+    <string name="about_value_unicode">Full support</string>
+    <string name="about_value_scrollback">10,000 lines</string>
+    <string name="about_value_ui">Kotlin + Jetpack Compose</string>
+    <string name="about_value_core">Termux terminal-emulator (Apache 2.0)</string>
+    <string name="about_value_persistence">SQLite + CAS dedup</string>
+    <string name="about_value_protocols">OSC 8, OSC 133, OSC 52</string>
+    <string name="about_credits">Built on Termux\'s terminal emulation engine.\nTerminal core licensed under Apache 2.0.\nColor schemes: Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula.</string>
+    <string name="about_unknown">unknown</string>
 
     <!-- Bootstrap -->
     <string name="bootstrap_storage_insufficient">Insufficient storage. Need at least 100MB free.</string>
     <string name="bootstrap_not_available">Bootstrap not available.</string>
+    <string name="bootstrap_err_extraction">[!!] Package extraction failed</string>
+    <string name="bootstrap_err_fallback">[!!] Shell will use /system/bin/sh</string>
+    <string name="bootstrap_progress">[>>] Extracting packages\u2026 %d%%</string>
+    <string name="bootstrap_finalizing">[>>] Finalizing\u2026</string>
 
     <!-- Session -->
     <string name="session_creation_failed">Failed to create terminal session</string>
@@ -88,4 +119,11 @@
 
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>
+
+    <!-- MCP approval dialog -->
+    <string name="mcp_approval_title">MCP: %s</string>
+    <string name="mcp_approval_body">An AI tool wants to execute a dangerous operation.</string>
+    <string name="mcp_approval_risk">Risk: %s</string>
+    <string name="mcp_approval_allow">Allow</string>
+    <string name="mcp_approval_deny">Deny</string>
 </resources>

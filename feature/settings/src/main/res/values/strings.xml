@@ -88,6 +88,19 @@
     <string name="settings_llm_model_ready">Model ready</string>
     <string name="settings_llm_delete">Delete model</string>
 
+    <!-- Model download row -->
+    <string name="settings_model_label">Model</string>
+    <string name="settings_model_download_failed">Download failed</string>
+    <string name="settings_model_default_name">AI Model</string>
+    <string name="settings_cd_download_model">Download model</string>
+    <string name="settings_cd_cancel_download">Cancel download</string>
+    <string name="settings_cd_delete_model">Delete model</string>
+    <string name="settings_cd_retry_download">Retry download</string>
+    <string name="settings_model_size_ram">%1$d MB · %2$d MB RAM</string>
+    <string name="settings_model_not_downloaded">%1$d MB download · %2$d MB RAM</string>
+    <string name="settings_model_progress">%1$d / %2$d MB · %3$d%%</string>
+    <string name="settings_model_ready">Ready · %d MB</string>
+
     <!-- AI API Keys -->
     <string name="settings_section_api_keys">AI API Keys</string>
     <string name="settings_api_key_anthropic">Anthropic (Claude)</string>

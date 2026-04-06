@@ -392,7 +392,7 @@ private fun AiSection(
                 else -> ModelCatalog.DEFAULT.displayName
             }
             ListItem(
-                headlineContent = { Text("Model") },
+                headlineContent = { Text(stringResource(R.string.settings_model_label)) },
                 supportingContent = { Text(currentModel) },
                 modifier = Modifier.clickable { modelMenuExpanded = true },
             )
@@ -403,7 +403,7 @@ private fun AiSection(
                             Column {
                                 Text(model.displayName)
                                 Text(
-                                    "${model.sizeMb} MB · ${model.ramMb} MB RAM",
+                                    stringResource(R.string.settings_model_size_ram, model.sizeMb, model.ramMb),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -525,8 +525,8 @@ private fun ModelDownloadRow(
                     is ModelState.NotDownloaded -> state.displayName
                     is ModelState.Downloading -> state.displayName
                     is ModelState.Ready -> state.displayName
-                    is ModelState.Error -> "Download failed"
-                    else -> "AI Model"
+                    is ModelState.Error -> stringResource(R.string.settings_model_download_failed)
+                    else -> stringResource(R.string.settings_model_default_name)
                 }
             )
         },
@@ -535,7 +535,7 @@ private fun ModelDownloadRow(
                 when (state) {
                     is ModelState.NotDownloaded -> {
                         Text(
-                            "${state.sizeMb} MB download · ${state.ramMb} MB RAM",
+                            stringResource(R.string.settings_model_not_downloaded, state.sizeMb, state.ramMb),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -547,7 +547,7 @@ private fun ModelDownloadRow(
                     }
                     is ModelState.Downloading -> {
                         Text(
-                            "${state.downloadedMb} / ${state.totalMb} MB · ${state.progressPercent}%",
+                            stringResource(R.string.settings_model_progress, state.downloadedMb, state.totalMb, state.progressPercent),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -559,7 +559,7 @@ private fun ModelDownloadRow(
                     }
                     is ModelState.Ready -> {
                         Text(
-                            "Ready · ${state.sizeMb} MB",
+                            stringResource(R.string.settings_model_ready, state.sizeMb),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -579,22 +579,22 @@ private fun ModelDownloadRow(
             when (state) {
                 is ModelState.NotDownloaded -> {
                     IconButton(onClick = { onDownload(state.modelId) }) {
-                        Icon(Icons.Outlined.Download, contentDescription = "Download model")
+                        Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.settings_cd_download_model))
                     }
                 }
                 is ModelState.Downloading -> {
                     IconButton(onClick = onCancel) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.settings_cd_cancel_download))
                     }
                 }
                 is ModelState.Ready -> {
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete model")
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.settings_cd_delete_model))
                     }
                 }
                 is ModelState.Error -> {
                     IconButton(onClick = { onDownload(ModelCatalog.DEFAULT.id) }) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "Retry download")
+                        Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.settings_cd_retry_download))
                     }
                 }
                 else -> {}

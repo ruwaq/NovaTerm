@@ -17,11 +17,21 @@
     <string name="tooltip_esc">Cancel or exit mode</string>
     <string name="tooltip_long_press">Long-press for more options</string>
 
+    <!-- Terminal output accessibility -->
+    <string name="cd_terminal_output">Terminal output</string>
+
     <!-- Voice input -->
     <string name="cd_voice_input">Voice input</string>
 
     <!-- Camera OCR -->
     <string name="cd_camera_ocr">Camera text recognition</string>
+    <string name="ocr_title">Camera OCR</string>
+    <string name="ocr_close">Close</string>
+    <string name="ocr_scanning">Scanning…</string>
+    <string name="ocr_permission_required">Camera permission required</string>
+    <string name="ocr_detected_text">Detected text:</string>
+    <string name="ocr_paste_to_terminal">Paste to terminal</string>
+    <string name="ocr_empty_hint">Point camera at text to scan</string>
 
     <!-- History search -->
     <string name="search_commands_hint">Search commands\u2026</string>

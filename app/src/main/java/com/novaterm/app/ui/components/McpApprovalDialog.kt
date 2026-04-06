@@ -12,9 +12,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.novaterm.app.R
 import com.novaterm.app.ui.theme.LocalNovaTermColors
 import com.novaterm.core.mcp.security.ApprovalRequest
 
@@ -34,7 +36,7 @@ fun McpApprovalDialog(
         onDismissRequest = onDeny,
         title = {
             Text(
-                text = "MCP: ${request.toolName}",
+                text = stringResource(R.string.mcp_approval_title, request.toolName),
                 fontWeight = FontWeight.Bold,
             )
         },
@@ -45,12 +47,12 @@ fun McpApprovalDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 Text(
-                    text = "An AI tool wants to execute a dangerous operation.",
+                    text = stringResource(R.string.mcp_approval_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Risk: ${request.riskLevel.name}",
+                    text = stringResource(R.string.mcp_approval_risk, request.riskLevel.name),
                     style = MaterialTheme.typography.bodySmall,
                     color = novaColors.destructive,
                     fontWeight = FontWeight.Bold,
@@ -74,12 +76,12 @@ fun McpApprovalDialog(
         },
         confirmButton = {
             TextButton(onClick = onApprove) {
-                Text("Allow", color = novaColors.accent)
+                Text(stringResource(R.string.mcp_approval_allow), color = novaColors.accent)
             }
         },
         dismissButton = {
             TextButton(onClick = onDeny) {
-                Text("Deny", color = novaColors.destructive)
+                Text(stringResource(R.string.mcp_approval_deny), color = novaColors.destructive)
             }
         },
     )

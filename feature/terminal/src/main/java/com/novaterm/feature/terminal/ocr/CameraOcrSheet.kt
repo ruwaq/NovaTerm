@@ -42,10 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.novaterm.feature.terminal.R
 
 /**
  * Bottom sheet with live camera preview + ML Kit OCR.
@@ -109,12 +111,12 @@ fun CameraOcrSheet(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Camera OCR",
+                    text = stringResource(R.string.ocr_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ocr_close))
                 }
             }
 
@@ -139,7 +141,7 @@ fun CameraOcrSheet(
 
                     if (isProcessing) {
                         Text(
-                            text = "Scanning...",
+                            text = stringResource(R.string.ocr_scanning),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -165,7 +167,7 @@ fun CameraOcrSheet(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "Camera permission required",
+                        text = stringResource(R.string.ocr_permission_required),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -177,7 +179,7 @@ fun CameraOcrSheet(
             // Recognized text display
             if (recognizedText.isNotEmpty()) {
                 Text(
-                    text = "Detected text:",
+                    text = stringResource(R.string.ocr_detected_text),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
@@ -212,12 +214,12 @@ fun CameraOcrSheet(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Paste to terminal")
+                        Text(stringResource(R.string.ocr_paste_to_terminal))
                     }
                 }
             } else {
                 Text(
-                    text = "Point camera at text to scan",
+                    text = stringResource(R.string.ocr_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.align(Alignment.CenterHorizontally),

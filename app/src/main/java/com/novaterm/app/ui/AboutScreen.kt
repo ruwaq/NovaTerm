@@ -77,38 +77,42 @@ fun AboutScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Device info
-            SectionHeader("Device")
-            InfoRow("Model", Build.MODEL)
-            InfoRow("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-            InfoRow("Architecture", Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown")
-            InfoRow("Manufacturer", Build.MANUFACTURER)
+            SectionHeader(stringResource(R.string.about_section_device))
+            InfoRow(stringResource(R.string.about_label_model), Build.MODEL)
+            InfoRow(
+                stringResource(R.string.about_label_android),
+                stringResource(R.string.about_android_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT),
+            )
+            InfoRow(
+                stringResource(R.string.about_label_architecture),
+                Build.SUPPORTED_ABIS.firstOrNull() ?: stringResource(R.string.about_unknown),
+            )
+            InfoRow(stringResource(R.string.about_label_manufacturer), Build.MANUFACTURER)
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Terminal info
-            SectionHeader("Terminal")
-            InfoRow("TERM", "xterm-256color")
-            InfoRow("Color", "Truecolor (24-bit)")
-            InfoRow("Unicode", "Full support")
-            InfoRow("Scrollback", "10,000 lines")
+            SectionHeader(stringResource(R.string.about_section_terminal))
+            InfoRow(stringResource(R.string.about_label_term), stringResource(R.string.about_value_term))
+            InfoRow(stringResource(R.string.about_label_color), stringResource(R.string.about_value_color))
+            InfoRow(stringResource(R.string.about_label_unicode), stringResource(R.string.about_value_unicode))
+            InfoRow(stringResource(R.string.about_label_scrollback), stringResource(R.string.about_value_scrollback))
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Architecture
-            SectionHeader("Architecture")
-            InfoRow("UI", "Kotlin + Jetpack Compose")
-            InfoRow("Core", "Termux terminal-emulator (Apache 2.0)")
-            InfoRow("Persistence", "SQLite + CAS dedup")
-            InfoRow("Protocols", "OSC 8, OSC 133, OSC 52")
+            SectionHeader(stringResource(R.string.about_section_architecture))
+            InfoRow(stringResource(R.string.about_label_ui), stringResource(R.string.about_value_ui))
+            InfoRow(stringResource(R.string.about_label_core), stringResource(R.string.about_value_core))
+            InfoRow(stringResource(R.string.about_label_persistence), stringResource(R.string.about_value_persistence))
+            InfoRow(stringResource(R.string.about_label_protocols), stringResource(R.string.about_value_protocols))
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Credits
-            SectionHeader("Credits")
+            SectionHeader(stringResource(R.string.about_section_credits))
             Text(
-                text = "Built on Termux's terminal emulation engine.\n" +
-                       "Terminal core licensed under Apache 2.0.\n" +
-                       "Color schemes: Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula.",
+                text = stringResource(R.string.about_credits),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
