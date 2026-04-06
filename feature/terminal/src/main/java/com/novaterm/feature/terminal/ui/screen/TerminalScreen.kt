@@ -31,10 +31,11 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
+import com.novaterm.feature.terminal.R
 import com.novaterm.feature.terminal.color.TerminalPalettes
 import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
 import com.novaterm.feature.terminal.url.EntityConfirmDialog
@@ -138,12 +139,14 @@ fun TerminalScreen(
         }
     }
 
+    val terminalOutputDesc = stringResource(R.string.cd_terminal_output)
+
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 4.dp) // Minimal horizontal padding, no vertical gap
-            .semantics { contentDescription = "Terminal output" },
+            .semantics { contentDescription = terminalOutputDesc },
         factory = { context ->
             applyTerminalPalette(colorScheme)
 

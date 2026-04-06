@@ -273,7 +273,7 @@ private fun OutputSearchTab(
             val results = buffer.searchText(query, useRegex, caseSensitive)
             withContext(Dispatchers.Main) {
                 matches = results
-                regexError = useRegex && results.isEmpty() && query.isNotBlank()
+                regexError = useRegex && query.isNotBlank() && try { Regex(query); false } catch (_: Exception) { true }
                 currentIndex = if (results.isNotEmpty()) results.size - 1 else 0
             }
         }

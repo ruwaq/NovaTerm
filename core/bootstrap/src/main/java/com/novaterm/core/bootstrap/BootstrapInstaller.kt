@@ -324,7 +324,7 @@ class BootstrapInstaller(private val context: Context) {
         // so binPath is prefix/bin and NVTERM_PREFIX is the parent (files dir).
         val prefixPath = prefix.absolutePath
         val binPath = "$prefixPath/bin"
-        val filesPath = prefix.parentFile!!.absolutePath
+        val filesPath = (prefix.parentFile ?: prefix).absolutePath
         dpkgBin.writeText(buildString {
             appendLine("#!$binPath/sh")
             appendLine("# NovaTerm dpkg wrapper — patches com.termux paths in .deb files")

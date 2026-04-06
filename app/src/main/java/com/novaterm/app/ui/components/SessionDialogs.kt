@@ -74,7 +74,7 @@ fun RenameSessionDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { if (it.length <= 32) text = it },
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.dialog_rename_placeholder)) },
             )

@@ -422,6 +422,10 @@ private fun SplitPaneButton(
             .widthIn(min = 48.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (hasSplitPanes) accentColor.copy(alpha = 0.2f) else surfaceColor)
+            .semantics(mergeDescendants = true) {
+                contentDescription = if (hasSplitPanes) "Close split pane" else "Split terminal"
+                role = Role.Button
+            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {

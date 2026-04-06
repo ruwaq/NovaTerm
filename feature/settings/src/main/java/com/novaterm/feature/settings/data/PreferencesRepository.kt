@@ -23,7 +23,7 @@ data class TerminalPreferences(
     val useGpuRenderer: Boolean = false,
     val pipOnLeave: Boolean = false,
     val mcpEnabled: Boolean = false,
-    val mcpPort: Int = 8080,
+    val mcpPort: Int = 8080, // Must match McpServerConfig.DEFAULT_PORT
     val llmEnabled: Boolean = false,
     val scrollbackLines: Int = DEFAULT_SCROLLBACK_LINES,
     val anthropicApiKey: String = "",
@@ -154,7 +154,7 @@ class PreferencesRepository(private val context: Context) {
             useGpuRenderer = prefs.getBoolean("use_gpu_renderer", false),
             pipOnLeave = prefs.getBoolean("pip_on_leave", false),
             mcpEnabled = prefs.getBoolean("mcp_enabled", false),
-            mcpPort = prefs.getInt("mcp_port", 8080),
+            mcpPort = prefs.getInt("mcp_port", 8080), // Must match McpServerConfig.DEFAULT_PORT
             llmEnabled = prefs.getBoolean("llm_enabled", false),
             scrollbackLines = prefs.getInt("scrollback_lines", TerminalPreferences.DEFAULT_SCROLLBACK_LINES),
             anthropicApiKey = securePrefs?.getString("api_key_anthropic", "") ?: "",

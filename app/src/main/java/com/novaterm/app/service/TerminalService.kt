@@ -548,7 +548,7 @@ class TerminalService : Service() {
                 } else {
                     Log.w(TAG, "LAUNCH_PRESET: session died before command could be written")
                 }
-            }, 1000)
+            }, PRESET_COMMAND_DELAY_MS)
         } else {
             Log.e(TAG, "LAUNCH_PRESET: failed to create session for preset '$preset'")
         }
@@ -560,8 +560,8 @@ class TerminalService : Service() {
             val shellCmd = shellProvider.shellCommand()
             val shell = shellCmd[0]
             val lastSession = _sessions.value.lastOrNull()
-            val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: "40"
-            val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: "120"
+            val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: DEFAULT_ROWS.toString()
+            val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: DEFAULT_COLS.toString()
             val env = shellProvider.buildEnvironment(mapOf("LINES" to rows, "COLUMNS" to cols))
 
             Log.i(TAG, "Creating session: cmd=${shellCmd.toList()} cwd=$cwd size=${rows}x${cols}")
@@ -670,6 +670,12 @@ class TerminalService : Service() {
         private const val MAX_SESSIONS = 8
         /** Max command length accepted via ACTION_RUN_COMMAND intent. */
         private const val MAX_COMMAND_LENGTH = 4096
+
+        /** Delay (ms) before writing a preset command into a newly created session. */
+        private const val PRESET_COMMAND_DELAY_MS = 1_000L
+        /** Fallback terminal dimensions when no existing session is available. */
+        private const val DEFAULT_ROWS = 40
+        private const val DEFAULT_COLS = 120
 
         /** Map of preset names to commands that should be executed in a new session. */
         private val PRESET_COMMANDS = mapOf(

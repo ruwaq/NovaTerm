@@ -98,21 +98,20 @@ internal class NotificationHelper(
             .build()
     }
 
-    @Volatile private var updateScheduled = false
+    private val updateScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
      * Debounced foreground notification update.
      * Batches rapid changes (session create/close) into a single rebuild.
      */
     fun scheduleUpdate() {
-        if (updateScheduled) return
-        updateScheduled = true
+        if (!updateScheduled.compareAndSet(false, true)) return
         mainHandler.postDelayed({
-            updateScheduled = false
+            updateScheduled.set(false)
             val manager = context.getSystemService(NotificationManager::class.java)
             manager.notify(NOTIFICATION_SERVICE_ID, buildForegroundNotification())
             updateDynamicShortcuts()
-        }, 300)
+        }, NOTIFICATION_DEBOUNCE_MS)
     }
 
     // ── Alert notifications ───────────────────────────────────
@@ -233,5 +232,7 @@ internal class NotificationHelper(
         private const val REQ_NEW_SESSION = 2
         private const val REQ_FLOAT = 4
         private const val MAX_SHORTCUTS = 4
+        /** Debounce delay (ms) to batch rapid session changes into one notification rebuild. */
+        private const val NOTIFICATION_DEBOUNCE_MS = 300L
     }
 }
