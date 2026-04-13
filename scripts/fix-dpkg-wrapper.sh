@@ -36,9 +36,9 @@ echo "=== Step 2: Install improved dpkg wrapper ==="
 
 cat > "$DPKG_WRAPPER" << 'WRAPPER_EOF'
 #!/data/data/com.nvterm/files/usr/bin/sh
-# NovaTerm dpkg wrapper — patches com.nvterm paths in .deb files before install
+# NovaTerm dpkg wrapper — patches com.termux paths in .deb files before install
 # Real dpkg is at dpkg.real
-# com.nvterm (10 bytes) == com.nvterm (10 bytes) — safe for binary patching
+# com.termux (10 bytes) == com.nvterm (10 bytes) — safe for binary patching
 
 DPKG_DEB="/data/data/com.nvterm/files/usr/bin/dpkg-deb"
 DPKG_REAL="/data/data/com.nvterm/files/usr/bin/dpkg.real"
@@ -64,12 +64,12 @@ patch_deb() {
     return 1
   fi
 
-  # Rename directory tree: com.nvterm → com.nvterm
-  if [ -d "$tmp/pkg/data/data/com.nvterm" ]; then
+  # Rename directory tree: com.termux → com.nvterm
+  if [ -d "$tmp/pkg/data/data/com.termux" ]; then
     mkdir -p "$tmp/pkg/data/data/com.nvterm"
-    cp -a "$tmp/pkg/data/data/com.nvterm/." "$tmp/pkg/data/data/com.nvterm/"
-    rm -rf "$tmp/pkg/data/data/com.nvterm"
-    log "  Moved directory tree"
+    cp -a "$tmp/pkg/data/data/com.termux/." "$tmp/pkg/data/data/com.nvterm/"
+    rm -rf "$tmp/pkg/data/data/com.termux"
+    log "  Moved directory tree com.termux → com.nvterm"
   fi
 
   # Patch file contents — both dotted and slashed path forms

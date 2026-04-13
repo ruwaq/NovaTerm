@@ -172,8 +172,19 @@ class BootstrapInstaller(private val context: Context) {
             val cacheDir = File(context.cacheDir, "apt/archives/partial")
             cacheDir.mkdirs()
 
+            // 9. Write apt sources.list (Termux package repository)
+            //    Without this, apt update fails with "no sources" and no packages can be installed.
+            val sourcesList = File(prefixDir, "etc/apt/sources.list")
+            if (!sourcesList.exists()) {
+                sourcesList.writeText(
+                    "deb https://packages-cf.termux.dev/apt/termux-main stable main\n"
+                )
+                Log.i(TAG, "Wrote apt sources.list → Termux main repo")
+            }
+
             // 10. Ensure dpkg status files exist
             File(prefixDir, "var/lib/dpkg/available").apply { if (!exists()) createNewFile() }
+            File(prefixDir, "var/lib/dpkg/status").apply { if (!exists()) createNewFile() }
 
             // 11. Patch login script to export TMPDIR (Claude Code needs this).
             //     Android's /tmp is not writable by apps. Node.js os.tmpdir()
