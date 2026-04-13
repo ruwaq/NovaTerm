@@ -32,21 +32,44 @@ app/src/main/cpp/bootstrap-aarch64.zip
 # JVM
 *.hprof
 
-# Claude Code
-.claude/settings.local.json
+# Claude Code (AI assistant context — never commit personal/workflow data)
+.claude/
+CLAUDE.md
+
+# Aider (AI pair programmer)
+.aider*
+llms.txt
 
 # OS
 Thumbs.db
 *~
+.DS_Store
+
+# Signing & secrets (NEVER commit)
 keystore.properties
+release-keystore.jks
+*.jks
+*.keystore
+*.pem
+*.p12
+*.key
 
 # Node
 node_modules/
 
-# Environment
+# Environment (NEVER commit)
 .env
 .env.*
 !.env.example
 
 # Binaries (should use LFS for .so if needed)
 *.so
+
+# Build outputs
+*.apk
+*.aab
+/app/release/
+
+# IDE
+*.iml
+/.idea/
