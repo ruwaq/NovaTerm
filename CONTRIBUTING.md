@@ -71,7 +71,7 @@ rust-core/      Cargo workspace (VT parser, PTY, GPU renderer, JNI bridge)
 ## What to Work On
 
 - Issues labeled `good first issue` are great starting points
-- Check the [Roadmap](CLAUDE.md) for planned features
+- Check the [Roadmap](README.md#roadmap) for planned features
 - Bug reports with reproduction steps are always welcome
 
 ## Pull Request Guidelines
