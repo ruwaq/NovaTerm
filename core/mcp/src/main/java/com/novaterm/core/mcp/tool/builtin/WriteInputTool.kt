@@ -1,6 +1,7 @@
 package com.novaterm.core.mcp.tool.builtin
 
 import com.novaterm.core.mcp.bridge.McpSessionBridge
+import com.novaterm.core.mcp.security.SecurityPolicy
 import com.novaterm.core.mcp.security.SecurityPolicy.RiskLevel
 import com.novaterm.core.mcp.tool.InputSchema
 import com.novaterm.core.mcp.tool.McpTool
@@ -29,13 +30,12 @@ class WriteInputTool(
             ?: return ToolResult.Error("Missing required parameter: text")
         val session = (arguments["session"] as? Number)?.toInt() ?: 0
 
-        // Use the new sanitizer to escape dangerous characters
-        val sanitized = SecurityPolicy.sanitizeCommand(text, allowEmpty = true)
-        if (sanitized == null) {
+        // Block commands that match security policy
+        if (SecurityPolicy.isBlockedCommand(text)) {
             return ToolResult.Error("Input blocked by security policy")
         }
 
-        bridge.writeToSession(session, sanitized)
-        return ToolResult.Success("Written ${sanitized.length} chars to session $session")
+        bridge.writeToSession(session, text)
+        return ToolResult.Success("Written ${text.length} chars to session $session")
     }
 }

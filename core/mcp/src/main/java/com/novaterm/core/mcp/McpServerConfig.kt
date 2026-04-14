@@ -24,5 +24,4 @@ data class McpServerConfig(
             return host.equals(DEFAULT_HOST, ignoreCase = true)
         }
     }
-    }
 }

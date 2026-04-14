@@ -47,14 +47,13 @@ class RunCommandTool(
         val session = (arguments["session"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
         val waitMs = (arguments["wait_ms"] as? Number)?.toLong()?.coerceIn(500, 30_000) ?: DEFAULT_WAIT_MS
 
-        // Use the new sanitizer to escape dangerous characters
-        val sanitized = SecurityPolicy.sanitizeCommand(command)
-        if (sanitized == null) {
+        // Block dangerous commands per security policy
+        if (SecurityPolicy.isBlockedCommand(command)) {
             return ToolResult.Error("Command blocked by security policy")
         }
 
         // Write command to PTY
-        bridge.writeToSession(session, "$sanitized\n")
+        bridge.writeToSession(session, "$command\n")
 
         // Poll for output stabilization: stop when output is non-empty and
         // unchanged for STABLE_READS_REQUIRED consecutive reads. Falls back to

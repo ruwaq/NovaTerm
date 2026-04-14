@@ -246,17 +246,16 @@ fun NovaTermApp(
                     },
                     onPromptNavigatorReady = {},
                     onViewReady = { terminalView ->
-                        val cleanup = registerRustScreenCallback(service, pipSession.mHandle, terminalView)
-                        DisposableEffect(pipSession.mHandle) {
-                            onDispose {
-                                cleanup()
-                            }
-                        }
+                        registerRustScreenCallback(service, pipSession.mHandle, terminalView)
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                // Cleanup already handled by registerRustScreenCallback return value
+                DisposableEffect(pipSession.mHandle) {
+                    onDispose {
+                        service?.unregisterScreenCallback(pipSession.mHandle)
+                    }
+                }
             }
         }
         return
@@ -424,12 +423,7 @@ fun NovaTermApp(
                                     activeTerminalView = terminalView
                                 }
                                 val s = sessions.getOrNull(sessionIndex) ?: return@PaneTreeView
-                                val cleanup = registerRustScreenCallback(service, s.mHandle, terminalView)
-                                DisposableEffect(s.mHandle) {
-                                    onDispose {
-                                        cleanup()
-                                    }
-                                }
+                                registerRustScreenCallback(service, s.mHandle, terminalView)
                             },
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             modifier = Modifier.fillMaxSize(),
@@ -466,19 +460,18 @@ fun NovaTermApp(
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             onViewReady = { terminalView ->
                                 activeTerminalView = terminalView
-                                val cleanup = registerRustScreenCallback(service, currentSession.mHandle, terminalView)
-                                DisposableEffect(currentSession.mHandle) {
-                                    onDispose {
-                                        cleanup()
-                                    }
-                                }
+                                registerRustScreenCallback(service, currentSession.mHandle, terminalView)
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
 
                     // Cleanup old callbacks when session changes
-                    // Cleanup already handled by registerRustScreenCallback return value
+                    DisposableEffect(currentSession.mHandle) {
+                        onDispose {
+                            service?.unregisterScreenCallback(currentSession.mHandle)
+                        }
+                    }
                 } else if (sessions.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
@@ -542,10 +535,9 @@ internal fun registerRustScreenCallback(
     service: com.novaterm.app.service.TerminalService?,
     handle: String,
     terminalView: TerminalView,
-): () -> Unit {
+) {
     service?.let { svc ->
-        // Register callback and get cleanup function
-        val cleanup = svc.registerScreenCallback(handle) {
+        svc.registerScreenCallback(handle) {
             if (svc.useRustBackend.get()) {
                 val engine = svc.getRustEngine(handle)
                 if (engine != null) {
@@ -565,7 +557,5 @@ internal fun registerRustScreenCallback(
             }
             terminalView.onScreenUpdated()
         }
-        return cleanup
     }
-    return {}
 }

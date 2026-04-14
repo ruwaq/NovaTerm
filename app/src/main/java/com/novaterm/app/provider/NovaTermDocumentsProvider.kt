@@ -112,19 +112,22 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
         }
 
         // Replace all special characters that could cause path confusion
-        val safeName = displayName.replace("/", "_").replace("\\", "_").replace(":", "_").replace("*", "_").replace("|", "_").replace("?", "_").replace("\", "_")
-        val newFile = File(parent, safeName)
+        val safeName = displayName
+            .replace("/", "_").replace("\\", "_").replace(":", "_")
+            .replace("*", "_").replace("|", "_").replace("?", "_")
+            .replace("<", "_").replace(">", "_").replace("\"", "_")
+        val safeFile = File(parent, safeName)
 
         val created = if (mimeType == Document.MIME_TYPE_DIR) {
-            newFile.mkdirs()
+            safeFile.mkdirs()
         } else {
-            newFile.createNewFile()
+            safeFile.createNewFile()
         }
         if (!created) {
             throw FileNotFoundException("Failed to create: $safeName")
         }
 
-        return docIdForFile(newFile)
+        return docIdForFile(safeFile)
     }
 
     override fun deleteDocument(documentId: String) {

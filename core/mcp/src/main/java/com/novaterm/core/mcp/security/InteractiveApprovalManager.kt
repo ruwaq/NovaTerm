@@ -62,6 +62,7 @@ class InteractiveApprovalManager : ApprovalManager {
 
         return when (tool.riskLevel) {
             SecurityPolicy.RiskLevel.SAFE -> ApprovalResult.Approved
+            SecurityPolicy.RiskLevel.MODERATE -> requestUserApproval(tool, arguments, clientAddress)
             SecurityPolicy.RiskLevel.DANGEROUS -> requestUserApproval(tool, arguments, clientAddress)
         }
     }

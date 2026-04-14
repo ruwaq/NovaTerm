@@ -102,6 +102,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     }
     val service: StateFlow<TerminalService?> = _service.asStateFlow()
 
+    /** Terminal preferences (font size, color scheme, etc.) exposed for UI. */
+    val preferences: StateFlow<TerminalPreferences> = prefsRepo.preferences
+
     /**
      * Sessions derived from the bound service's StateFlow.
      * When service is null, emits empty list.
@@ -181,13 +184,6 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         bound = false
     }
 
-    override fun onCleared() {
-        // Save UI state before unbindService
-        saveStateToSavedStateHandle()
-        unbindService()
-        super.onCleared()
-    }
-
     // ── Session UI state ───────────────────────────────────
 
     private val _currentSessionIndex = MutableStateFlow(0)
@@ -221,7 +217,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     fun setInPipMode(inPip: Boolean) {
         _isInPipMode.value = inPip
-        persistSessionState()
+        saveStateToSavedStateHandle()
     }
 
     // ── Pane management (built-in multiplexer) ────────────
@@ -383,7 +379,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         if (session != null) {
             _currentSessionIndex.value = svc.sessionCount - 1
             _sessionCreationFailed.value = false
-            persistSessionState()
+            saveStateToSavedStateHandle()
         } else {
             _sessionCreationFailed.value = true
         }
@@ -471,12 +467,10 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     fun showSettings() {
         _showSettings.value = true
-        persistSessionState()
     }
 
     fun hideSettings() {
         _showSettings.value = false
-        persistSessionState()
     }
 
     fun updatePreferences(newPrefs: TerminalPreferences) {
@@ -485,23 +479,12 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     fun resetPreferencesToDefaults() {
         prefsRepo.resetToDefaults()
-        persistSessionState()
     }
 
     fun completeOnboarding(colorScheme: String) {
         prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
         prefsRepo.completeOnboarding()
         _showOnboarding.value = false
-        persistSessionState()
-    }
-
-    fun showSettings() {
-        _showSettings.value = true
-        persistSessionState()
-    }
-
-    fun hideSettings() {
-        _showSettings.value = false
     }
 
     fun toggleWakeLock() {
@@ -523,51 +506,20 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
                 val sessionId = "session_$sessionIndex"
                 val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
 
-                // Re-check service and engine readiness inside coroutine
+                // Re-check service readiness inside coroutine
                 val currentSvc = _service.value ?: return@launch
                 if (!currentSvc.predictionEngineReady) {
                     _suggestion.value = null
                     return@launch
                 }
 
-                // Try N-gram prediction first (fast, no model needed)
+                // N-gram prediction (fast, no model needed)
                 val predictions = currentSvc.predictionEngine.predict(
                     sessionId = sessionId,
                     cwd = cwd,
                     maxResults = 1,
                 )
-                val ngramResult = predictions.firstOrNull()?.command
-
-                if (ngramResult != null) {
-                    _suggestion.value = ngramResult
-                    return@launch
-                }
-
-                // Fallback to LLM if enabled and ready (slower but smarter).
-                // Use synchronized access to prevent race condition where engine
-                // can be released concurrently by updateLlmState()
-                synchronized(currentSvc.llmSync) {
-                    val llm = currentSvc.llmEngine
-                    if (llm != null && llm.state.value == com.novaterm.core.llm.LlmState.READY) {
-                        val recentCommands = currentSvc.predictionEngine.recentCommands(sessionId, limit = 5)
-                        val llmContext = com.novaterm.core.llm.TerminalContext(
-                            recentCommands = recentCommands.map { cmd ->
-                                com.novaterm.core.llm.CommandEntry(command = cmd)
-                            },
-                            cwd = cwd,
-                        )
-                        try {
-                            val llmSuggestion = llm.suggest(llmContext)
-                            _suggestion.value = llmSuggestion?.command
-                        } catch (e: Exception) {
-                            // Engine released while inference was in-flight
-                            Log.w("NovaTerm", "LLM suggest failed (engine released?)", e)
-                            _suggestion.value = null
-                        }
-                    } else {
-                        _suggestion.value = null
-                    }
-                }
+                _suggestion.value = predictions.firstOrNull()?.command
             } catch (e: Exception) {
                 if (com.novaterm.app.BuildConfig.DEBUG) Log.d("NovaTerm", "Suggestion failed: ${e.message}")
                 _suggestion.value = null

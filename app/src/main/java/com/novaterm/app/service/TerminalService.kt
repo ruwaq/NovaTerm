@@ -20,15 +20,6 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
 import com.novaterm.app.receiver.BootReceiver
-
-/**
- * Data class to hold UI state that needs persistence across sessions
- */
-data class TerminalViewModelUIState(
-    val currentSessionIndex: Int = 0,
-    val sessionNames: Map<Int, String> = emptyMap(),
-    val focusedPaneSession: Int = -1
-)
 import com.novaterm.core.mcp.McpServer
 import com.novaterm.core.mcp.McpServerConfig
 import com.novaterm.core.mcp.security.ApprovalRequest
@@ -103,25 +94,13 @@ class TerminalService : Service() {
 
     /** Register a screen update callback for a specific session.
      *  Immediately invokes the callback to render any buffered content
-     *  that arrived before the view was composed (fixes session 2+ freeze).
-     *
-     *  @param sessionHandle The session handle to register the callback for
-     *  @param callback The callback to invoke when screen content changes
-     *  @return A cleanup function that should be called when the callback is no longer needed
-     */
-    fun registerScreenCallback(sessionHandle: String, callback: () -> Unit): () -> Unit {
-        val oldCallback = screenUpdateCallbacks[sessionHandle]
+     *  that arrived before the view was composed (fixes session 2+ freeze). */
+    fun registerScreenCallback(sessionHandle: String, callback: () -> Unit) {
         screenUpdateCallbacks[sessionHandle] = callback
 
         // Force immediate redraw — the session may have produced output
         // before this callback was registered (race between PTY I/O and Compose).
         mainHandler.post(callback)
-
-        // Return a cleanup function
-        return {
-            screenUpdateCallbacks.remove(sessionHandle)
-            oldCallback?.let { oldCallback() } // Invoke old callback one last time before removal
-        }
     }
 
     /** Unregister a screen update callback (e.g., when tab is disposed). */
@@ -349,20 +328,16 @@ class TerminalService : Service() {
 
         private fun sanitizeLogMessage(message: String): String {
             // Filter sensitive data from logs to prevent accidental exposure
-            // Remove API keys
-            val sanitized = message
-                .replace(Regex("ANTHROPIC_API_KEY=[a-zA-Z0-9_-]{32,}"), "ANTHROPIC_API_KEY=***")
-                .replace(Regex("GOOGLE_API_KEY=[a-zA-Z0-9_-]{32,}"), "GOOGLE_API_KEY=***")
-                .replace(Regex("OPENAI_API_KEY=[a-zA-Z0-9_-]{32,}"), "OPENAI_API_KEY=***")
-                .replace(Regex("OPENROUTER_API_KEY=[a-zA-Z0-9_-]{32,}"), "OPENROUTER_API_KEY=***")
-                .replace(Regex("\b[A-Za-z0-9_-]{32,}\b"), "****") // Remove long tokens
-                .replace(Regex("\bhttps?://[^\s]{30,}\b"), "****") // Remove long URLs
-                .replace(Regex("\b[A-Za-z0-9_-]+@.*\.[A-Za-z]{2,}\b"), "****@****.***") // Remove emails
-
-            // Remove OSC 133 sensitive data from logs
-            return sanitized
-                .replace(Regex("OSC 133:.*"), "OSC 133: [redacted]")
-                .replace(Regex("command.*[a-zA-Z0-9_-]{32,}"), "command: [redacted]")
+            return message
+                .replace(Regex("""ANTHROPIC_API_KEY=[a-zA-Z0-9_-]{32,}"""), "ANTHROPIC_API_KEY=***")
+                .replace(Regex("""GOOGLE_API_KEY=[a-zA-Z0-9_-]{32,}"""), "GOOGLE_API_KEY=***")
+                .replace(Regex("""OPENAI_API_KEY=[a-zA-Z0-9_-]{32,}"""), "OPENAI_API_KEY=***")
+                .replace(Regex("""OPENROUTER_API_KEY=[a-zA-Z0-9_-]{32,}"""), "OPENROUTER_API_KEY=***")
+                .replace(Regex("""\b[A-Za-z0-9_-]{32,}\b"""), "****")
+                .replace(Regex("""\bhttps?://\S{30,}\b"""), "****")
+                .replace(Regex("""\b[A-Za-z0-9_-]+@\S+\.[A-Za-z]{2,}\b"""), "****@****.***")
+                .replace(Regex("""OSC 133:.*"""), "OSC 133: [redacted]")
+        }
     }
 
     // ── Lifecycle ──────────────────────────────────────────
@@ -392,68 +367,13 @@ class TerminalService : Service() {
         startForeground(notifications.foregroundNotificationId, notifications.buildForegroundNotification())
 
         persistence.startPeriodicSave()
-        restoreSessionUIState()
         startMcpServerIfEnabled()
-
-        // Initialize UI state with current values
-        persistence.uiStateConsumer.invoke(TerminalViewModelUIState(
-            currentSessionIndex = _activeSessionIndex.value,
-            sessionNames = _sessionNames.value,
-            focusedPaneSession = _focusedPaneSession.value
-        ))
     }
 
     /**
      * Start or restart the MCP server based on current preference state.
      * Safe to call multiple times — stops existing server first.
      */
-    fun restoreSessionUIState() {
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                // Use the persistence manager's restore function
-                persistence.restoreUIState { state ->
-                    _activeSessionIndex.value = state.currentSessionIndex
-                    _sessionNames.value = state.sessionNames
-                    _focusedPaneSession.value = state.focusedPaneSession
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to restore UI state", e)
-            }
-        }
-    }
-
-    @Synchronized
-    fun saveSessionUIState(currentSessionIndex: Int, sessionNames: Map<Int, String>, focusedPaneSession: Int) {
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                // Update the UI state in the persistence manager
-                persistence.uiStateConsumer.invoke(TerminalViewModelUIState(
-                    currentSessionIndex = currentSessionIndex,
-                    sessionNames = sessionNames,
-                    focusedPaneSession = focusedPaneSession
-                ))
-
-                // Save the UI state immediately
-                persistence.saveSessionMetadata()
-
-                // Also save to blockstore for session restoration
-                val snapshot = _sessions.value.toList()
-                if (snapshot.isNotEmpty() && currentSessionIndex < snapshot.size) {
-                    val session = snapshot[currentSessionIndex]
-                    blockStore.saveSession(
-                        id = "session_${currentSessionIndex}",
-                        tabIndex = currentSessionIndex,
-                        tabName = sessionNames[currentSessionIndex] ?: session.title ?: "shell",
-                        shell = shellProvider.findShell(),
-                        cwd = session.cwd ?: shellProvider.defaultWorkingDirectory()
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to save UI state", e)
-            }
-        }
-    }
-
     fun startMcpServerIfEnabled() {
         mcpServer?.stop()
         mcpServer = null
@@ -551,27 +471,22 @@ class TerminalService : Service() {
                     // Security: validate command before execution
                     if (command.length > MAX_COMMAND_LENGTH) {
                         Log.w(TAG, "RUN_COMMAND: command exceeds max length (${command.length})")
+                    } else if (SecurityPolicy.isBlockedCommand(command)) {
+                        Log.w(TAG, "RUN_COMMAND: blocked by security policy")
                     } else {
-                        // Use the new sanitizer to escape dangerous characters
-                        val sanitized = SecurityPolicy.sanitizeCommand(command)
-                        if (sanitized == null) {
-                            Log.w(TAG, "RUN_COMMAND: command blocked by security policy")
+                        val cwd = intent.getStringExtra("cwd")
+                        val session = if (!cwd.isNullOrBlank()) {
+                            createSessionInDir(cwd)
                         } else {
-                            val cwd = intent.getStringExtra("cwd")
-                            val session = if (!cwd.isNullOrBlank()) {
-                                createSessionInDir(cwd)
-                            } else {
-                                createSession()
-                            }
-                            if (session != null) {
-                                session.write(sanitized + "\n")
-                                Log.i(TAG, "RUN_COMMAND: executed '[redacted]' in session [${session.mHandle.take(8)}...]")
-                            } else {
-                                Log.e(TAG, "RUN_COMMAND: failed to create session")
-                            }
+                            createSession()
+                        }
+                        if (session != null) {
+                            session.write(command + "\n")
+                            Log.i(TAG, "RUN_COMMAND: executed '[redacted]' in session [${session.mHandle.take(8)}...]")
+                        } else {
+                            Log.e(TAG, "RUN_COMMAND: failed to create session")
                         }
                     }
-                }
                 }
             }
             ACTION_LAUNCH_PRESET -> {
