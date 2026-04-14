@@ -1,0 +1,105 @@
+# === Android Optimization Rules ===
+
+# General optimization rules
+-optimizationpasses 5
+-dontusemixedcaseclassnames
+-dontusemixedcaseinterfaces
+-dontusemixedcaseinnerclasses
+-dontusemixedcaseconstantclasses
+-verbose
+
+# Keep Kotlin reflection for serialization
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class * {
+    @kotlin.* <methods>;
+}
+
+# Keep Coroutines
+-keep class kotlinx.coroutines.** { *; }
+
+# Keep data classes and enums
+-keep,includedescriptorclasses class * {
+    @kotlinx.serialization.SerialInfo *;
+}
+
+# Keep Compose internals
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+
+# Keep Kotlin coroutines internals
+-keep class kotlinx.coroutines.** { *; }
+
+# Keep DataStore internals
+-keep class androidx.datastore.** { *; }
+
+# Keep DataBinding if used
+-keep class androidx.databinding.** { *; }
+
+# Keep ViewModel internals
+-keep class androidx.lifecycle.** { *; }
+
+# Keep Navigation internals
+-keep class androidx.navigation.** { *; }
+
+# === NovaTerm Specific Rules ===
+
+# Keep NovaTerm model classes
+-keep class com.novaterm.core.common.model.** { *; }
+-keep class com.novaterm.core.common.util.** { *; }
+
+# Keep NovaTerm config classes
+-keep class com.novaterm.core.config.** { *; }
+
+# Keep NovaTerm session classes
+-keep class com.novaterm.core.session.** { *; }
+
+# Keep NovaTerm terminal engine classes
+-keep class com.novaterm.core.terminal.** { *; }
+
+# Keep NovaTerm terminal view classes
+-keep class com.novaterm.view.** { *; }
+
+# Keep NovaTerm feature classes
+-keep class com.novaterm.feature.** { *; }
+
+# Keep NovaTerm bootstrap classes
+-keep class com.novaterm.core.bootstrap.** { *; }
+
+# === Compose Theme Optimization ===
+
+# Keep Compose theme resources
+-keep class androidx.compose.material3.** { *; }
+
+# === AI Integration Optimization ===
+
+# Keep MCP server classes
+-keep class io.modelcontextprotocol.** { *; }
+
+# Keep Ktor server classes
+-keep class io.ktor.** { *; }
+
+# === Security Optimization ===
+
+# Keep security-related classes
+-keep class android.security.** { *; }
+-keep class androidx.security.** { *; }
+
+# === Testing Optimization ===
+
+# Keep test classes
+-keep class **$Test* { *; }
+-keep class **Test* { *; }
+
+# === ProGuard Optimization ===
+
+# Optimize string merging
+-stringmerge
+
+# Optimize class merging
+-classmerging
+
+# Optimize field merging
+-fieldmerging
+
+# Optimize method merging
+-methodmerging
