@@ -71,13 +71,13 @@ PRIVACY FIRST
 - API keys encrypted on-device, never transmitted
 - MCP server binds to localhost only
 - Open source (Apache 2.0)
-- Full privacy policy: https://github.com/nvterm/NovaTerm/blob/main/docs/privacy-policy.md
+- Full privacy policy: https://github.com/novaterm-org/NovaTerm/blob/main/docs/privacy-policy.md
 
 EARLY ACCESS
 
 NovaTerm is in alpha. The core terminal works well, but some features are still being refined. We welcome feedback and contributions.
 
-Source code: https://github.com/nvterm/NovaTerm
+Source code: https://github.com/novaterm-org/NovaTerm
 
 SYSTEM REQUIREMENTS
 

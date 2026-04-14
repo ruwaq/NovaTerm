@@ -6,11 +6,11 @@ License: Apache-2.0
 
 AuthorName: NovaTerm
 AuthorEmail: hello@nvterm.dev
-AuthorWebSite: https://github.com/nvterm/NovaTerm
+AuthorWebSite: https://github.com/novaterm-org/NovaTerm
 
-SourceCode: https://github.com/nvterm/NovaTerm
-IssueTracker: https://github.com/nvterm/NovaTerm/issues
-Translation: https://github.com/nvterm/NovaTerm/discussions
+SourceCode: https://github.com/novaterm-org/NovaTerm
+IssueTracker: https://github.com/novaterm-org/NovaTerm/issues
+Translation: https://github.com/novaterm-org/NovaTerm/discussions
 
 Name: NovaTerm - AI Terminal
 Summary: Rust-powered, GPU-accelerated, AI-native terminal for Android
@@ -31,7 +31,7 @@ Description: |-
   Terminal emulation core from Termux (Apache 2.0).
 
 RepoType: git
-Repo: https://github.com/nvterm/NovaTerm
+Repo: https://github.com/novaterm-org/NovaTerm
 
 Builds:
   - versionName: 0.3.1-alpha

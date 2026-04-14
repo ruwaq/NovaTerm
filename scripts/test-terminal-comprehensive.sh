@@ -442,7 +442,7 @@ printf "\033]7;file://localhost%s\033\\" "$PWD"
 pass "T56: OSC 7 - Report working directory"
 
 # Test 57: OSC 8 - Hyperlinks
-printf "  Click: \033]8;;https://github.com/nvterm/NovaTerm\033\\NovaTerm on GitHub\033]8;;\033\\\n"
+printf "  Click: \033]8;;https://github.com/novaterm-org/NovaTerm\033\\NovaTerm on GitHub\033]8;;\033\\\n"
 pass "T57: OSC 8 - Hyperlink (visual check: should be clickable)"
 
 # Test 58: OSC 52 - Clipboard

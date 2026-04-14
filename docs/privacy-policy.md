@@ -98,7 +98,7 @@ NovaTerm shares no data with third parties because it collects no data. There is
 
 NovaTerm is open source under the Apache License 2.0. You can audit the source code at any time:
 
-- **Source code:** [https://github.com/nvterm/NovaTerm](https://github.com/nvterm/NovaTerm)
+- **Source code:** [https://github.com/novaterm-org/NovaTerm](https://github.com/novaterm-org/NovaTerm)
 - **Terminal core:** Derived from Termux (Apache License 2.0)
 
 ## 11. Changes to This Policy
@@ -109,8 +109,8 @@ If we update this privacy policy, the changes will be posted to this page with a
 
 If you have questions or concerns about this privacy policy:
 
-- **GitHub Issues:** [https://github.com/nvterm/NovaTerm/issues](https://github.com/nvterm/NovaTerm/issues)
-- **Discussions:** [https://github.com/nvterm/NovaTerm/discussions](https://github.com/nvterm/NovaTerm/discussions)
+- **GitHub Issues:** [https://github.com/novaterm-org/NovaTerm/issues](https://github.com/novaterm-org/NovaTerm/issues)
+- **Discussions:** [https://github.com/novaterm-org/NovaTerm/discussions](https://github.com/novaterm-org/NovaTerm/discussions)
 
 ---
 

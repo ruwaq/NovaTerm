@@ -98,7 +98,7 @@ Third alpha release of NovaTerm. This release adds AI tool integration, built-in
 
 ## Installation
 
-Download the APK from the [Releases page](https://github.com/nvterm/NovaTerm/releases/tag/v0.3.0-alpha).
+Download the APK from the [Releases page](https://github.com/novaterm-org/NovaTerm/releases/tag/v0.3.0-alpha).
 
 **Requirements:**
 - Android 11 (API 30) or later
@@ -113,4 +113,4 @@ Download the APK from the [Releases page](https://github.com/nvterm/NovaTerm/rel
 
 ## Full Changelog
 
-[v0.2.0-alpha...v0.3.0-alpha](https://github.com/nvterm/NovaTerm/compare/v0.2.0-alpha...v0.3.0-alpha)
+[v0.2.0-alpha...v0.3.0-alpha](https://github.com/novaterm-org/NovaTerm/compare/v0.2.0-alpha...v0.3.0-alpha)

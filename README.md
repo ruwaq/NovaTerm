@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nvterm/NovaTerm/releases/latest">
-    <img src="https://img.shields.io/github/v/release/nvterm/NovaTerm?include_prereleases&style=for-the-badge&color=d79921&label=Download%20APK" alt="Download APK"/>
+  <a href="https://github.com/novaterm-org/NovaTerm/releases/latest">
+    <img src="https://img.shields.io/github/v/release/novaterm-org/NovaTerm?include_prereleases&style=for-the-badge&color=d79921&label=Download%20APK" alt="Download APK"/>
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml"><img src="https://github.com/nvterm/NovaTerm/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="https://github.com/novaterm-org/NovaTerm/actions/workflows/ci.yml"><img src="https://github.com/novaterm-org/NovaTerm/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-458588.svg" alt="License"/></a>
   <img src="https://img.shields.io/badge/Android-11%2B-98971a.svg" alt="Android 11+"/>
   <img src="https://img.shields.io/badge/Kotlin-2.1-b16286.svg" alt="Kotlin"/>
@@ -26,7 +26,7 @@
 
 ## ⚡ Install in 30 seconds
 
-1. **[Download NovaTerm-v0.3.1-alpha.apk](https://github.com/nvterm/NovaTerm/releases/latest/download/NovaTerm-v0.3.1-alpha.apk)**
+1. **[Download NovaTerm-v0.3.1-alpha.apk](https://github.com/novaterm-org/NovaTerm/releases/latest/download/NovaTerm-v0.3.1-alpha.apk)**
 2. Enable *Install unknown apps* for your browser/file manager
 3. Install and open
 

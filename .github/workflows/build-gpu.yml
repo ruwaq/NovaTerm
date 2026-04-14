@@ -126,7 +126,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           # GH_PAT required: org policy blocks GITHUB_TOKEN from creating PRs.
-          # Create a fine-grained PAT with Contents+PRs write on nvterm/NovaTerm,
+          # Create a fine-grained PAT with Contents+PRs write on novaterm-org/NovaTerm,
           # then add it as repo secret GH_PAT.
           token: ${{ secrets.GH_PAT }}
           add-paths: app/src/main/jniLibs/arm64-v8a/libnovaterm.so
