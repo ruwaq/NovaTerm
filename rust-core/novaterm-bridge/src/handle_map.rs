@@ -48,3 +48,83 @@ pub fn destroy_backend(handle: u64) -> bool {
 pub fn active_count() -> usize {
     BACKENDS.read().len()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use novaterm_vt::TerminalBackend;
+
+    #[test]
+    fn create_backend_returns_nonzero_handle() {
+        let h = create_backend(24, 80);
+        assert!(h > 0, "Handle should be non-zero");
+        destroy_backend(h);
+    }
+
+    #[test]
+    fn create_backend_sequential_handles() {
+        let h1 = create_backend(24, 80);
+        let h2 = create_backend(40, 120);
+        assert!(h1 < h2, "Sequential handles should be increasing");
+        destroy_backend(h1);
+        destroy_backend(h2);
+    }
+
+    #[test]
+    fn with_backend_process_and_snapshot() {
+        let h = create_backend(24, 80);
+        // Write some data through the backend
+        let result = with_backend(h, |b| {
+            b.process_bytes(b"Hello World");
+            b.snapshot()
+        });
+        assert!(result.is_some(), "Should access valid backend and get snapshot");
+        let snap = result.unwrap();
+        assert!(snap.rows > 0, "Snapshot should have rows");
+        assert!(snap.cols > 0, "Snapshot should have cols");
+        destroy_backend(h);
+    }
+
+    #[test]
+    fn with_backend_invalid_handle() {
+        let result = with_backend(99999, |_b| "should not reach");
+        assert!(result.is_none(), "Invalid handle should return None");
+    }
+
+    #[test]
+    fn destroy_backend_twice() {
+        let h = create_backend(24, 80);
+        assert!(destroy_backend(h), "First destroy should succeed");
+        assert!(!destroy_backend(h), "Second destroy should fail");
+    }
+
+    #[test]
+    fn with_backend_after_destroy() {
+        let h = create_backend(24, 80);
+        destroy_backend(h);
+        let result = with_backend(h, |_b| "should not reach");
+        assert!(result.is_none(), "Access after destroy should return None");
+    }
+
+    #[test]
+    fn active_count_increases_on_create() {
+        let count_before = active_count();
+        let h = create_backend(24, 80);
+        // Count should have increased by at least 1 (other tests may also create backends)
+        assert!(active_count() > count_before, "Count should increase after create");
+        destroy_backend(h);
+    }
+
+    #[test]
+    fn create_and_destroy_multiple() {
+        let handles: Vec<u64> = (0..5).map(|_| create_backend(24, 80)).collect();
+        // All handles should be valid
+        for h in &handles {
+            let result = with_backend(*h, |b| b.snapshot());
+            assert!(result.is_some(), "Handle {} should be valid", h);
+        }
+        for h in handles {
+            assert!(destroy_backend(h));
+        }
+    }
+}
