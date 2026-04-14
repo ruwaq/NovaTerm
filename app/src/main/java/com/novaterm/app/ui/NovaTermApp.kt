@@ -47,6 +47,8 @@ import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
 import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
+import com.novaterm.core.session.manager.AgentPreset
+import com.novaterm.feature.terminal.ui.components.AgentPresetSheet
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
@@ -82,6 +84,7 @@ fun NovaTermApp(
     val view = LocalView.current
     val mcpApproval by viewModel.mcpApprovalRequest.collectAsState()
     var showCameraOcr by remember { mutableStateOf(false) }
+    var showAgentSheet by remember { mutableStateOf(false) }
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -199,6 +202,16 @@ fun NovaTermApp(
                     sessions[safeIdx].write(text)
                 }
             },
+        )
+    }
+
+    if (showAgentSheet) {
+        AgentPresetSheet(
+            presets = AgentPreset.BUILT_INS,
+            onLaunchAgent = { preset ->
+                service?.createAgentSession(preset)
+            },
+            onDismiss = { showAgentSheet = false },
         )
     }
 
@@ -367,6 +380,7 @@ fun NovaTermApp(
                             altActive = altActive,
                             hapticEnabled = preferences.hapticFeedback,
                             extraKeysStyle = preferences.extraKeysStyle,
+                            onAgentLaunch = { showAgentSheet = true },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

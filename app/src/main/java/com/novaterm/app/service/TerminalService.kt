@@ -25,6 +25,9 @@ import com.novaterm.core.mcp.McpServerConfig
 import com.novaterm.core.mcp.security.ApprovalRequest
 import com.novaterm.core.mcp.security.InteractiveApprovalManager
 import com.novaterm.core.mcp.security.SecurityPolicy
+import com.novaterm.core.session.manager.AgentOrchestrator
+import com.novaterm.core.session.manager.AgentPreset
+import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
@@ -71,6 +74,7 @@ class TerminalService : Service() {
     // ── Core delegates ────────────────────────────────────
 
     private lateinit var shellProvider: AndroidShellProvider
+    private lateinit var agentOrchestrator: AgentOrchestrator
     private lateinit var persistence: SessionPersistenceManager
     lateinit var blockStore: BlockStore
         private set
@@ -346,6 +350,7 @@ class TerminalService : Service() {
         super.onCreate()
 
         shellProvider = AndroidShellProvider(this, appVersion = com.novaterm.app.BuildConfig.VERSION_NAME)
+        agentOrchestrator = AgentOrchestrator(shellProvider, shellProvider.agentHomeDir)
         val sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
         predictionEngine = PredictionEngine(filesDir).also { it.load() }
@@ -586,6 +591,82 @@ class TerminalService : Service() {
         }
         return session
     }
+
+    /**
+     * Launch an agent in an isolated workspace.
+     *
+     * Creates an [AgentWorkspace] with isolated environment variables,
+     * then starts a terminal session in that workspace's directory.
+     * The agent command is written to the PTY after a short delay
+     * (to allow the shell to initialize and LD_PRELOAD to take effect).
+     *
+     * @return The workspace that was created, or null if session creation failed.
+     */
+    fun createAgentSession(preset: AgentPreset): AgentWorkspace? {
+        if (_sessions.value.size >= MAX_SESSIONS) {
+            Log.w(TAG, "Max sessions reached ($MAX_SESSIONS) — cannot create agent session")
+            return null
+        }
+
+        // 1. Create isolated workspace
+        val workspace = agentOrchestrator.createWorkspace(preset)
+
+        // 2. Build environment for this workspace
+        val env = shellProvider.buildAgentEnvironment(workspace)
+
+        // 3. Create session in workspace directory
+        val session = try {
+            val shellCmd = shellProvider.agentShellCommand()
+            val shell = shellCmd[0]
+            val lastSession = _sessions.value.lastOrNull()
+            val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: DEFAULT_ROWS.toString()
+            val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: DEFAULT_COLS.toString()
+
+            TerminalSession(
+                shell,
+                workspace.workingDir,
+                shellCmd,
+                env,
+                scrollbackLines.get(),
+                sessionClient,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create agent session", e)
+            agentOrchestrator.destroyWorkspace(workspace.id)
+            return null
+        }
+
+        // 4. Attach Rust engine if enabled
+        if (useRustBackend.get()) {
+            rustEngineManager.attachEngine(session)
+        }
+
+        _sessions.update { it + session }
+        updateNotification()
+
+        // 5. Register workspace with orchestrator
+        val sessionIndex = _sessions.value.indexOf(session)
+        agentOrchestrator.markRunning(workspace.id, sessionIndex, session.pid)
+
+        // 6. Write agent command to PTY after shell initializes
+        val launchCommand = agentOrchestrator.buildLaunchCommand(workspace).joinToString(" ")
+        mainHandler.postDelayed({
+            if (session.isRunning) {
+                session.write(launchCommand + "\n")
+                Log.i(TAG, "AGENT_LAUNCH: started '${preset.agentType.label}' in workspace [${workspace.id}]")
+            } else {
+                Log.w(TAG, "AGENT_LAUNCH: session died before command could be written")
+                agentOrchestrator.markCompleted(workspace.id, -1)
+            }
+        }, PRESET_COMMAND_DELAY_MS)
+
+        return workspace
+    }
+
+    /**
+     * Get the agent orchestrator for dashboard observation.
+     */
+    fun getAgentOrchestrator(): AgentOrchestrator = agentOrchestrator
 
     private fun createSessionInternal(cwd: String): TerminalSession? {
         return try {

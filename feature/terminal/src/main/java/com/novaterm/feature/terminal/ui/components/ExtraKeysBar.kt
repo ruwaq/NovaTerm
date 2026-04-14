@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
@@ -273,6 +274,7 @@ fun ExtraKeysBar(
     onSplitHorizontal: (() -> Unit)? = null,
     onSplitVertical: (() -> Unit)? = null,
     onCloseSplitPane: (() -> Unit)? = null,
+    onAgentLaunch: (() -> Unit)? = null,
     hasSplitPanes: Boolean = false,
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
@@ -303,6 +305,9 @@ fun ExtraKeysBar(
                         }
                         if (onVoiceInput != null) {
                             VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
+                        }
+                        if (onAgentLaunch != null) {
+                            AgentLaunchButton(onAgentLaunch, hapticEnabled, haptic)
                         }
                         // Split pane button at the end (less accidental)
                         if (onSplitHorizontal != null) {
@@ -708,5 +713,37 @@ private fun ExtraKeyButton(
         }
     } else {
         buttonContent()
+    }
+}
+
+/**
+ * AI agent launch button for the extra keys bar.
+ * Opens the AgentPresetSheet to choose an agent to launch.
+ */
+@Composable
+private fun AgentLaunchButton(
+    onClick: () -> Unit,
+    hapticEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+) {
+    IconButton(
+        onClick = {
+            if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        modifier = Modifier
+            .semantics {
+                role = Role.Button
+                contentDescription = "Launch AI agent"
+            },
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Icon(
+            imageVector = Icons.Default.SmartToy,
+            contentDescription = "Launch AI agent",
+            tint = MaterialTheme.colorScheme.primary,
+        )
     }
 }

@@ -12,6 +12,9 @@ import java.io.File
  * - [EnvironmentBuilder] for env var construction + API key export
  * - [HomeDirectorySetup] for first-run directory structure + storage symlinks
  * - [ShellConfigWriter] for shell config files (.profile, .bashrc, etc.)
+ *
+ * Also supports per-agent environments via [buildAgentEnvironment] and
+ * [buildAgentCommand] for the Agent Orchestrator.
  */
 class AndroidShellProvider(
     private val context: Context,
@@ -85,4 +88,33 @@ class AndroidShellProvider(
 
     override fun defaultWorkingDirectory(): String =
         homeSetup.ensureHomeDirectory(homeDir, prefix, rootDir)
+
+    /**
+     * Build environment for an agent workspace.
+     *
+     * Merges the base shell environment with workspace-specific overrides
+     * (AGENT_NAME, WORKSPACE_ID, GIT_DIR, etc.) while preserving
+     * all critical Android/W^X vars (LD_PRELOAD, PREFIX, PATH).
+     */
+    fun buildAgentEnvironment(workspace: AgentWorkspace): Array<String> {
+        val rows = workspace.envOverrides["LINES"] ?: "40"
+        val cols = workspace.envOverrides["COLUMNS"] ?: "120"
+        val merged = workspace.envOverrides + mapOf("LINES" to rows, "COLUMNS" to cols)
+        return envBuilder.buildEnvironment(merged)
+    }
+
+    /**
+     * Build the command array to launch an agent inside a shell session.
+     *
+     * On Android we can't exec the agent binary directly — we launch
+     * the shell first (for W^X bypass), then write the agent command
+     * via PTY. This method returns the shell command; the agent command
+     * is written separately via [AgentOrchestrator.buildLaunchCommand].
+     */
+    fun agentShellCommand(): Array<String> = shellCommand()
+
+    /**
+     * The home directory path for agent workspace creation.
+     */
+    val agentHomeDir: String get() = homeDir
 }
