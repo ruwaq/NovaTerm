@@ -26,7 +26,7 @@
 
 ## ⚡ Install in 30 seconds
 
-1. **[Download NovaTerm-v0.3.1-alpha.apk](https://github.com/novaterm-org/NovaTerm/releases/latest/download/NovaTerm-v0.3.1-alpha.apk)**
+1. **[Download NovaTerm-v0.3.1-alpha.apk](https://github.com/novaterm-org/NovaTerm/releases/latest/download/app-debug.apk)**
 2. Enable *Install unknown apps* for your browser/file manager
 3. Install and open
 
