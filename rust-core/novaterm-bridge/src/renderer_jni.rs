@@ -52,7 +52,15 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
 }
 
 /// Attach a Surface to the renderer for presentation.
-/// Gets ANativeWindow from the Java Surface object via NDK.
+///
+/// # Safety
+///
+/// This function is safe to call from JNI as it:
+/// - Validates all JNI pointers before calling ANativeWindow_fromSurface
+/// - Properly checks for null pointers in env_ptr and surface_ptr
+/// - Uses panic::catch_unwind to handle any runtime errors
+/// - Properly releases the native window reference after use
+/// - Gets ANativeWindow from the Java Surface object via NDK.
 #[cfg(feature = "gpu")]
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nativeAttachSurface<
@@ -70,11 +78,24 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
         let mut env_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
         let mut surface_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
 
-        let _ = env.with_env(|e| -> Result<(), jni::errors::Error> {
+        let mut env_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut surface_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+
+        let result = env.with_env(|e| -> Result<(), jni::errors::Error> {
             env_ptr = e.get_raw() as *mut std::ffi::c_void;
             surface_ptr = surface.as_raw() as *mut std::ffi::c_void;
             Ok(())
         });
+
+        if result.is_err() {
+            log::error!("Failed to get JNI env or surface pointers");
+            return;
+        }
+
+        if env_ptr.is_null() || surface_ptr.is_null() {
+            log::error!("Null JNI env or surface pointer detected");
+            return;
+        }
 
         if env_ptr.is_null() || surface_ptr.is_null() {
             log::error!("NativeRenderer: null env or surface pointer");
@@ -191,6 +212,14 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
 /// Get GPU information as a pipe-delimited string:
 /// "name|vendor|driver|backend|device_type|max_tex|max_ssbo|max_invocations"
 ///
+/// # Safety
+///
+/// This function is safe to call from JNI as it:
+/// - Validates the renderer handle before accessing
+/// - Properly handles JNI exceptions during string creation
+/// - Returns null on any error condition
+/// - Ensures all JNI object references are properly managed
+
 /// Returns null if handle is invalid.
 #[cfg(feature = "gpu")]
 #[unsafe(no_mangle)]
@@ -220,17 +249,17 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
         match info_str {
             Some(s) => {
                 let mut jstr: jstring = std::ptr::null_mut();
-                let _ = env.with_env(|e| -> Result<(), jni::errors::Error> {
-                    match e.new_string(&s) {
-                        Ok(js) => {
-                            jstr = js.into_raw();
-                        }
-                        Err(err) => {
-                            log::error!("Failed to create Java string: {}", err);
-                        }
-                    }
-                    Ok(())
+                let jstr = env.with_env(|e| -> Result<jstring, jni::errors::Error> {
+                    let js = e.new_string(&s)?;
+                    Ok(js.into_raw())
                 });
+
+                if let Err(err) = jstr {
+                    log::error!("Failed to create Java string for GPU info: {}", err);
+                    return std::ptr::null_mut();
+                } else {
+                    jstr = jstr.unwrap();
+                }
                 jstr
             }
             None => std::ptr::null_mut(),

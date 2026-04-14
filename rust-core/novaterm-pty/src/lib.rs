@@ -197,6 +197,42 @@ unsafe fn close_fds_except(keep_fd: RawFd) {
 // PTY helpers
 // ---------------------------------------------------------------------------
 
+/// Get the slave PTY name from a master fd.
+/// Uses `ptsname_r` on Linux (thread-safe) and `ptsname` on macOS/BSD.
+fn get_pts_name(master_fd: RawFd) -> Result<String, Error> {
+    #[cfg(target_os = "linux")]
+    {
+        let mut buf = [0u8; 256];
+        let rc = unsafe {
+            libc::ptsname_r(
+                master_fd,
+                buf.as_mut_ptr() as *mut libc::c_char,
+                buf.len(),
+            )
+        };
+        if rc != 0 {
+            return Err(Error::Io(std::io::Error::last_os_error()));
+        }
+        CStr::from_bytes_until_nul(&buf)
+            .map_err(|_| Error::InvalidPtsName)?
+            .to_str()
+            .map_err(|_| Error::InvalidPtsName)
+            .map(|s| s.to_owned())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let ptr = unsafe { libc::ptsname(master_fd) };
+        if ptr.is_null() {
+            return Err(Error::Io(std::io::Error::last_os_error()));
+        }
+        unsafe { CStr::from_ptr(ptr) }
+            .to_str()
+            .map_err(|_| Error::InvalidPtsName)
+            .map(|s| s.to_owned())
+    }
+}
+
 /// Open `/dev/ptmx` and return the master fd + slave name.
 fn open_ptmx() -> Result<(OwnedFd, String), Error> {
     let fd = unsafe {
@@ -218,23 +254,8 @@ fn open_ptmx() -> Result<(OwnedFd, String), Error> {
     if unsafe { libc::unlockpt(master.as_raw_fd()) } != 0 {
         return Err(Error::Io(std::io::Error::last_os_error()));
     }
-    // ptsname_r
-    let mut buf = [0u8; 256];
-    let rc = unsafe {
-        libc::ptsname_r(
-            master.as_raw_fd(),
-            buf.as_mut_ptr() as *mut libc::c_char,
-            buf.len(),
-        )
-    };
-    if rc != 0 {
-        return Err(Error::Io(std::io::Error::last_os_error()));
-    }
-    let name = CStr::from_bytes_until_nul(&buf)
-        .map_err(|_| Error::InvalidPtsName)?
-        .to_str()
-        .map_err(|_| Error::InvalidPtsName)?
-        .to_owned();
+    // Get slave PTY name (platform-specific)
+    let name = get_pts_name(master.as_raw_fd())?;
 
     Ok((master, name))
 }

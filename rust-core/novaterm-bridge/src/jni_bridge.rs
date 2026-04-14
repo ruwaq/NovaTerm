@@ -1,11 +1,14 @@
 // JNI exports for NovaTerm Rust core.
 //
 // jni 0.22: native methods receive EnvUnowned (FFI-safe).
-// Use .with_env(|env| { ... Ok::<_, jni::errors::Error>(()) }) for Env API.
+// Use .with_env(|env| { ... Ok::<_, jni::errors::Error>(()) })
+//   .resolve_with::<LogContextErrorAndDefault, _>(|| "context")
+// for proper error handling (logs + clears pending exceptions).
 //
 // Package: com.novaterm.core.session.engine  Class: NativeTerminal
 
 use crate::handle_map;
+use jni::errors::LogContextErrorAndDefault;
 use jni::objects::{JByteArray, JClass};
 use jni::sys::{jboolean, jint, jintArray, jlong, jstring, JNI_FALSE, JNI_TRUE};
 use jni::EnvUnowned;
@@ -70,13 +73,13 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
     data: JByteArray<'local>,
 ) {
     let _ = panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let bytes = env.convert_byte_array(&data)?;
             handle_map::with_backend(handle as u64, |backend| {
                 backend.process_bytes(&bytes);
             });
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "nativeProcessBytes".to_string());
     }));
 }
 
@@ -136,12 +139,12 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
         }
 
         let mut out: jintArray = ptr::null_mut();
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let arr = env.new_int_array(flat.len())?;
             arr.set_region(env, 0, &flat)?;
             out = arr.into_raw();
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "nativeGetGrid".to_string());
         out
     }));
     result.unwrap_or(ptr::null_mut())
@@ -168,12 +171,12 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
         ];
 
         let mut out: jintArray = ptr::null_mut();
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let arr = env.new_int_array(4)?;
             arr.set_region(env, 0, &data)?;
             out = arr.into_raw();
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "nativeGetCursor".to_string());
         out
     }));
     result.unwrap_or(ptr::null_mut())
@@ -191,11 +194,11 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
             .unwrap_or_default();
 
         let mut out: jstring = ptr::null_mut();
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let s = env.new_string(&title)?;
             out = s.into_raw();
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "nativeGetTitle".to_string());
         out
     }));
     result.unwrap_or(ptr::null_mut())
@@ -255,11 +258,11 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_nati
         };
 
         let mut out: jni::sys::jbyteArray = ptr::null_mut();
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let arr = env.byte_array_from_slice(&bytes)?;
             out = arr.into_raw();
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "nativeDrainPtyWrites".to_string());
         out
     }));
     result.unwrap_or(ptr::null_mut())
@@ -287,10 +290,10 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_pars
     let result = panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let bytes = {
             let mut b = Vec::new();
-            let _ = unowned_env.with_env(|env| -> JniResult<()> {
+            unowned_env.with_env(|env| -> JniResult<()> {
                 b = env.convert_byte_array(&data)?;
                 Ok(())
-            });
+            }).resolve_with::<LogContextErrorAndDefault, _>(|| "parseSixel/convert".to_string());
             b
         };
 
@@ -332,12 +335,12 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeTerminal_pars
         }
 
         let mut out: jintArray = ptr::null_mut();
-        let _ = unowned_env.with_env(|env| -> JniResult<()> {
+        unowned_env.with_env(|env| -> JniResult<()> {
             let arr = env.new_int_array(flat.len())?;
             arr.set_region(env, 0, &flat)?;
             out = arr.into_raw();
             Ok(())
-        });
+        }).resolve_with::<LogContextErrorAndDefault, _>(|| "parseSixel/pixel_array".to_string());
         out
     }));
     result.unwrap_or(ptr::null_mut())
