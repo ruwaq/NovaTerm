@@ -270,4 +270,95 @@ mod tests {
         assert_eq!(wx, 15);
         assert_eq!(wy, 5);
     }
+
+    #[test]
+    fn pack_atlas_xy_max_values() {
+        // u16 max: 65535
+        let packed = CellGpu::pack_atlas_xy(65535, 65535);
+        assert_eq!(packed, 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn pack_atlas_xy_zero() {
+        assert_eq!(CellGpu::pack_atlas_xy(0, 0), 0);
+    }
+
+    #[test]
+    fn pack_atlas_wh_large() {
+        let packed = CellGpu::pack_atlas_wh(255, 255);
+        assert_eq!(packed, 255 | (255 << 16));
+    }
+
+    #[test]
+    fn cell_gpu_zeroed_all_fields() {
+        let cell = CellGpu::zeroed();
+        assert_eq!(cell.atlas_xy, 0);
+        assert_eq!(cell.atlas_wh, 0);
+        assert_eq!(cell.fg_color, 0);
+        assert_eq!(cell.bg_color, 0);
+        assert_eq!(cell.flags, 0);
+        assert_eq!(cell._pad, 0);
+    }
+
+    #[test]
+    fn cell_gpu_copy() {
+        let cell = CellGpu {
+            atlas_xy: CellGpu::pack_atlas_xy(10, 20),
+            atlas_wh: CellGpu::pack_atlas_wh(16, 32),
+            fg_color: 0xFFFFFFFF,
+            bg_color: 0xFF000000,
+            flags: 3,
+            _pad: 0,
+        };
+        let copy = cell;
+        assert_eq!(copy.atlas_xy, cell.atlas_xy);
+        assert_eq!(copy.fg_color, cell.fg_color);
+    }
+
+    #[test]
+    fn uniforms_cursor_fields() {
+        let u = Uniforms {
+            cell_width: 10.0,
+            cell_height: 20.0,
+            grid_cols: 120,
+            grid_rows: 40,
+            atlas_width: 2048.0,
+            atlas_height: 2048.0,
+            output_width: 1920,
+            output_height: 1080,
+            cursor_row: -1,
+            cursor_col: 79,
+            cursor_shape: 0,
+            cursor_visible: 0,
+        };
+        assert_eq!(u.cursor_row, -1); // cursor can be off-screen
+        assert_eq!(u.cursor_visible, 0); // hidden
+    }
+
+    #[test]
+    fn dispatch_dimensions_1x1() {
+        // Smallest possible grid
+        let wx = (1u32 + 7) / 8;
+        let wy = (1u32 + 7) / 8;
+        assert_eq!(wx, 1);
+        assert_eq!(wy, 1);
+    }
+
+    #[test]
+    fn dispatch_dimensions_8x8() {
+        // Exact workgroup size
+        let wx = (8u32 + 7) / 8;
+        let wy = (8u32 + 7) / 8;
+        assert_eq!(wx, 1);
+        assert_eq!(wy, 1);
+    }
+
+    #[test]
+    fn dispatch_dimensions_9x9() {
+        // Just over one workgroup
+        let wx = (9u32 + 7) / 8;
+        let wy = (9u32 + 7) / 8;
+        assert_eq!(wx, 2);
+        assert_eq!(wy, 2);
+    }
 }

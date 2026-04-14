@@ -142,3 +142,44 @@ impl TerminalPipeline {
         ((cols + 7) / 8, (rows + 7) / 8)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dispatch_size_exact_workgroup() {
+        assert_eq!(TerminalPipeline::dispatch_size(8, 8), (1, 1));
+    }
+
+    #[test]
+    fn dispatch_size_minimum() {
+        assert_eq!(TerminalPipeline::dispatch_size(1, 1), (1, 1));
+    }
+
+    #[test]
+    fn dispatch_size_one_over() {
+        assert_eq!(TerminalPipeline::dispatch_size(9, 9), (2, 2));
+    }
+
+    #[test]
+    fn dispatch_size_standard_terminal() {
+        assert_eq!(TerminalPipeline::dispatch_size(80, 24), (10, 3));
+    }
+
+    #[test]
+    fn dispatch_size_large_terminal() {
+        assert_eq!(TerminalPipeline::dispatch_size(120, 40), (15, 5));
+    }
+
+    #[test]
+    fn dispatch_size_rectangular() {
+        assert_eq!(TerminalPipeline::dispatch_size(200, 8), (25, 1));
+    }
+
+    #[test]
+    fn dispatch_size_7_width() {
+        // 7 cols fits in one workgroup (7+7)/8 = 1
+        assert_eq!(TerminalPipeline::dispatch_size(7, 7), (1, 1));
+    }
+}

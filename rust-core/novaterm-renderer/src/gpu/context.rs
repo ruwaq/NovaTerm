@@ -306,3 +306,87 @@ impl GpuContext {
         self.info.vendor
     }
 }
+
+// Tests — vendor detection, error display, GpuInfo formatting.
+// No GPU required; these test pure logic on the data types.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gpu_vendor_display() {
+        assert_eq!(format!("{}", GpuVendor::Qualcomm), "Qualcomm Adreno");
+        assert_eq!(format!("{}", GpuVendor::Arm), "ARM Mali/Immortalis");
+        assert_eq!(format!("{}", GpuVendor::Imagination), "Imagination PowerVR");
+        assert_eq!(format!("{}", GpuVendor::Samsung), "Samsung Xclipse");
+        assert_eq!(format!("{}", GpuVendor::Software), "Software");
+        assert_eq!(format!("{}", GpuVendor::Unknown), "Unknown");
+    }
+
+    #[test]
+    fn gpu_vendor_equality() {
+        assert_eq!(GpuVendor::Qualcomm, GpuVendor::Qualcomm);
+        assert_ne!(GpuVendor::Qualcomm, GpuVendor::Arm);
+    }
+
+    #[test]
+    fn gpu_error_display() {
+        assert_eq!(format!("{}", GpuError::NoAdapter), "No GPU adapter found");
+        assert_eq!(format!("{}", GpuError::SurfaceLost), "Surface lost");
+        assert_eq!(
+            format!("{}", GpuError::Other("custom error".to_string())),
+            "custom error"
+        );
+    }
+
+    #[test]
+    fn gpu_info_summary_format() {
+        let info = GpuInfo {
+            name: "Adreno (TM) 740".to_string(),
+            vendor: GpuVendor::Qualcomm,
+            driver: "v1.0".to_string(),
+            driver_info: "v590".to_string(),
+            backend: "Vulkan".to_string(),
+            device_type: "DiscreteGpu".to_string(),
+            max_texture_2d: 4096,
+            max_storage_buffer: 4 * 1024 * 1024,
+            max_workgroup_invocations: 256,
+        };
+        let summary = info.summary();
+        assert!(summary.contains("Adreno (TM) 740"));
+        assert!(summary.contains("Qualcomm Adreno"));
+        assert!(summary.contains("4096px"));
+        assert!(summary.contains("4096KB"));
+    }
+
+    #[test]
+    fn adapted_limits_for_all_vendors() {
+        // Verify that every vendor variant produces valid limits
+        let vendors = [
+            GpuVendor::Qualcomm,
+            GpuVendor::Arm,
+            GpuVendor::Imagination,
+            GpuVendor::Samsung,
+            GpuVendor::Software,
+            GpuVendor::Unknown,
+        ];
+        for vendor in vendors {
+            let limits = AdaptedLimits::for_vendor(vendor);
+            assert!(limits.max_storage_buffer >= 2 * 1024 * 1024, "{vendor:?}: ssbo too small");
+            assert!(limits.max_storage_buffers_per_stage >= 2, "{vendor:?}: too few SSBO bindings");
+            assert!(limits.max_compute_workgroups >= 16384, "{vendor:?}: too few workgroups");
+            assert!(limits.max_compute_invocations >= 128, "{vendor:?}: too few invocations");
+            assert!(limits.max_texture_2d >= 2048, "{vendor:?}: texture too small");
+        }
+    }
+
+    #[test]
+    fn adapted_limits_qualcomm_vs_imagination() {
+        let qc = AdaptedLimits::for_vendor(GpuVendor::Qualcomm);
+        let img = AdaptedLimits::for_vendor(GpuVendor::Imagination);
+        // Qualcomm should have higher limits than Imagination
+        assert!(qc.max_storage_buffer >= img.max_storage_buffer);
+        assert!(qc.max_compute_invocations >= img.max_compute_invocations);
+        assert!(qc.max_texture_2d >= img.max_texture_2d);
+    }
+}

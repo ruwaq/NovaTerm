@@ -400,4 +400,87 @@ mod tests {
         // Don't assert Some — emoji font may not be installed in Termux
         // Just verify no panic
     }
+
+    // ── Pure data structure tests (no font system needed) ──
+
+    #[test]
+    fn glyph_key_equality() {
+        let k1 = GlyphKey { codepoint: 'A', flags: 0 };
+        let k2 = GlyphKey { codepoint: 'A', flags: 0 };
+        let k3 = GlyphKey { codepoint: 'A', flags: 1 }; // bold
+        assert_eq!(k1, k2);
+        assert_ne!(k1, k3);
+    }
+
+    #[test]
+    fn glyph_key_hash_consistency() {
+        use std::collections::HashMap;
+        let mut map = HashMap::new();
+        let key = GlyphKey { codepoint: 'X', flags: 2 };
+        map.insert(key, 42);
+        assert_eq!(map.get(&GlyphKey { codepoint: 'X', flags: 2 }), Some(&42));
+        assert_eq!(map.get(&GlyphKey { codepoint: 'X', flags: 0 }), None);
+    }
+
+    #[test]
+    fn atlas_entry_fields() {
+        let entry = AtlasEntry {
+            x: 100,
+            y: 200,
+            width: 16,
+            height: 32,
+            bearing_x: -1,
+            bearing_y: 2,
+        };
+        assert_eq!(entry.x, 100);
+        assert_eq!(entry.width, 16);
+    }
+
+    #[test]
+    fn rect_fields() {
+        let rect = Rect {
+            x: 10,
+            y: 20,
+            width: 30,
+            height: 40,
+        };
+        assert_eq!(rect.width, 30);
+        assert_eq!(rect.height, 40);
+    }
+
+    #[test]
+    fn atlas_constants() {
+        assert_eq!(ATLAS_WIDTH, 2048);
+        assert_eq!(ATLAS_HEIGHT, 2048);
+    }
+
+    #[test]
+    fn italic_variant() {
+        let mut atlas = create_atlas();
+        let regular = atlas.lookup(GlyphKey { codepoint: 'I', flags: 0 });
+        let italic = atlas.lookup(GlyphKey { codepoint: 'I', flags: 2 });
+        assert!(regular.is_some());
+        assert!(italic.is_some());
+    }
+
+    #[test]
+    fn bold_italic_variant() {
+        let mut atlas = create_atlas();
+        let bi = atlas.lookup(GlyphKey { codepoint: 'Z', flags: 3 });
+        assert!(bi.is_some(), "bold+italic should rasterize");
+    }
+
+    #[test]
+    fn atlas_bitmap_size() {
+        let atlas = create_atlas();
+        let bitmap = atlas.bitmap();
+        // 2048 * 2048 * 4 bytes (RGBA)
+        assert_eq!(bitmap.len(), (ATLAS_WIDTH * ATLAS_HEIGHT * 4) as usize);
+    }
+
+    #[test]
+    fn font_size_matches() {
+        let atlas = create_atlas();
+        assert_eq!(atlas.font_size(), 32.0);
+    }
 }

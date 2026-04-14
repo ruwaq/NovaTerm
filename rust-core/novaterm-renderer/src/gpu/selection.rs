@@ -117,4 +117,58 @@ mod tests {
         let flags_outside = sel.apply_to_flags(0, 10, 0);
         assert_eq!(flags_outside & (1 << 4), 0, "inverse bit should not be set");
     }
+
+    #[test]
+    fn single_cell_selection() {
+        let sel = SelectionRange {
+            start_row: 5, start_col: 10,
+            end_row: 5, end_col: 10,
+            active: true,
+        };
+        assert!(sel.contains(5, 10));
+        assert!(!sel.contains(5, 9));
+        assert!(!sel.contains(5, 11));
+        assert!(!sel.contains(4, 10));
+        assert!(!sel.contains(6, 10));
+    }
+
+    #[test]
+    fn apply_preserves_existing_flags() {
+        let sel = SelectionRange {
+            start_row: 0, start_col: 0,
+            end_row: 0, end_col: 5,
+            active: true,
+        };
+        // Bold flag (bit 0) + selection should add inverse (bit 4)
+        let flags_in = 1u32; // bold
+        let flags_out = sel.apply_to_flags(0, 3, flags_in);
+        assert_eq!(flags_out & 1, 1, "bold flag preserved");
+        assert_eq!(flags_out & (1 << 4), 1 << 4, "inverse flag added");
+    }
+
+    #[test]
+    fn negative_coordinates() {
+        let sel = SelectionRange {
+            start_row: -1, start_col: 0,
+            end_row: 1, end_col: 0,
+            active: true,
+        };
+        // Row 0 should be fully selected (middle row)
+        assert!(sel.contains(0, 0));
+        assert!(sel.contains(0, 100));
+    }
+
+    #[test]
+    fn deactivated_selection() {
+        let sel = SelectionRange {
+            start_row: 0, start_col: 0,
+            end_row: 100, end_col: 100,
+            active: false,
+        };
+        // Nothing should be selected when inactive
+        assert!(!sel.contains(0, 0));
+        assert!(!sel.contains(50, 50));
+        // apply_to_flags should not modify flags
+        assert_eq!(sel.apply_to_flags(0, 0, 0xFF), 0xFF);
+    }
 }

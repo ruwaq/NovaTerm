@@ -60,8 +60,13 @@ impl AndroidSurface {
         width: u32,
         height: u32,
     ) -> Result<Self, GpuError> {
-        let ptr =
-            NonNull::new(native_window).ok_or_else(|| GpuError::Other("null ANativeWindow".into()))?;
+        if native_window.is_null() {
+            return Err(GpuError::Other("null ANativeWindow".into()));
+        }
+
+        let ptr = NonNull::new(native_window).ok_or_else(|| {
+            GpuError::Other("Failed to create NonNull from valid pointer".into())
+        })?;
 
         let window = AndroidWindow { window: ptr };
         let surface = ctx
@@ -260,5 +265,120 @@ fn select_alpha_mode(modes: &[wgpu::CompositeAlphaMode]) -> wgpu::CompositeAlpha
         wgpu::CompositeAlphaMode::Inherit
     } else {
         wgpu::CompositeAlphaMode::Auto
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── select_present_mode ──
+
+    #[test]
+    fn present_mode_qualcomm_with_mailbox() {
+        let modes = &[wgpu::PresentMode::Mailbox, wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Qualcomm), wgpu::PresentMode::Mailbox);
+    }
+
+    #[test]
+    fn present_mode_qualcomm_fifo_only() {
+        let modes = &[wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Qualcomm), wgpu::PresentMode::Fifo);
+    }
+
+    #[test]
+    fn present_mode_arm_with_mailbox() {
+        let modes = &[wgpu::PresentMode::Mailbox, wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Arm), wgpu::PresentMode::Mailbox);
+    }
+
+    #[test]
+    fn present_mode_powervr_always_fifo() {
+        let modes = &[wgpu::PresentMode::Mailbox, wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Imagination), wgpu::PresentMode::Fifo);
+    }
+
+    #[test]
+    fn present_mode_samsung_with_mailbox() {
+        let modes = &[wgpu::PresentMode::Mailbox, wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Samsung), wgpu::PresentMode::Mailbox);
+    }
+
+    #[test]
+    fn present_mode_software_fifo() {
+        let modes = &[wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Software), wgpu::PresentMode::Fifo);
+    }
+
+    #[test]
+    fn present_mode_unknown_fifo() {
+        let modes = &[wgpu::PresentMode::Mailbox, wgpu::PresentMode::Fifo];
+        assert_eq!(select_present_mode(modes, GpuVendor::Unknown), wgpu::PresentMode::Fifo);
+    }
+
+    #[test]
+    fn present_mode_empty_modes() {
+        let modes: &[wgpu::PresentMode] = &[];
+        // All vendors should return Fifo when no modes available
+        assert_eq!(select_present_mode(modes, GpuVendor::Qualcomm), wgpu::PresentMode::Fifo);
+    }
+
+    // ── select_alpha_mode ──
+
+    #[test]
+    fn alpha_mode_prefers_opaque() {
+        let modes = &[wgpu::CompositeAlphaMode::Opaque, wgpu::CompositeAlphaMode::Inherit];
+        assert_eq!(select_alpha_mode(modes), wgpu::CompositeAlphaMode::Opaque);
+    }
+
+    #[test]
+    fn alpha_mode_inherit_fallback() {
+        let modes = &[wgpu::CompositeAlphaMode::Inherit, wgpu::CompositeAlphaMode::Auto];
+        assert_eq!(select_alpha_mode(modes), wgpu::CompositeAlphaMode::Inherit);
+    }
+
+    #[test]
+    fn alpha_mode_auto_last_resort() {
+        let modes = &[wgpu::CompositeAlphaMode::Auto];
+        assert_eq!(select_alpha_mode(modes), wgpu::CompositeAlphaMode::Auto);
+    }
+
+    #[test]
+    fn alpha_mode_empty() {
+        let modes: &[wgpu::CompositeAlphaMode] = &[];
+        assert_eq!(select_alpha_mode(modes), wgpu::CompositeAlphaMode::Auto);
+    }
+
+    // ── AndroidSurface state ──
+
+    #[test]
+    fn surface_error_count_threshold() {
+        assert_eq!(MAX_SURFACE_ERRORS, 3);
+    }
+
+    #[test]
+    fn surface_initial_state() {
+        let surface = AndroidSurface {
+            surface: None,
+            config: None,
+            width: 0,
+            height: 0,
+            error_count: 0,
+        };
+        assert!(!surface.is_attached());
+        assert_eq!(surface.size(), (0, 0));
+        assert!(!surface.is_errored());
+    }
+
+    #[test]
+    fn surface_errored_state() {
+        let surface = AndroidSurface {
+            surface: None,
+            config: None,
+            width: 0,
+            height: 0,
+            error_count: MAX_SURFACE_ERRORS + 1,
+        };
+        assert!(surface.is_errored());
     }
 }

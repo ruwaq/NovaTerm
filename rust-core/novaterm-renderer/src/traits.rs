@@ -73,3 +73,29 @@ pub trait Renderer: Send {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn render_config_defaults() {
+        let config = RenderConfig::default();
+        assert_eq!(config.font_size, 32.0);
+        assert_eq!(config.cell_width, 16.0);
+        assert_eq!(config.cell_height, 32.0);
+        assert!(config.hardware_accel);
+    }
+
+    #[test]
+    fn render_config_custom() {
+        let config = RenderConfig {
+            font_size: 14.0,
+            cell_width: 8.0,
+            cell_height: 16.0,
+            hardware_accel: false,
+        };
+        assert_eq!(config.font_size, 14.0);
+        assert!(!config.hardware_accel);
+    }
+}

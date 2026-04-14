@@ -106,4 +106,59 @@ mod tests {
         assert!(changed);
         assert!(blinker.is_visible());
     }
+
+    #[test]
+    fn disabled_no_double_toggle() {
+        let mut blinker = CursorBlinker::new();
+        blinker.set_enabled(false);
+        // Already visible, tick should return false (no change)
+        let changed = blinker.tick();
+        assert!(!changed, "no change needed when already visible and disabled");
+        assert!(blinker.is_visible());
+    }
+
+    #[test]
+    fn tick_no_change_before_interval() {
+        let mut blinker = CursorBlinker::new();
+        // Immediately after creation, interval hasn't elapsed
+        let changed = blinker.tick();
+        assert!(!changed, "should not toggle before interval");
+        assert!(blinker.is_visible());
+    }
+
+    #[test]
+    fn double_toggle_returns_to_visible() {
+        let mut blinker = CursorBlinker::new();
+        blinker.interval = Duration::from_millis(1);
+        // First toggle: visible → invisible
+        std::thread::sleep(Duration::from_millis(5));
+        blinker.tick();
+        assert!(!blinker.is_visible());
+        // Second toggle: invisible → visible
+        std::thread::sleep(Duration::from_millis(5));
+        blinker.tick();
+        assert!(blinker.is_visible());
+    }
+
+    #[test]
+    fn reset_updates_last_toggle() {
+        let mut blinker = CursorBlinker::new();
+        blinker.interval = Duration::from_millis(1);
+        std::thread::sleep(Duration::from_millis(5));
+        blinker.tick(); // toggle to invisible
+        assert!(!blinker.is_visible());
+        blinker.reset(); // back to visible
+        assert!(blinker.is_visible());
+        // Right after reset, tick should not toggle
+        let changed = blinker.tick();
+        assert!(!changed, "should not toggle right after reset");
+    }
+
+    #[test]
+    fn enable_while_invisible_restores() {
+        let mut blinker = CursorBlinker::new();
+        blinker.visible = false;
+        blinker.set_enabled(true); // enabling should not force visible
+        assert!(!blinker.is_visible(), "enabling should not force visible");
+    }
 }
