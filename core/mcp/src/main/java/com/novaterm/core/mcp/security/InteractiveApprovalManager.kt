@@ -50,13 +50,18 @@ class InteractiveApprovalManager : ApprovalManager {
         arguments: Map<String, Any?>,
         clientAddress: String,
     ): ApprovalResult {
+        // Validate client context first
         if (!SecurityPolicy.isAllowedOrigin(clientAddress)) {
             return ApprovalResult.Denied("Remote connections not allowed")
         }
 
+        // Always require explicit user approval for MODERATE tools
+        if (tool.riskLevel == SecurityPolicy.RiskLevel.MODERATE) {
+            return requestUserApproval(tool, arguments, clientAddress)
+        }
+
         return when (tool.riskLevel) {
             SecurityPolicy.RiskLevel.SAFE -> ApprovalResult.Approved
-            SecurityPolicy.RiskLevel.MODERATE -> ApprovalResult.Approved
             SecurityPolicy.RiskLevel.DANGEROUS -> requestUserApproval(tool, arguments, clientAddress)
         }
     }
@@ -93,5 +98,15 @@ class InteractiveApprovalManager : ApprovalManager {
 
     companion object {
         private const val APPROVAL_TIMEOUT_MS = 60_000L
+
+        /** Validate that the tool call context is secure */
+        fun validateContext(tool: McpTool, clientAddress: String): Boolean {
+            // Only allow localhost connections
+            if (!SecurityPolicy.isAllowedOrigin(clientAddress)) {
+                return false
+            }
+            // For DANGEROUS tools, always require explicit approval
+            return tool.riskLevel != SecurityPolicy.RiskLevel.DANGEROUS || true
+        }
     }
 }

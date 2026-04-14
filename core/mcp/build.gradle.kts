@@ -1,10 +1,20 @@
 plugins {
-    id("novaterm.android.library")
+    alias(libs.plugins.android.library)
 }
 
 android {
     namespace = "com.novaterm.core.mcp"
-    testOptions.unitTests.isReturnDefaultValues = true
+    compileSdk = property("novaterm.compileSdk").toString().toInt()
+
+    defaultConfig {
+        minSdk = property("novaterm.minSdk").toString().toInt()
+        targetSdk = property("novaterm.targetSdk").toString().toInt()
+    }
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {

@@ -55,7 +55,7 @@ class AutoApprovalManager : ApprovalManager {
 
         return when (tool.riskLevel) {
             SecurityPolicy.RiskLevel.SAFE -> ApprovalResult.Approved
-            SecurityPolicy.RiskLevel.MODERATE -> ApprovalResult.Approved
+            SecurityPolicy.RiskLevel.MODERATE -> ApprovalResult.Denied("MODERATE tools require explicit user approval")
             SecurityPolicy.RiskLevel.DANGEROUS -> {
                 // Dangerous tools (arbitrary command execution, file writes)
                 // must be explicitly approved via UI dialog.

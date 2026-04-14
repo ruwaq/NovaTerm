@@ -148,6 +148,14 @@ class EnvironmentBuilder(
                 Log.w("NovaTerm", "Skipping API key export — encrypted prefs unavailable")
                 return
             }
+
+            // Security note: API keys are exported to terminal environment
+            // This is intentional for AI integration but has security implications:
+            // 1. Keys may be exposed in shell history
+            // 2. Keys may be captured by malicious processes running in the same session
+            // 3. Keys are visible to any user who gains access to the terminal
+            // Consider using session-specific tokens or restricting key export to trusted sessions
+
             apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
                 env["ANTHROPIC_API_KEY"] = it
             }

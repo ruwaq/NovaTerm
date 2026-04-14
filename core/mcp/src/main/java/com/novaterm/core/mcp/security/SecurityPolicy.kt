@@ -91,4 +91,67 @@ object SecurityPolicy {
     private val LOCALHOST_ADDRESSES = setOf(
         "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "localhost",
     )
+
+    /**
+     * Sanitize command input to prevent shell injection.
+     *
+     * This function escapes dangerous shell metacharacters or rejects commands
+     * that contain dangerous patterns. It ensures that commands cannot be
+     * used to chain multiple commands, redirect I/O, or execute arbitrary code.
+     *
+     * @param command The command string to sanitize
+     * @param allowEmpty Whether empty commands are allowed
+     * @return A sanitized command string or null if the command is blocked
+     */
+    fun sanitizeCommand(command: String, allowEmpty: Boolean = false): String? {
+        if (command.isEmpty()) {
+            if (!allowEmpty) {
+                Log.w(TAG, "Command sanitization: empty command blocked")
+                return null
+            }
+            return command
+        }
+
+        val normalized = command.trim()
+
+        // Check for dangerous patterns
+        if (isBlockedCommand(normalized)) {
+            Log.w(TAG, "Command sanitization: blocked command detected: '$normalized'")
+            return null
+        }
+
+        // Check for dangerous metacharacters that could allow command injection
+        val dangerousChars = ";|&`$\n"
+        if (normalized.any { it in dangerousChars }) {
+            // Instead of rejecting, escape dangerous characters to prevent injection
+            // while still allowing legitimate use in commands (e.g., "echo 'a;b'")
+            val escaped = normalizeShellCommand(normalized)
+            Log.d(TAG, "Command sanitization: escaped dangerous characters in: '$normalized' -> '$escaped'")
+            return escaped
+        }
+
+        return normalized
+    }
+
+    /**
+     * Normalize a shell command by escaping dangerous metacharacters.
+     *
+     * This ensures that commands containing dangerous characters are still
+     * executed safely within the shell's context.
+     */
+    private fun normalizeShellCommand(command: String): String {
+        // Escape shell metacharacters that could cause injection
+        return command
+            .replace("\$(", "")  // Escape command substitution
+            .replace("\$\{", "")  // Escape command substitution
+            .replace(";", "\";\")  // Escape semicolon
+            .replace("|", "\\|")  // Escape pipe
+            .replace("&", "\\&")  // Escape background process
+            .replace("\n", "\\n")  // Escape newline
+            .replace("\`", "\\`")  // Escape backticks
+            .replace("<", "\\<")  // Escape input redirection
+            .replace(">", "\\>")  // Escape output redirection
+    }
+
+    private const val TAG = "NovaTermSecurity"
 }

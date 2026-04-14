@@ -13,10 +13,16 @@ data class McpServerConfig(
     val host: String = DEFAULT_HOST,
     val serverName: String = "novaterm-mcp",
     val serverVersion: String = "0.1.0",
-    val requireApproval: Boolean = true,
+    val requireApproval: Boolean = true
 ) {
     companion object {
         const val DEFAULT_PORT = 8080
         const val DEFAULT_HOST = "127.0.0.1"
+
+        // Remove any possibility of binding to 0.0.0.0
+        fun validateHost(host: String): Boolean {
+            return host.equals(DEFAULT_HOST, ignoreCase = true)
+        }
+    }
     }
 }

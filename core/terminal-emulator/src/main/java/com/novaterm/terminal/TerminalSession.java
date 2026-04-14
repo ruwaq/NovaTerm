@@ -307,9 +307,31 @@ public final class TerminalSession extends TerminalOutput {
         mProcessToTerminalIOQueue.close();
         JNI.close(mTerminalFileDescriptor);
 
-        // Interrupt I/O threads to ensure they terminate promptly
-        if (mReaderThread != null) mReaderThread.interrupt();
-        if (mWriterThread != null) mWriterThread.interrupt();
+        // Interrupt and join I/O threads to ensure they terminate promptly
+        if (mReaderThread != null) {
+            mReaderThread.interrupt();
+            try {
+                mReaderThread.join(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore interrupt status
+            }
+        }
+        if (mWriterThread != null) {
+            mWriterThread.interrupt();
+            try {
+                mWriterThread.join(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore interrupt status
+            }
+        }
+        if (mWaiterThread != null) {
+            mWaiterThread.interrupt();
+            try {
+                mWaiterThread.join(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore interrupt status
+            }
+        }
     }
 
     @Override

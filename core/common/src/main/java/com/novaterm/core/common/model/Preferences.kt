@@ -1,10 +1,12 @@
 package com.novaterm.core.common.model
 
+import com.novaterm.core.common.model.ConfigConstants
+
 data class TerminalConfig(
-    val fontSize: Int = DEFAULT_FONT_SIZE,
+    val fontSize: Int = ConfigConstants.DEFAULT_FONT_SIZE,
     val fontFamily: String = "monospace",
     val colorScheme: ColorScheme = ColorScheme.GRUVBOX_DARK,
-    val scrollbackLines: Int = 10_000,
+    val scrollbackLines: Int = ConfigConstants.DEFAULT_SCROLLBACK_LINES,
     val keepScreenOn: Boolean = false,
     val hapticFeedback: Boolean = true,
     val bellEnabled: Boolean = true,
@@ -14,8 +16,8 @@ data class TerminalConfig(
     val useRustBackend: Boolean = false,
 ) {
     init {
-        require(fontSize in FONT_SIZE_RANGE) { "fontSize must be in $FONT_SIZE_RANGE, got $fontSize" }
-        require(scrollbackLines in SCROLLBACK_RANGE) { "scrollbackLines must be in $SCROLLBACK_RANGE, got $scrollbackLines" }
+        require(fontSize in ConfigConstants.FONT_SIZE_RANGE) { "fontSize must be in ${ConfigConstants.FONT_SIZE_RANGE}, got $fontSize" }
+        require(scrollbackLines in ConfigConstants.SCROLLBACK_RANGE) { "scrollbackLines must be in ${ConfigConstants.SCROLLBACK_RANGE}, got $scrollbackLines" }
         require(fontFamily.isNotBlank()) { "fontFamily must not be blank" }
         require(terminalType.isNotBlank()) { "terminalType must not be blank" }
     }
@@ -34,16 +36,15 @@ data class TerminalConfig(
  * ColorSchemes. [displayName] is the human-readable label. New schemes must
  * be added here first, then implemented in TerminalPalettes.
  */
-enum class ColorScheme(val displayName: String, val id: String) {
-    GRUVBOX_DARK("Gruvbox Dark", "gruvbox-dark"),
-    GRUVBOX_LIGHT("Gruvbox Light", "gruvbox-light"),
-    CATPPUCCIN_MOCHA("Catppuccin Mocha", "catppuccin-mocha"),
-    MONOKAI("Monokai", "monokai"),
-    DRACULA("Dracula", "dracula"),
-    SOLARIZED_DARK("Solarized Dark", "solarized-dark"),
-    NORD("Nord", "nord"),
-    SYSTEM("System Dynamic", "system"),
-    ;
+enum class ColorScheme(val displayName: String, val id: String, val isDark: Boolean) {
+    GRUVBOX_DARK("Gruvbox Dark", "gruvbox-dark", true),
+    GRUVBOX_LIGHT("Gruvbox Light", "gruvbox-light", false),
+    CATPPUCCIN_MOCHA("Catppuccin Mocha", "catppuccin-mocha", true),
+    MONOKAI("Monokai", "monokai", true),
+    DRACULA("Dracula", "dracula", true),
+    SOLARIZED_DARK("Solarized Dark", "solarized-dark", true),
+    NORD("Nord", "nord", true),
+    SYSTEM("System Dynamic", "system", false);  // SYSTEM uses dynamic colors, not a terminal palette
 
     companion object {
         /** Lookup by [id], returns [GRUVBOX_DARK] for unknown IDs. */

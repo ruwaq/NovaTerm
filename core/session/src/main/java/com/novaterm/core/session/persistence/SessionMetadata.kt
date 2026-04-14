@@ -16,6 +16,9 @@ data class SessionMetadata(
     val shell: String,
     val cwd: String,
     val title: String,
+    val activeTabIndex: Int = 0,
+    val tabNames: Map<Int, String> = emptyMap(),
+    val focusedPaneSession: Int = -1,
     val createdAt: Long = System.currentTimeMillis(),
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -23,6 +26,9 @@ data class SessionMetadata(
         put("shell", shell)
         put("cwd", cwd)
         put("title", title)
+        put("activeTabIndex", activeTabIndex)
+        put("tabNames", JSONObject(tabNames.mapValues { (_, name) -> name }))
+        put("focusedPaneSession", focusedPaneSession)
         put("createdAt", createdAt)
     }
 
@@ -32,6 +38,15 @@ data class SessionMetadata(
             shell = json.getString("shell"),
             cwd = json.getString("cwd"),
             title = json.optString("title", "shell"),
+            activeTabIndex = json.optInt("activeTabIndex", 0),
+            tabNames = json.optJSONObject("tabNames")?.let { obj ->
+                val map = mutableMapOf<Int, String>()
+                for (key in obj.keys()) {
+                    key.toIntOrNull()?.let { k -> map[k] = obj.getString(key) }
+                }
+                map
+            } ?: emptyMap(),
+            focusedPaneSession = json.optInt("focusedPaneSession", -1),
             createdAt = json.optLong("createdAt", System.currentTimeMillis()),
         )
     }

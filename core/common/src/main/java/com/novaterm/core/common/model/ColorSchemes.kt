@@ -22,31 +22,20 @@ package com.novaterm.core.common.model
  * colors and has no terminal palette.
  */
 object ColorSchemes {
-
-    data class SchemeInfo(
-        val scheme: ColorScheme,
-        val isDark: Boolean,
-    ) {
-        /** Stable string key — delegates to [ColorScheme.id]. */
-        val id: String get() = scheme.id
-        /** Human-readable label — delegates to [ColorScheme.displayName]. */
-        val displayName: String get() = scheme.displayName
-    }
-
-    val ALL: List<SchemeInfo> = listOf(
-        SchemeInfo(ColorScheme.GRUVBOX_DARK, isDark = true),
-        SchemeInfo(ColorScheme.GRUVBOX_LIGHT, isDark = false),
-        SchemeInfo(ColorScheme.CATPPUCCIN_MOCHA, isDark = true),
-        SchemeInfo(ColorScheme.SOLARIZED_DARK, isDark = true),
-        SchemeInfo(ColorScheme.MONOKAI, isDark = true),
-        SchemeInfo(ColorScheme.NORD, isDark = true),
-        SchemeInfo(ColorScheme.DRACULA, isDark = true),
+    val ALL: List<ColorScheme> = listOf(
+        ColorScheme.GRUVBOX_DARK,
+        ColorScheme.GRUVBOX_LIGHT,
+        ColorScheme.CATPPUCCIN_MOCHA,
+        ColorScheme.SOLARIZED_DARK,
+        ColorScheme.MONOKAI,
+        ColorScheme.NORD,
+        ColorScheme.DRACULA
     )
 
     val DEFAULT_ID: String = ColorScheme.GRUVBOX_DARK.id
 
     fun isDark(schemeId: String): Boolean =
-        ALL.find { it.id == schemeId }?.isDark ?: true
+        ColorScheme.fromId(schemeId).isDark
 
     fun displayName(schemeId: String): String =
         ALL.find { it.id == schemeId }?.displayName ?: schemeId

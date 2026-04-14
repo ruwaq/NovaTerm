@@ -29,7 +29,13 @@ class WriteInputTool(
             ?: return ToolResult.Error("Missing required parameter: text")
         val session = (arguments["session"] as? Number)?.toInt() ?: 0
 
-        bridge.writeToSession(session, text)
-        return ToolResult.Success("Written ${text.length} chars to session $session")
+        // Use the new sanitizer to escape dangerous characters
+        val sanitized = SecurityPolicy.sanitizeCommand(text, allowEmpty = true)
+        if (sanitized == null) {
+            return ToolResult.Error("Input blocked by security policy")
+        }
+
+        bridge.writeToSession(session, sanitized)
+        return ToolResult.Success("Written ${sanitized.length} chars to session $session")
     }
 }

@@ -1,6 +1,7 @@
 package com.novaterm.core.config
 
 import android.content.Context
+import com.novaterm.core.common.model.ConfigConstants
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -67,10 +68,10 @@ class DataStoreConfigStore(
     }
 
     private fun Preferences.toTerminalConfig(): TerminalConfig {
-        val fontSize = (this[Keys.FONT_SIZE] ?: TerminalConfig.DEFAULT_FONT_SIZE)
-            .coerceIn(TerminalConfig.FONT_SIZE_RANGE)
-        val scrollback = (this[Keys.SCROLLBACK_LINES] ?: 10_000)
-            .coerceIn(TerminalConfig.SCROLLBACK_RANGE)
+        val fontSize = (this[Keys.FONT_SIZE] ?: ConfigConstants.DEFAULT_FONT_SIZE)
+            .coerceIn(ConfigConstants.FONT_SIZE_RANGE)
+        val scrollback = (this[Keys.SCROLLBACK_LINES] ?: ConfigConstants.DEFAULT_SCROLLBACK_LINES)
+            .coerceIn(ConfigConstants.SCROLLBACK_RANGE)
         val schemeName = this[Keys.COLOR_SCHEME] ?: ColorScheme.GRUVBOX_DARK.name
         val scheme = try {
             ColorScheme.valueOf(schemeName)

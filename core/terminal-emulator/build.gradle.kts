@@ -8,6 +8,7 @@ android {
 
     defaultConfig {
         minSdk = property("novaterm.minSdk").toString().toInt()
+        targetSdk = property("novaterm.targetSdk").toString().toInt()
         consumerProguardFiles("proguard-rules.pro")
 
         ndk {
