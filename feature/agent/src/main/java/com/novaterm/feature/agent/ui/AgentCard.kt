@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Difference
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -95,6 +96,7 @@ fun AgentCard(
     onOpenSession: () -> Unit,
     onPauseResume: () -> Unit,
     onKill: () -> Unit,
+    onViewDiff: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // Live runtime counter for RUNNING workspaces
@@ -220,6 +222,21 @@ fun AgentCard(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                     )
+                }
+
+                // View diff
+                if (workspace.status == AgentStatus.COMPLETED || workspace.status == AgentStatus.RUNNING || workspace.status == AgentStatus.PAUSED) {
+                    IconButton(
+                        onClick = onViewDiff,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Difference,
+                            contentDescription = "View diff",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
 
                 // Pause / Resume

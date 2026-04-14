@@ -419,6 +419,7 @@ class TerminalService : Service() {
                 onRemoveSession = { index -> removeSession(index) },
                 defaultCwd = { shellProvider.defaultWorkingDirectory() },
                 prefixPath = { "$rootDir/usr" },
+                onGetAgentOrchestrator = { agentOrchestrator },
             )
             val server = McpServer(config, bridge, interactiveApproval, context = this@TerminalService)
             server.start()

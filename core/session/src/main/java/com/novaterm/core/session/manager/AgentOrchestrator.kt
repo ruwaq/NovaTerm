@@ -260,6 +260,76 @@ class AgentOrchestrator(
         return dir.absolutePath
     }
 
+    /**
+     * Run `git diff` in the workspace's directory and return the raw output.
+     *
+     * Executes git as a separate Process (doesn't interfere with the agent's PTY).
+     * Returns empty string if the workspace doesn't exist or git isn't available.
+     */
+    fun runDiff(workspaceId: String): String {
+        val workspace = workspaces[workspaceId] ?: return ""
+        return runGitCommand(workspace.workingDir, "diff")
+    }
+
+    /**
+     * Run `git diff --stat` for a quick summary of changed files.
+     */
+    fun runDiffStat(workspaceId: String): String {
+        val workspace = workspaces[workspaceId] ?: return ""
+        return runGitCommand(workspace.workingDir, "diff", "--stat")
+    }
+
+    /**
+     * Approve changes in a workspace: `git add -A && git commit`.
+     *
+     * @param workspaceId The workspace ID
+     * @param message Commit message (defaults to "agent: <displayName>")
+     * @return true if the commit succeeded
+     */
+    fun approveChanges(workspaceId: String, message: String = ""): Boolean {
+        val workspace = workspaces[workspaceId] ?: return false
+        val commitMsg = message.ifBlank { "agent: ${workspace.displayName}" }
+        val addResult = runGitCommand(workspace.workingDir, "add", "-A")
+        Log.i(TAG, "git add -A: $addResult")
+        val commitResult = runGitCommand(workspace.workingDir, "commit", "-m", commitMsg)
+        Log.i(TAG, "git commit: $commitResult")
+        return commitResult.contains("] ") // e.g. "[main abc1234]"
+    }
+
+    /**
+     * Reject changes in a workspace: `git checkout . && git clean -fd`.
+     *
+     * @return true if the reset succeeded
+     */
+    fun rejectChanges(workspaceId: String): Boolean {
+        val workspace = workspaces[workspaceId] ?: return false
+        val checkoutResult = runGitCommand(workspace.workingDir, "checkout", ".")
+        Log.i(TAG, "git checkout .: $checkoutResult")
+        // Also clean untracked files that the agent may have created
+        runGitCommand(workspace.workingDir, "clean", "-fd")
+        return true
+    }
+
+    /**
+     * Execute a git command in a directory and capture stdout.
+     * Runs as a separate Process — doesn't touch the agent's PTY session.
+     */
+    private fun runGitCommand(workingDir: String, vararg args: String): String {
+        return try {
+            val command = arrayOf("git", *args)
+            val process = ProcessBuilder(*command)
+                .directory(File(workingDir))
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+            output.trim()
+        } catch (e: Exception) {
+            Log.w(TAG, "git ${args.joinToString(" ")} failed: ${e.message}")
+            ""
+        }
+    }
+
     companion object {
         private const val TAG = "AgentOrchestrator"
     }

@@ -4,6 +4,7 @@ import android.util.Log
 import com.novaterm.core.mcp.bridge.FileEntry
 import com.novaterm.core.mcp.bridge.McpSessionBridge
 import com.novaterm.core.mcp.bridge.McpSessionInfo
+import com.novaterm.core.mcp.bridge.McpWorkspaceInfo
 import com.novaterm.terminal.TerminalSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ class ServiceMcpBridge(
     private val onRemoveSession: (index: Int) -> Unit,
     private val defaultCwd: () -> String,
     private val prefixPath: () -> String,
+    private val onGetAgentOrchestrator: () -> com.novaterm.core.session.manager.AgentOrchestrator? = { null },
 ) : McpSessionBridge {
 
     private val _mcpSessions = MutableStateFlow<List<McpSessionInfo>>(emptyList())
@@ -128,6 +130,63 @@ class ServiceMcpBridge(
             Log.e(TAG, "MCP listDirectory error: $path", e)
             emptyList()
         }
+    }
+
+    // ── Agent workspace access ──────────────────────────────────
+
+    override fun listWorkspaces(): List<McpWorkspaceInfo> {
+        val orchestrator = onGetAgentOrchestrator() ?: return emptyList()
+        return orchestrator.allWorkspaces.map { workspace ->
+            McpWorkspaceInfo(
+                id = workspace.id,
+                name = workspace.displayName,
+                agentType = workspace.agentType.label,
+                status = workspace.status.name.lowercase(),
+                sessionId = workspace.sessionId,
+                pid = workspace.pid,
+                workingDir = workspace.workingDir,
+                runtimeSeconds = workspace.runtimeSeconds,
+                lastOutputAt = workspace.lastOutputAt,
+            )
+        }
+    }
+
+    override fun getWorkspace(workspaceId: String): McpWorkspaceInfo? {
+        val orchestrator = onGetAgentOrchestrator() ?: return null
+        val workspace = orchestrator.findById(workspaceId) ?: return null
+        return McpWorkspaceInfo(
+            id = workspace.id,
+            name = workspace.displayName,
+            agentType = workspace.agentType.label,
+            status = workspace.status.name.lowercase(),
+            sessionId = workspace.sessionId,
+            pid = workspace.pid,
+            workingDir = workspace.workingDir,
+            runtimeSeconds = workspace.runtimeSeconds,
+            lastOutputAt = workspace.lastOutputAt,
+        )
+    }
+
+    override fun getAgentOutput(workspaceId: String, lines: Int): String {
+        val orchestrator = onGetAgentOrchestrator() ?: return ""
+        val workspace = orchestrator.findById(workspaceId) ?: return ""
+        if (workspace.sessionId < 0) return ""
+        return readOutput(workspace.sessionId, lines)
+    }
+
+    override fun runAgentDiff(workspaceId: String): String {
+        val orchestrator = onGetAgentOrchestrator() ?: return ""
+        return orchestrator.runDiff(workspaceId)
+    }
+
+    override fun approveAgentChanges(workspaceId: String, message: String): Boolean {
+        val orchestrator = onGetAgentOrchestrator() ?: return false
+        return orchestrator.approveChanges(workspaceId, message)
+    }
+
+    override fun rejectAgentChanges(workspaceId: String): Boolean {
+        val orchestrator = onGetAgentOrchestrator() ?: return false
+        return orchestrator.rejectChanges(workspaceId)
     }
 
     companion object {

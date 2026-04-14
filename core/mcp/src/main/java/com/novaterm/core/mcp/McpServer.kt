@@ -20,6 +20,12 @@ import com.novaterm.core.mcp.tool.builtin.ReadOutputTool
 import com.novaterm.core.mcp.tool.builtin.RunCommandTool
 import com.novaterm.core.mcp.tool.builtin.WaitForOutputTool
 import com.novaterm.core.mcp.tool.builtin.WriteInputTool
+import com.novaterm.core.mcp.tool.builtin.AgentListTool
+import com.novaterm.core.mcp.tool.builtin.AgentStatusTool
+import com.novaterm.core.mcp.tool.builtin.AgentOutputTool
+import com.novaterm.core.mcp.tool.builtin.AgentDiffTool
+import com.novaterm.core.mcp.tool.builtin.AgentApproveTool
+import com.novaterm.core.mcp.tool.builtin.AgentRejectTool
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.EmbeddedServer
@@ -93,11 +99,18 @@ class McpServer(
             WriteInputTool(bridge),
             FileReadTool(bridge),
             FileWriteTool(bridge),
-            // Agent orchestration tools
+            // Session orchestration tools
             CreateSessionTool(bridge),
             GetSessionOutputTool(bridge),
             WaitForOutputTool(bridge),
             GetTerminalInfoTool(bridge),
+            // Agent orchestration tools
+            AgentListTool(bridge),
+            AgentStatusTool(bridge),
+            AgentOutputTool(bridge),
+            AgentDiffTool(bridge),
+            AgentApproveTool(bridge),
+            AgentRejectTool(bridge),
         )
     }
 

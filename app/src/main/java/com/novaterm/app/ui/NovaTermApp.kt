@@ -49,6 +49,8 @@ import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.core.session.manager.AgentPreset
 import com.novaterm.feature.agent.ui.AgentDashboardScreen
+import com.novaterm.feature.agent.ui.DiffViewerScreen
+import com.novaterm.feature.agent.data.DiffParser
 import com.novaterm.feature.terminal.ui.components.AgentPresetSheet
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
@@ -87,6 +89,8 @@ fun NovaTermApp(
     var showCameraOcr by remember { mutableStateOf(false) }
     var showAgentSheet by remember { mutableStateOf(false) }
     var showAgentDashboard by remember { mutableStateOf(false) }
+    var diffWorkspace by remember { mutableStateOf<com.novaterm.core.session.manager.AgentWorkspace?>(null) }
+    var diffResult by remember { mutableStateOf(DiffParser.DiffResult(emptyList(), DiffParser.DiffStats(0, 0, 0))) }
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -232,11 +236,43 @@ fun NovaTermApp(
             onKill = { workspace ->
                 viewModel.killAgent(workspace.id)
             },
+            onViewDiff = { workspace ->
+                val rawDiff = viewModel.runAgentDiff(workspace.id)
+                diffResult = DiffParser.parse(rawDiff)
+                diffWorkspace = workspace
+            },
             onLaunchAgent = {
                 showAgentDashboard = false
                 showAgentSheet = true
             },
             onBack = { showAgentDashboard = false },
+        )
+        return
+    }
+
+    // ── Diff Viewer ──────────────────────────────────────────────
+    diffWorkspace?.let { workspace ->
+        BackHandler { diffWorkspace = null }
+        DiffViewerScreen(
+            diffResult = diffResult,
+            workspaceName = workspace.displayName,
+            onApprove = {
+                viewModel.approveAgentChanges(workspace.id)
+                // Refresh diff after approval
+                val rawDiff = viewModel.runAgentDiff(workspace.id)
+                diffResult = DiffParser.parse(rawDiff)
+            },
+            onReject = {
+                viewModel.rejectAgentChanges(workspace.id)
+                // Refresh diff after rejection
+                val rawDiff = viewModel.runAgentDiff(workspace.id)
+                diffResult = DiffParser.parse(rawDiff)
+            },
+            onOpenTerminal = {
+                viewModel.openAgentSession(workspace)
+                diffWorkspace = null
+            },
+            onBack = { diffWorkspace = null },
         )
         return
     }

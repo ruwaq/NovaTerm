@@ -50,6 +50,7 @@ fun AgentDashboardScreen(
     onOpenSession: (AgentWorkspace) -> Unit,
     onPauseResume: (AgentWorkspace) -> Unit,
     onKill: (AgentWorkspace) -> Unit,
+    onViewDiff: (AgentWorkspace) -> Unit,
     onLaunchAgent: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -144,6 +145,7 @@ fun AgentDashboardScreen(
                         onKill = {
                             workspaceToKill = workspace
                         },
+                        onViewDiff = { onViewDiff(workspace) },
                     )
                 }
 

@@ -46,6 +46,26 @@ interface McpSessionBridge {
 
     /** List directory contents. Returns file names or empty on error. */
     fun listDirectory(path: String): List<FileEntry>
+
+    // ── Agent workspace access ──────────────────────────────────
+
+    /** List all agent workspaces with their status. */
+    fun listWorkspaces(): List<McpWorkspaceInfo>
+
+    /** Get a single workspace by ID. Null if not found. */
+    fun getWorkspace(workspaceId: String): McpWorkspaceInfo?
+
+    /** Read recent output from an agent workspace's session. */
+    fun getAgentOutput(workspaceId: String, lines: Int = 50): String
+
+    /** Run git diff in a workspace's directory. Returns raw unified diff. */
+    fun runAgentDiff(workspaceId: String): String
+
+    /** Approve (commit) all changes in a workspace. Returns true on success. */
+    fun approveAgentChanges(workspaceId: String, message: String = ""): Boolean
+
+    /** Reject (discard) all changes in a workspace. Returns true on success. */
+    fun rejectAgentChanges(workspaceId: String): Boolean
 }
 
 /** Lightweight session info exposed to MCP tools. */
@@ -55,6 +75,19 @@ data class McpSessionInfo(
     val cwd: String,
     val isRunning: Boolean,
     val pid: Int,
+)
+
+/** Agent workspace info exposed to MCP tools. */
+data class McpWorkspaceInfo(
+    val id: String,
+    val name: String,
+    val agentType: String,
+    val status: String,
+    val sessionId: Int,
+    val pid: Int,
+    val workingDir: String,
+    val runtimeSeconds: Long,
+    val lastOutputAt: Long,
 )
 
 /** Directory entry for file listing. */

@@ -578,4 +578,31 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         val svc = _service.value ?: return
         svc.killWorkspace(workspaceId)
     }
+
+    /**
+     * Run `git diff` in a workspace's directory.
+     * Returns raw unified diff output, or empty string on failure.
+     */
+    fun runAgentDiff(workspaceId: String): String {
+        val svc = _service.value ?: return ""
+        return svc.getAgentOrchestrator().runDiff(workspaceId)
+    }
+
+    /**
+     * Approve (commit) all changes in a workspace.
+     * @return true if commit succeeded
+     */
+    fun approveAgentChanges(workspaceId: String): Boolean {
+        val svc = _service.value ?: return false
+        return svc.getAgentOrchestrator().approveChanges(workspaceId)
+    }
+
+    /**
+     * Reject (discard) all changes in a workspace.
+     * @return true if checkout succeeded
+     */
+    fun rejectAgentChanges(workspaceId: String): Boolean {
+        val svc = _service.value ?: return false
+        return svc.getAgentOrchestrator().rejectChanges(workspaceId)
+    }
 }

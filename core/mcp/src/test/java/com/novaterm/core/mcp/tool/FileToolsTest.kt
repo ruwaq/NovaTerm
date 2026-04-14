@@ -3,6 +3,7 @@ package com.novaterm.core.mcp.tool
 import com.novaterm.core.mcp.bridge.FileEntry
 import com.novaterm.core.mcp.bridge.McpSessionBridge
 import com.novaterm.core.mcp.bridge.McpSessionInfo
+import com.novaterm.core.mcp.bridge.McpWorkspaceInfo
 import com.novaterm.core.mcp.tool.builtin.FileReadTool
 import com.novaterm.core.mcp.tool.builtin.FileWriteTool
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,12 @@ class FileToolsTest {
             catch (_: Exception) { false }
         }
         override fun listDirectory(path: String) = emptyList<FileEntry>()
+        override fun listWorkspaces() = emptyList<McpWorkspaceInfo>()
+        override fun getWorkspace(workspaceId: String): McpWorkspaceInfo? = null
+        override fun getAgentOutput(workspaceId: String, lines: Int) = ""
+        override fun runAgentDiff(workspaceId: String) = ""
+        override fun approveAgentChanges(workspaceId: String, message: String) = false
+        override fun rejectAgentChanges(workspaceId: String) = false
     }
 
     // ── FileReadTool ──────────────────────────────────────

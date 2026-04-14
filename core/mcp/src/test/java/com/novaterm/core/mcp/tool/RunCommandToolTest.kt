@@ -3,6 +3,7 @@ package com.novaterm.core.mcp.tool
 import com.novaterm.core.mcp.bridge.FileEntry
 import com.novaterm.core.mcp.bridge.McpSessionBridge
 import com.novaterm.core.mcp.bridge.McpSessionInfo
+import com.novaterm.core.mcp.bridge.McpWorkspaceInfo
 import com.novaterm.core.mcp.tool.builtin.RunCommandTool
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,12 @@ class RunCommandToolTest {
         override fun readFile(path: String, maxBytes: Int) = null
         override fun writeFile(path: String, content: String) = false
         override fun listDirectory(path: String) = emptyList<FileEntry>()
+        override fun listWorkspaces() = emptyList<McpWorkspaceInfo>()
+        override fun getWorkspace(workspaceId: String): McpWorkspaceInfo? = null
+        override fun getAgentOutput(workspaceId: String, lines: Int) = ""
+        override fun runAgentDiff(workspaceId: String) = ""
+        override fun approveAgentChanges(workspaceId: String, message: String) = false
+        override fun rejectAgentChanges(workspaceId: String) = false
     }
 
     @Test
