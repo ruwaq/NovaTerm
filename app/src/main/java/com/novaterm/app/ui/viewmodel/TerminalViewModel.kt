@@ -12,6 +12,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
 import com.novaterm.core.mcp.security.ApprovalRequest
+import com.novaterm.core.session.manager.AgentStatus
+import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
@@ -119,6 +121,17 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     val mcpApprovalRequest: StateFlow<ApprovalRequest?> = _service
         .flatMapLatest { svc -> svc?.mcpApprovalRequest ?: flowOf(null) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Agent workspaces derived from the service's AgentOrchestrator.
+     * Reactive — updates whenever workspace status changes.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val agentWorkspaces: StateFlow<List<AgentWorkspace>> = _service
+        .flatMapLatest { svc ->
+            svc?.getAgentOrchestrator()?.workspacesState ?: flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -537,5 +550,32 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     /** Dismiss suggestion without accepting. */
     fun dismissSuggestion() {
         _suggestion.value = null
+    }
+
+    // ── Agent workspace actions ────────────────────────────
+
+    /** Switch to the session tab for an agent workspace. */
+    fun openAgentSession(workspace: AgentWorkspace) {
+        val sessionId = workspace.sessionId
+        if (sessionId >= 0) {
+            selectSession(sessionId)
+        }
+    }
+
+    /** Pause or resume an agent workspace (SIGSTOP/SIGCONT). */
+    fun pauseAgent(workspaceId: String) {
+        val svc = _service.value ?: return
+        val workspace = svc.getAgentOrchestrator().findById(workspaceId) ?: return
+        if (workspace.status == AgentStatus.RUNNING) {
+            svc.pauseWorkspace(workspaceId)
+        } else if (workspace.status == AgentStatus.PAUSED) {
+            svc.resumeWorkspace(workspaceId)
+        }
+    }
+
+    /** Kill an agent workspace — terminates process and cleans up. */
+    fun killAgent(workspaceId: String) {
+        val svc = _service.value ?: return
+        svc.killWorkspace(workspaceId)
     }
 }

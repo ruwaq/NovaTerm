@@ -116,6 +116,7 @@ dependencies {
     implementation(project(":feature:terminal"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:oem-compat"))
+    implementation(project(":feature:agent"))
 
     // Android
     implementation(libs.androidx.core.ktx)

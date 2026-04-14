@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ fun SessionTabBar(
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onNewSession: () -> Unit,
+    onAgentsClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val novaColors = LocalNovaTermColors.current
@@ -128,6 +130,15 @@ fun SessionTabBar(
             Icon(
                 Icons.Default.Search,
                 contentDescription = stringResource(R.string.action_search_history),
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        IconButton(onClick = onAgentsClick, modifier = Modifier.size(48.dp)) {
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = "Agent Dashboard",
                 tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(20.dp),
             )

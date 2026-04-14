@@ -48,6 +48,7 @@ import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
 import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
 import com.novaterm.core.session.manager.AgentPreset
+import com.novaterm.feature.agent.ui.AgentDashboardScreen
 import com.novaterm.feature.terminal.ui.components.AgentPresetSheet
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
@@ -85,6 +86,7 @@ fun NovaTermApp(
     val mcpApproval by viewModel.mcpApprovalRequest.collectAsState()
     var showCameraOcr by remember { mutableStateOf(false) }
     var showAgentSheet by remember { mutableStateOf(false) }
+    var showAgentDashboard by remember { mutableStateOf(false) }
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -215,6 +217,30 @@ fun NovaTermApp(
         )
     }
 
+    if (showAgentDashboard) {
+        BackHandler { showAgentDashboard = false }
+        val agentWorkspaces by viewModel.agentWorkspaces.collectAsState()
+        AgentDashboardScreen(
+            workspaces = agentWorkspaces,
+            onOpenSession = { workspace ->
+                viewModel.openAgentSession(workspace)
+                showAgentDashboard = false
+            },
+            onPauseResume = { workspace ->
+                viewModel.pauseAgent(workspace.id)
+            },
+            onKill = { workspace ->
+                viewModel.killAgent(workspace.id)
+            },
+            onLaunchAgent = {
+                showAgentDashboard = false
+                showAgentSheet = true
+            },
+            onBack = { showAgentDashboard = false },
+        )
+        return
+    }
+
     renamingTabIndex?.let { index ->
         RenameSessionDialog(
             currentName = renameText,
@@ -313,6 +339,7 @@ fun NovaTermApp(
                             onSearchClick = { showHistory = true },
                             onSettingsClick = viewModel::showSettings,
                             onNewSession = viewModel::createSession,
+                            onAgentsClick = { showAgentDashboard = true },
                         )
                     }
 

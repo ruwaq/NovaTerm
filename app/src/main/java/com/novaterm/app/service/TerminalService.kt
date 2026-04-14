@@ -185,6 +185,13 @@ class TerminalService : Service() {
                     mainHandler.post(callback)
                 }
             }
+            // Update agent workspace output timestamp for dashboard
+            val sessionIndex = _sessions.value.indexOf(changedSession)
+            if (sessionIndex >= 0) {
+                agentOrchestrator.findBySessionId(sessionIndex)?.let { workspace ->
+                    agentOrchestrator.markOutput(workspace.id)
+                }
+            }
         }
 
         override fun onTitleChanged(changedSession: TerminalSession) {
@@ -194,8 +201,19 @@ class TerminalService : Service() {
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
             zoneTrackers.remove(finishedSession.mHandle)
+            // Mark workspace as completed before removing session
+            val finishedIndex = _sessions.value.indexOf(finishedSession)
+            if (finishedIndex >= 0) {
+                agentOrchestrator.findBySessionId(finishedIndex)?.let { workspace ->
+                    agentOrchestrator.markCompleted(workspace.id, 0)
+                }
+            }
             _sessions.update { current ->
                 current.filter { it !== finishedSession }
+            }
+            // Adjust workspace session IDs after removal
+            if (finishedIndex >= 0) {
+                agentOrchestrator.adjustSessionIdsAfterRemoval(finishedIndex)
             }
             updateNotification()
         }
@@ -668,6 +686,54 @@ class TerminalService : Service() {
      */
     fun getAgentOrchestrator(): AgentOrchestrator = agentOrchestrator
 
+    /**
+     * Pause an agent workspace (SIGSTOP).
+     * The process is frozen but not killed — can be resumed with [resumeWorkspace].
+     */
+    fun pauseWorkspace(workspaceId: String) {
+        val workspace = agentOrchestrator.findById(workspaceId) ?: return
+        val pid = workspace.pid
+        if (pid > 0) {
+            try {
+                android.system.Os.kill(pid, android.system.OsConstants.SIGSTOP)
+                agentOrchestrator.markPaused(workspaceId)
+                Log.i(TAG, "Paused workspace: ${workspace.displayName} (pid=$pid)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to pause workspace ${workspace.displayName}: pid=$pid", e)
+            }
+        }
+    }
+
+    /**
+     * Resume a paused agent workspace (SIGCONT).
+     */
+    fun resumeWorkspace(workspaceId: String) {
+        val workspace = agentOrchestrator.findById(workspaceId) ?: return
+        val pid = workspace.pid
+        if (pid > 0) {
+            try {
+                android.system.Os.kill(pid, android.system.OsConstants.SIGCONT)
+                agentOrchestrator.markResumed(workspaceId)
+                Log.i(TAG, "Resumed workspace: ${workspace.displayName} (pid=$pid)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to resume workspace ${workspace.displayName}: pid=$pid", e)
+            }
+        }
+    }
+
+    /**
+     * Kill an agent workspace — terminates the process and cleans up.
+     */
+    fun killWorkspace(workspaceId: String) {
+        val workspace = agentOrchestrator.findById(workspaceId) ?: return
+        val sessionId = workspace.sessionId
+        if (sessionId >= 0 && sessionId < _sessions.value.size) {
+            removeSession(sessionId)
+        }
+        agentOrchestrator.destroyWorkspace(workspaceId)
+        Log.i(TAG, "Killed workspace: ${workspace.displayName}")
+    }
+
     private fun createSessionInternal(cwd: String): TerminalSession? {
         return try {
             val shellCmd = shellProvider.shellCommand()
@@ -721,6 +787,8 @@ class TerminalService : Service() {
             screenUpdateCallbacks.remove(session.mHandle)
             zoneTrackers.remove(session.mHandle)
             rustEngineManager.detachEngine(session)
+            // Adjust workspace session IDs after removal
+            agentOrchestrator.adjustSessionIdsAfterRemoval(index)
             updateNotification()
             updateBootReceiverState()
             if (_sessions.value.isEmpty()) stopSelf()

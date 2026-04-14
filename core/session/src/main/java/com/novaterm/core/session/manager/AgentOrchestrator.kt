@@ -3,6 +3,9 @@ package com.novaterm.core.session.manager
 import android.util.Log
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Orchestrates AI agent workspaces — creating, monitoring, and cleaning up
@@ -26,6 +29,15 @@ class AgentOrchestrator(
     private val homeDir: String,
 ) {
     private val workspaces = ConcurrentHashMap<String, AgentWorkspace>()
+
+    /** Reactive state flow for Compose observation. Updated on every mutation. */
+    private val _workspacesState = MutableStateFlow<List<AgentWorkspace>>(emptyList())
+    val workspacesState: StateFlow<List<AgentWorkspace>> = _workspacesState.asStateFlow()
+
+    /** Emit current workspace list to StateFlow for reactive UI updates. */
+    private fun emitWorkspaces() {
+        _workspacesState.value = workspaces.values.toList()
+    }
 
     /** All active workspaces, observable for dashboard. */
     val activeWorkspaces: List<AgentWorkspace>
@@ -89,6 +101,7 @@ class AgentOrchestrator(
         )
 
         workspaces[workspace.id] = workspace
+        emitWorkspaces()
         Log.i(TAG, "Created workspace: ${workspace.id} (${workspace.displayName}) in $workDir")
 
         return workspace
@@ -111,6 +124,7 @@ class AgentOrchestrator(
                 lastOutputAt = System.currentTimeMillis(),
             )
             workspaces[workspaceId] = updated
+            emitWorkspaces()
         }
     }
 
@@ -121,6 +135,7 @@ class AgentOrchestrator(
     fun markOutput(workspaceId: String) {
         workspaces[workspaceId]?.let { existing ->
             workspaces[workspaceId] = existing.copy(lastOutputAt = System.currentTimeMillis())
+            emitWorkspaces()
         }
     }
 
@@ -138,6 +153,7 @@ class AgentOrchestrator(
                 exitCode = exitCode,
                 lastOutputAt = System.currentTimeMillis(),
             )
+            emitWorkspaces()
         }
     }
 
@@ -154,6 +170,49 @@ class AgentOrchestrator(
     fun findById(workspaceId: String): AgentWorkspace? = workspaces[workspaceId]
 
     /**
+     * Adjust all workspace sessionId values after a session is removed.
+     *
+     * When session at [removedIndex] is removed from the list, all sessions
+     * after it shift down by 1. This method updates workspace references
+     * so they continue pointing to the correct session.
+     *
+     * Must be called after every session removal (kill, close, or natural exit).
+     */
+    fun adjustSessionIdsAfterRemoval(removedIndex: Int) {
+        var changed = false
+        workspaces.forEach { (id, workspace) ->
+            if (workspace.sessionId > removedIndex) {
+                workspaces[id] = workspace.copy(sessionId = workspace.sessionId - 1)
+                changed = true
+            }
+        }
+        if (changed) emitWorkspaces()
+    }
+
+    /**
+     * Mark a workspace as paused (SIGSTOP sent to process).
+     */
+    fun markPaused(workspaceId: String) {
+        workspaces[workspaceId]?.let { existing ->
+            workspaces[workspaceId] = existing.copy(status = AgentStatus.PAUSED)
+            emitWorkspaces()
+        }
+    }
+
+    /**
+     * Mark a workspace as resumed (SIGCONT sent to process).
+     */
+    fun markResumed(workspaceId: String) {
+        workspaces[workspaceId]?.let { existing ->
+            workspaces[workspaceId] = existing.copy(
+                status = AgentStatus.RUNNING,
+                lastOutputAt = System.currentTimeMillis(),
+            )
+            emitWorkspaces()
+        }
+    }
+
+    /**
      * Destroy a workspace and clean up its directory.
      */
     fun destroyWorkspace(workspaceId: String) {
@@ -166,6 +225,7 @@ class AgentOrchestrator(
             }
             workspaces[workspaceId] = workspace.copy(status = AgentStatus.DESTROYED)
             workspaces.remove(workspaceId)
+            emitWorkspaces()
         }
     }
 
