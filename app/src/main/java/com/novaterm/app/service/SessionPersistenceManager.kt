@@ -12,6 +12,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
+ * Data class to hold UI state that needs persistence across sessions
+ */
+data class TerminalViewModelUIState(
+    val currentSessionIndex: Int = 0,
+    val sessionNames: Map<Int, String> = emptyMap(),
+    val focusedPaneSession: Int = -1
+)
+
+/**
  * Manages periodic and on-demand persistence of terminal session metadata.
  *
  * Extracted from TerminalService to separate persistence concerns from
@@ -26,6 +35,8 @@ class SessionPersistenceManager(
     private val mainHandler: Handler,
     private val serviceScope: CoroutineScope,
     private val isServiceDestroyed: () -> Boolean,
+    private val uiStateProvider: () -> TerminalViewModelUIState? = { null },
+    private val uiStateConsumer: (TerminalViewModelUIState) -> Unit = {}
 ) {
     private val saveRunnable = object : Runnable {
         override fun run() {
@@ -57,20 +68,38 @@ class SessionPersistenceManager(
 
     @Synchronized
     fun saveSessionMetadata() {
-        val snapshot = sessionsSnapshot()
-        val metadata = snapshot.mapIndexed { index, session ->
-            SessionMetadata(
-                id = index,
-                shell = shellFinder(),
-                cwd = session.cwd ?: defaultCwd(),
-                title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
-            )
-        }
-        sessionStore.save(metadata)
-        if (BuildConfig.DEBUG) Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
+    val snapshot = sessionsSnapshot()
+    val metadata = snapshot.mapIndexed { index, session ->
+        val uiState = uiStateProvider()
+        SessionMetadata(
+            id = index,
+            shell = shellFinder(),
+            cwd = session.cwd ?: defaultCwd(),
+            title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
+            activeTabIndex = uiState?.currentSessionIndex ?: index,
+            tabNames = uiState?.sessionNames ?: emptyMap(),
+            focusedPaneSession = uiState?.focusedPaneSession ?: -1
+        )
     }
+    sessionStore.save(metadata)
+    if (BuildConfig.DEBUG) Log.d(TAG, "Saved ${metadata.size} session(s) metadata")
+}
 
     fun getSavedSessions(): List<SessionMetadata> = sessionStore.load()
+
+fun restoreUIState(uiStateConsumer: (TerminalViewModelUIState) -> Unit) {
+    val savedSessions = getSavedSessions()
+    if (savedSessions.isNotEmpty()) {
+        val firstSession = savedSessions.firstOrNull()
+        if (firstSession != null) {
+            uiStateConsumer.invoke(TerminalViewModelUIState(
+                currentSessionIndex = firstSession.activeTabIndex,
+                sessionNames = firstSession.tabNames,
+                focusedPaneSession = firstSession.focusedPaneSession
+            ))
+        }
+    }
+}
 
     fun clearSavedSessions() = sessionStore.clear()
 

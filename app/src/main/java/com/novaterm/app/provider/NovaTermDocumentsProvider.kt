@@ -95,11 +95,24 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
         displayName: String,
     ): String {
         val parent = fileForDocId(parentDocumentId)
-        // Sanitize displayName to prevent path traversal (e.g. "../../etc/passwd")
-        val safeName = displayName.replace("/", "_").replace("\u0000", "")
-        if (safeName.isEmpty() || safeName == "." || safeName == "..") {
+        // Strict path sanitization to prevent traversal attacks
+        // Reject any path containing "..", null bytes, or absolute paths
+        if (displayName.isNullOrEmpty() || displayName == "." || displayName == "..") {
             throw FileNotFoundException("Invalid document name: $displayName")
         }
+
+        // Check for path traversal attempts or null bytes
+        if (displayName.contains("../") || displayName.contains("\u0000")) {
+            throw FileNotFoundException("Path traversal attempt detected: $displayName")
+        }
+
+        // Check for absolute path patterns
+        if (displayName.startsWith("/") || displayName.startsWith("\\") || displayName.contains(":")) {
+            throw FileNotFoundException("Absolute path detected: $displayName")
+        }
+
+        // Replace all special characters that could cause path confusion
+        val safeName = displayName.replace("/", "_").replace("\\", "_").replace(":", "_").replace("*", "_").replace("|", "_").replace("?", "_").replace("\", "_")
         val newFile = File(parent, safeName)
 
         val created = if (mimeType == Document.MIME_TYPE_DIR) {

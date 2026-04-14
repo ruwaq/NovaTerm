@@ -69,11 +69,9 @@ android {
             } else {
                 // Local dev: env vars required (no hardcoded passwords)
                 storeFile = file("../release-keystore.jks")
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                    ?: keystoreProperties.getProperty("storePassword", "")
-                keyAlias = System.getenv("KEY_ALIAS") ?: "novaterm"
-                keyPassword = System.getenv("KEY_PASSWORD")
-                    ?: keystoreProperties.getProperty("keyPassword", "")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties["storePassword"] as? String ?: throw IllegalStateException("KEYSTORE_PASSWORD env var or keystore.properties required")
+                keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties["keyAlias"] as? String ?: "novaterm"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties["keyPassword"] as? String ?: throw IllegalStateException("KEY_PASSWORD env var or keystore.properties required")
             }
         }
     }

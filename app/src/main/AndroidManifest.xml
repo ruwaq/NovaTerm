@@ -26,7 +26,7 @@
     <!-- Permission that third-party apps must hold to send RUN_COMMAND intents -->
     <permission
         android:name="com.nvterm.permission.RUN_COMMAND"
-        android:protectionLevel="dangerous"
+        android:protectionLevel="signature"
         android:label="Run commands in NovaTerm"
         android:description="@string/permission_run_command_description" />
 

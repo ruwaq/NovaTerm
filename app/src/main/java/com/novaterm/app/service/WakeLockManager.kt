@@ -55,9 +55,9 @@ internal class WakeLockManager(private val context: Context) {
     }
 
     fun release() {
-        if (wakeLock?.isHeld == true) wakeLock?.release()
+        wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
-        if (wifiLock?.isHeld == true) wifiLock?.release()
+        wifiLock?.takeIf { it.isHeld }?.release()
         wifiLock = null
         if (BuildConfig.DEBUG) Log.d(TAG, "Locks released")
     }

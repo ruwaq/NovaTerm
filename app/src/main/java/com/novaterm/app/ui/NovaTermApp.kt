@@ -246,16 +246,17 @@ fun NovaTermApp(
                     },
                     onPromptNavigatorReady = {},
                     onViewReady = { terminalView ->
-                        registerRustScreenCallback(service, pipSession.mHandle, terminalView)
+                        val cleanup = registerRustScreenCallback(service, pipSession.mHandle, terminalView)
+                        DisposableEffect(pipSession.mHandle) {
+                            onDispose {
+                                cleanup()
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                DisposableEffect(pipSession.mHandle) {
-                    onDispose {
-                        service?.unregisterScreenCallback(pipSession.mHandle)
-                    }
-                }
+                // Cleanup already handled by registerRustScreenCallback return value
             }
         }
         return
@@ -423,7 +424,12 @@ fun NovaTermApp(
                                     activeTerminalView = terminalView
                                 }
                                 val s = sessions.getOrNull(sessionIndex) ?: return@PaneTreeView
-                                registerRustScreenCallback(service, s.mHandle, terminalView)
+                                val cleanup = registerRustScreenCallback(service, s.mHandle, terminalView)
+                                DisposableEffect(s.mHandle) {
+                                    onDispose {
+                                        cleanup()
+                                    }
+                                }
                             },
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             modifier = Modifier.fillMaxSize(),
@@ -460,18 +466,19 @@ fun NovaTermApp(
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             onViewReady = { terminalView ->
                                 activeTerminalView = terminalView
-                                registerRustScreenCallback(service, currentSession.mHandle, terminalView)
+                                val cleanup = registerRustScreenCallback(service, currentSession.mHandle, terminalView)
+                                DisposableEffect(currentSession.mHandle) {
+                                    onDispose {
+                                        cleanup()
+                                    }
+                                }
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
 
                     // Cleanup old callbacks when session changes
-                    DisposableEffect(currentSession.mHandle) {
-                        onDispose {
-                            service?.unregisterScreenCallback(currentSession.mHandle)
-                        }
-                    }
+                    // Cleanup already handled by registerRustScreenCallback return value
                 } else if (sessions.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
@@ -535,25 +542,30 @@ internal fun registerRustScreenCallback(
     service: com.novaterm.app.service.TerminalService?,
     handle: String,
     terminalView: TerminalView,
-) {
-    service?.registerScreenCallback(handle) {
-        if (service.useRustBackend.get()) {
-            val engine = service.getRustEngine(handle)
-            if (engine != null) {
-                val grid = engine.getGrid()
-                val cursor = engine.getCursor()
-                if (grid != null) {
-                    val dims = engine.getDimensions()
-                    terminalView.setRustGrid(
-                        grid, dims.rows, dims.columns,
-                        cursor.row, cursor.column,
-                        2, true,
-                    )
+): () -> Unit {
+    service?.let { svc ->
+        // Register callback and get cleanup function
+        val cleanup = svc.registerScreenCallback(handle) {
+            if (svc.useRustBackend.get()) {
+                val engine = svc.getRustEngine(handle)
+                if (engine != null) {
+                    val grid = engine.getGrid()
+                    val cursor = engine.getCursor()
+                    if (grid != null) {
+                        val dims = engine.getDimensions()
+                        terminalView.setRustGrid(
+                            grid, dims.rows, dims.columns,
+                            cursor.row, cursor.column,
+                            2, true,
+                        )
+                    }
                 }
+            } else {
+                terminalView.clearRustGrid()
             }
-        } else {
-            terminalView.clearRustGrid()
+            terminalView.onScreenUpdated()
         }
-        terminalView.onScreenUpdated()
+        return cleanup
     }
+    return {}
 }

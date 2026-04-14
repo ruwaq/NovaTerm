@@ -8,6 +8,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
 import com.novaterm.core.mcp.security.ApprovalRequest
@@ -39,14 +40,66 @@ import kotlinx.coroutines.launch
  * the service itself is a foreground service that persists independently).
  * Exposes sessions as [StateFlow] so Compose observes changes reactively.
  */
-class TerminalViewModel(application: Application) : AndroidViewModel(application) {
+class TerminalViewModel(application: Application, savedStateHandle: SavedStateHandle) : AndroidViewModel(application) {
 
     private val prefsRepo = PreferencesRepository(application)
-    val preferences: StateFlow<TerminalPreferences> = prefsRepo.preferences
+    private val _savedStateHandle = savedStateHandle
+
+    companion object {
+        private const val KEY_CURRENT_SESSION_INDEX = "current_session_index"
+        private const val KEY_SESSION_NAMES = "session_names"
+        private const val KEY_FOCUSED_PANE_SESSION = "focused_pane_session"
+    }
+
+    // ── State persistence ───────────────────────────────────
+    private fun restoreStateFromSavedStateHandle() {
+        // Restore current session index with validation
+        val savedCurrentIndex = _savedStateHandle.get<Int>(KEY_CURRENT_SESSION_INDEX)
+        if (savedCurrentIndex != null && savedCurrentIndex >= 0) {
+            _currentSessionIndex.value = savedCurrentIndex.coerceAtMost(0) // Fallback to 0 if index is too high
+        }
+
+        // Restore session names with validation
+        val savedSessionNames = _savedStateHandle.get<Map<Int, String>>(KEY_SESSION_NAMES)
+        if (savedSessionNames != null && savedSessionNames.isNotEmpty()) {
+            _sessionNames.value = savedSessionNames
+        }
+
+        // Restore focused pane session with validation
+        val savedFocusedPaneSession = _savedStateHandle.get<Int>(KEY_FOCUSED_PANE_SESSION)
+        if (savedFocusedPaneSession != null && savedFocusedPaneSession >= -1) {
+            _focusedPaneSession.value = savedFocusedPaneSession
+        }
+    }
+
+    override fun onCleared() {
+        // Save UI state before ViewModel is cleared
+        saveStateToSavedStateHandle()
+        super.onCleared()
+    }
+
+    private fun saveStateToSavedStateHandle() {
+        // Save current session index with validation
+        _savedStateHandle.set(KEY_CURRENT_SESSION_INDEX, _currentSessionIndex.value.coerceAtMost(0))
+
+        // Save session names
+        _savedStateHandle.set(KEY_SESSION_NAMES, _sessionNames.value)
+
+        // Save focused pane session
+        _savedStateHandle.set(KEY_FOCUSED_PANE_SESSION, _focusedPaneSession.value)
+
+        // Note: _currentPaneLayout is not saved as it's derived from the current session state
+        // and will be restored when the service is connected and the session is loaded
+    }
 
     // ── Service binding ────────────────────────────────────
 
     private val _service = MutableStateFlow<TerminalService?>(null)
+
+    init {
+        // Restore UI state from saved instance
+        restoreStateFromSavedStateHandle()
+    }
     val service: StateFlow<TerminalService?> = _service.asStateFlow()
 
     /**
@@ -82,14 +135,16 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
             }
+            // Save initial state
+            saveStateToSavedStateHandle()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
             _service.value = null
             bound = false
-            // Auto-rebind after system kills service
+            // Auto-rebind after system kills service with immediate attempt
+            // Using BIND_AUTO_CREATE flag which automatically creates the service if it doesn't exist
             viewModelScope.launch {
-                delay(1_000)
                 bindService()
             }
         }
@@ -98,7 +153,6 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             _service.value = null
             bound = false
             viewModelScope.launch {
-                delay(1_000)
                 bindService()
             }
         }
@@ -128,6 +182,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 
     override fun onCleared() {
+        // Save UI state before unbindService
+        saveStateToSavedStateHandle()
         unbindService()
         super.onCleared()
     }
@@ -165,6 +221,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun setInPipMode(inPip: Boolean) {
         _isInPipMode.value = inPip
+        persistSessionState()
     }
 
     // ── Pane management (built-in multiplexer) ────────────
@@ -183,6 +240,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     // Declared here (before uiState) so the combined flow can reference it.
     private val _sessionToClose = MutableStateFlow<Int?>(null)
     val sessionToClose: StateFlow<Int?> = _sessionToClose.asStateFlow()
+
 
     /**
      * Combined UI state consumed by [NovaTermApp].
@@ -260,6 +318,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
         _currentPaneLayout.value = manager.getCurrentLayout()
         _focusedPaneSession.value = manager.getFocusedPane()
+        saveStateToSavedStateHandle()
     }
 
     /** Close the currently focused pane within a split. */
@@ -278,6 +337,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             _currentPaneLayout.value = manager.getCurrentLayout()
             _focusedPaneSession.value = manager.getFocusedPane()
         }
+        // Save state to handle configuration changes
+        saveStateToSavedStateHandle()
 
         // Remove the actual session
         val svc = _service.value ?: return
@@ -295,6 +356,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         val manager = _paneManagers[tabIndex] ?: return
         manager.setFocusedPane(sessionIndex)
         _focusedPaneSession.value = sessionIndex
+        // Save state to handle configuration changes
+        saveStateToSavedStateHandle()
     }
 
     /** Refresh the pane layout state when switching tabs. */
@@ -308,6 +371,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             _currentPaneLayout.value = null
             _focusedPaneSession.value = -1
         }
+        // Save state to handle configuration changes
+        saveStateToSavedStateHandle()
     }
 
     // ── Actions ────────────────────────────────────────────
@@ -318,6 +383,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         if (session != null) {
             _currentSessionIndex.value = svc.sessionCount - 1
             _sessionCreationFailed.value = false
+            persistSessionState()
         } else {
             _sessionCreationFailed.value = true
         }
@@ -371,6 +437,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
         // Clean up orphaned PaneManagers for removed indices
         _paneManagers.keys.removeAll { it >= newCount }
+        // Save state to handle configuration changes
+        saveStateToSavedStateHandle()
     }
 
     fun selectSession(index: Int) {
@@ -378,10 +446,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         // Clean up PaneManagers for indices that no longer exist
         _paneManagers.keys.removeAll { it >= sessions.value.size }
         refreshPaneLayout()
+        saveStateToSavedStateHandle()
     }
 
     fun renameSession(index: Int, name: String) {
         _sessionNames.update { it + (index to name) }
+        saveStateToSavedStateHandle()
     }
 
     fun getSessionName(index: Int): String? = _sessionNames.value[index]
@@ -399,22 +469,35 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         _altActive.value = false
     }
 
+    fun showSettings() {
+        _showSettings.value = true
+        persistSessionState()
+    }
+
+    fun hideSettings() {
+        _showSettings.value = false
+        persistSessionState()
+    }
+
     fun updatePreferences(newPrefs: TerminalPreferences) {
         prefsRepo.update(newPrefs)
     }
 
     fun resetPreferencesToDefaults() {
         prefsRepo.resetToDefaults()
+        persistSessionState()
     }
 
     fun completeOnboarding(colorScheme: String) {
         prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
         prefsRepo.completeOnboarding()
         _showOnboarding.value = false
+        persistSessionState()
     }
 
     fun showSettings() {
         _showSettings.value = true
+        persistSessionState()
     }
 
     fun hideSettings() {
@@ -461,27 +544,29 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 // Fallback to LLM if enabled and ready (slower but smarter).
-                // Capture local ref — llmEngine can be set to null concurrently by
-                // updateLlmState() on a different coroutine.
-                val llm = currentSvc.llmEngine
-                if (llm != null && llm.state.value == com.novaterm.core.llm.LlmState.READY) {
-                    val recentCommands = currentSvc.predictionEngine.recentCommands(sessionId, limit = 5)
-                    val llmContext = com.novaterm.core.llm.TerminalContext(
-                        recentCommands = recentCommands.map { cmd ->
-                            com.novaterm.core.llm.CommandEntry(command = cmd)
-                        },
-                        cwd = cwd,
-                    )
-                    try {
-                        val llmSuggestion = llm.suggest(llmContext)
-                        _suggestion.value = llmSuggestion?.command
-                    } catch (e: Exception) {
-                        // Engine released while inference was in-flight
-                        Log.w("NovaTerm", "LLM suggest failed (engine released?)", e)
+                // Use synchronized access to prevent race condition where engine
+                // can be released concurrently by updateLlmState()
+                synchronized(currentSvc.llmSync) {
+                    val llm = currentSvc.llmEngine
+                    if (llm != null && llm.state.value == com.novaterm.core.llm.LlmState.READY) {
+                        val recentCommands = currentSvc.predictionEngine.recentCommands(sessionId, limit = 5)
+                        val llmContext = com.novaterm.core.llm.TerminalContext(
+                            recentCommands = recentCommands.map { cmd ->
+                                com.novaterm.core.llm.CommandEntry(command = cmd)
+                            },
+                            cwd = cwd,
+                        )
+                        try {
+                            val llmSuggestion = llm.suggest(llmContext)
+                            _suggestion.value = llmSuggestion?.command
+                        } catch (e: Exception) {
+                            // Engine released while inference was in-flight
+                            Log.w("NovaTerm", "LLM suggest failed (engine released?)", e)
+                            _suggestion.value = null
+                        }
+                    } else {
                         _suggestion.value = null
                     }
-                } else {
-                    _suggestion.value = null
                 }
             } catch (e: Exception) {
                 if (com.novaterm.app.BuildConfig.DEBUG) Log.d("NovaTerm", "Suggestion failed: ${e.message}")
