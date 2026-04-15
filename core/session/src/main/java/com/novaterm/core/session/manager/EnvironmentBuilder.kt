@@ -114,7 +114,12 @@ class EnvironmentBuilder(
     }
 
     private fun setupLdPreload(env: MutableMap<String, String>) {
+        // Search for nvterm-exec (preferred) first, then fallback to termux-exec (compat)
         val ldPreloadNames = listOf(
+            "libnvterm-exec-linker-ld-preload.so",
+            "libnvterm-exec-ld-preload.so",
+            "libnvterm-exec.so",
+            // Legacy names from Termux bootstrap (renamed during extraction)
             "libtermux-exec-linker-ld-preload.so",
             "libtermux-exec-ld-preload.so",
             "libtermux-exec.so",
@@ -136,7 +141,7 @@ class EnvironmentBuilder(
             env["LD_PRELOAD"] = ldPreloadLib
             Log.i("NovaTerm", "LD_PRELOAD: $ldPreloadLib")
         } else {
-            val fallback = "$prefix/lib/libtermux-exec-linker-ld-preload.so"
+            val fallback = "$prefix/lib/libnvterm-exec-linker-ld-preload.so"
             env["LD_PRELOAD"] = fallback
             Log.w("NovaTerm", "LD_PRELOAD forced (File.exists failed): $fallback")
         }

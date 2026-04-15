@@ -307,6 +307,10 @@ class BootstrapInstaller(private val context: Context) {
             // Diagnostic: verify critical files exist
             val criticalFiles = listOf(
                 "bin/bash", "bin/sh", "bin/login",
+                "lib/libnvterm-exec-linker-ld-preload.so",
+                "lib/libnvterm-exec-ld-preload.so",
+                "lib/libnvterm-exec.so",
+                // Also check old names for backward compatibility
                 "lib/libtermux-exec-linker-ld-preload.so",
                 "lib/libtermux-exec-ld-preload.so",
                 "lib/libtermux-exec.so",
@@ -377,7 +381,16 @@ class BootstrapInstaller(private val context: Context) {
                     if (shouldPatch) {
                         patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
                     }
-                    outFile.writeBytes(data)
+
+                    // Rename termux-exec libraries to nvterm-exec during extraction.
+                    // This provides forward-compatibility when we build our own bootstrap.
+                    val finalFile = if (outFile.name.startsWith("libtermux-exec")) {
+                        val renamed = File(outFile.parentFile, outFile.name.replace("libtermux-exec", "libnvterm-exec"))
+                        renamed
+                    } else {
+                        outFile
+                    }
+                    finalFile.writeBytes(data)
                 }
             }
 
@@ -687,6 +700,9 @@ class BootstrapInstaller(private val context: Context) {
         private val SKIP_PATCH_FILES = setOf(
             "bin/am",                    // Java class: com.termux.termuxam.Am
             "libexec/termux-am/am.apk",  // APK with Java classes
+            "lib/libtermux-exec.so",                          // Renamed to libnvterm-exec.so at extraction
+            "lib/libtermux-exec-ld-preload.so",               // Renamed at extraction
+            "lib/libtermux-exec-linker-ld-preload.so",        // Renamed at extraction
         )
 
         // Expected SHA-256 checksums for critical bootstrap files.
