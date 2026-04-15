@@ -39,9 +39,9 @@ fn test_with<F, R>(handle: u64, f: F) -> Option<R>
 where
     F: FnOnce(&mut String) -> R,
 {
-    let data = TEST_DATA.try_read()?;
+    let data = TEST_DATA.read();
     let mutex = data.get(&handle)?;
-    let mut guard = mutex.try_lock()?;
+    let mut guard = mutex.lock();
     Some(f(&mut guard))
 }
 
@@ -134,11 +134,10 @@ fn handle_map_concurrent_access() {
         handles.push(thread);
     }
 
-    // All threads should be able to access (though some may contend)
+    // All threads should succeed (using blocking locks, not try_lock)
     let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-    // At least some should succeed (try_lock may fail under contention)
     let successes = results.iter().filter(|r| r.is_some()).count();
-    assert!(successes > 0, "At least one thread should succeed");
+    assert_eq!(successes, 10, "All threads should succeed with blocking locks");
 
     test_destroy(*handle);
 }

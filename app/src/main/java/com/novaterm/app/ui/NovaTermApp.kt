@@ -41,7 +41,7 @@ import com.novaterm.app.ui.components.DrawerContent
 import com.novaterm.app.ui.components.McpApprovalDialog
 import com.novaterm.app.ui.components.RenameSessionDialog
 import com.novaterm.app.ui.components.SessionCreationFailedDialog
-import com.novaterm.app.ui.components.SessionTabBar
+import com.novaterm.app.ui.components.GroupedSessionTabBar
 import com.novaterm.app.ui.components.StatusLine
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
@@ -348,6 +348,12 @@ fun NovaTermApp(
                 onNewSession = { viewModel.createSession(); scope.launch { drawerState.close() } },
                 onSettings = { viewModel.showSettings(); scope.launch { drawerState.close() } },
                 onAbout = { showAbout = true; scope.launch { drawerState.close() } },
+                groups = uiState.groups,
+                sessionGroupMap = uiState.sessionGroupMap,
+                groupingEnabled = uiState.groupingEnabled,
+                onMoveSessionToGroup = { sessionIdx, groupId ->
+                    viewModel.moveSessionToGroup(sessionIdx, groupId)
+                },
             )
         },
     ) {
@@ -362,15 +368,19 @@ fun NovaTermApp(
                             onPromptDown = jumpToPrompt?.let { jump -> { jump(1) } },
                         )
 
-                        SessionTabBar(
+                        GroupedSessionTabBar(
                             sessions = sessions,
                             selectedPage = safeIndex,
                             sessionNames = sessionNames,
+                            groups = uiState.groups,
+                            sessionGroupMap = uiState.sessionGroupMap,
+                            groupingEnabled = uiState.groupingEnabled,
                             onSelectTab = { viewModel.selectSession(it) },
                             onLongClickTab = { index ->
                                 renameText = sessions.getOrNull(index)?.title?.takeIf { it.isNotBlank() } ?: ""
                                 renamingTabIndex = index
                             },
+                            onToggleGroup = { viewModel.toggleGroup(it) },
                             onMenuClick = { scope.launch { drawerState.open() } },
                             onSearchClick = { showHistory = true },
                             onSettingsClick = viewModel::showSettings,

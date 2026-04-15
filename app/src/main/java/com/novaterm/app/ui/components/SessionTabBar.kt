@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,11 +71,11 @@ fun SessionTabBar(
 
         if (sessions.isNotEmpty()) {
             // key(sessions.size) forces full recomposition when tab count changes,
-            // preventing ScrollableTabRow indicator from accessing a stale
+            // preventing PrimaryScrollableTabRow indicator from accessing a stale
             // selectedTabIndex during partial recomposition (IndexOutOfBoundsException).
             val clampedIndex = selectedPage.coerceIn(0, sessions.size - 1)
             key(sessions.size) {
-                ScrollableTabRow(
+                PrimaryScrollableTabRow(
                     selectedTabIndex = clampedIndex,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.onSurface,

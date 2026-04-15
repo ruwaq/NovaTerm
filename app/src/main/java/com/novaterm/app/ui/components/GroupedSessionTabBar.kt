@@ -28,7 +28,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -220,7 +220,7 @@ fun GroupedSessionTabBar(
                 }
 
                 key(expandedSessionIndices.size) {
-                    ScrollableTabRow(
+                    PrimaryScrollableTabRow(
                         selectedTabIndex = clampedIndex,
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -284,6 +284,7 @@ fun GroupedSessionTabBar(
  * A compact chip representing a session group in the tab bar header.
  * Shows group name, status indicator, and expand/collapse icon.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GroupChip(
     group: SessionGroup,

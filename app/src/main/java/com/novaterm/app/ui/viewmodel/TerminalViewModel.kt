@@ -15,6 +15,7 @@ import com.novaterm.core.mcp.security.ApprovalRequest
 import com.novaterm.core.session.manager.AgentStatus
 import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.core.session.manager.SessionGroupManager
+import com.novaterm.core.session.persistence.SessionGroup
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
@@ -54,6 +55,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         homeDir = application.filesDir.absolutePath,
     )
 
+    /** Home directory for group detection fallback. */
+    private val homeDir = application.filesDir.absolutePath
+
     companion object {
         private const val KEY_CURRENT_SESSION_INDEX = "current_session_index"
         private const val KEY_SESSION_NAMES = "session_names"
@@ -84,6 +88,8 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     override fun onCleared() {
         // Save UI state before ViewModel is cleared
         saveStateToSavedStateHandle()
+        // Persist session groups
+        groupManager.saveGroups()
         super.onCleared()
     }
 
@@ -108,6 +114,14 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     init {
         // Restore UI state from saved instance
         restoreStateFromSavedStateHandle()
+        // Load session groups from persistent storage
+        groupManager.initialize()
+        // Sync grouping toggle from preferences
+        viewModelScope.launch {
+            prefsRepo.preferences.collect { prefs ->
+                groupManager.setGroupingEnabled(prefs.sessionGroupingEnabled)
+            }
+        }
     }
     val service: StateFlow<TerminalService?> = _service.asStateFlow()
 
@@ -284,7 +298,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         },
     ) { nav, input, overlay, grouping ->
         @Suppress("UNCHECKED_CAST")
-        val (groups, sessionGroupMap, groupingEnabled) = grouping
+        val groups = grouping.first as List<com.novaterm.core.session.persistence.SessionGroup>
+        val sessionGroupMap = grouping.second as Map<Int, String>
+        val groupingEnabled = grouping.third as Boolean
         TerminalUiState(
             sessions             = nav[0] as List<TerminalSession>,
             currentSessionIndex  = nav[1] as Int,
@@ -406,8 +422,13 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         val svc = _service.value ?: return
         val session = svc.createSession()
         if (session != null) {
-            _currentSessionIndex.value = svc.sessionCount - 1
+            val newIndex = svc.sessionCount - 1
+            _currentSessionIndex.value = newIndex
             _sessionCreationFailed.value = false
+            // Auto-assign to group based on CWD
+            val cwd = session.cwd.ifBlank { homeDir }
+            val groupId = groupManager.detectGroupForCwd(cwd)
+            groupManager.assignSessionToGroup(newIndex, groupId)
             saveStateToSavedStateHandle()
         } else {
             _sessionCreationFailed.value = true
@@ -443,6 +464,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     private fun removeSession(index: Int) {
         val svc = _service.value ?: return
         svc.removeSession(index)
+        // Unassign from group and adjust all session indices
+        groupManager.unassignSession(index)
+        groupManager.adjustSessionIndicesAfterRemoval(index)
         // Rebuild session names map: remove the deleted index and shift higher indices down
         _sessionNames.update { names ->
             buildMap {
@@ -566,6 +590,28 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     /** Dismiss suggestion without accepting. */
     fun dismissSuggestion() {
         _suggestion.value = null
+    }
+
+    // ── Session group actions ──────────────────────────────────
+
+    /** Toggle a group's expanded/collapsed state in the tab bar. */
+    fun toggleGroup(groupId: String) {
+        groupManager.toggleGroupExpanded(groupId)
+    }
+
+    /** Create a new custom group with the given name and optional color. */
+    fun createGroup(name: String, color: String = SessionGroup.DEFAULT_COLOR): SessionGroup {
+        return groupManager.createGroup(name, color)
+    }
+
+    /** Move a session to a different group. */
+    fun moveSessionToGroup(sessionIndex: Int, targetGroupId: String) {
+        groupManager.moveSessionToGroup(sessionIndex, targetGroupId)
+    }
+
+    /** Toggle session grouping on/off. */
+    fun setGroupingEnabled(enabled: Boolean) {
+        groupManager.setGroupingEnabled(enabled)
     }
 
     // ── Agent workspace actions ────────────────────────────

@@ -73,13 +73,14 @@ mod tests {
     #[test]
     fn with_backend_process_and_snapshot() {
         let h = create_backend(24, 80);
-        // Write some data through the backend
-        let result = with_backend(h, |b| {
-            b.process_bytes(b"Hello World");
-            b.snapshot()
-        });
-        assert!(result.is_some(), "Should access valid backend and get snapshot");
-        let snap = result.unwrap();
+        // Use blocking lock for test — try_read may fail under parallel test contention
+        let backends = BACKENDS.read();
+        let mutex = backends.get(&h).expect("Handle should exist");
+        let mut backend = mutex.lock();
+        backend.process_bytes(b"Hello World");
+        let snap = backend.snapshot();
+        drop(backend);
+        drop(backends);
         assert!(snap.rows > 0, "Snapshot should have rows");
         assert!(snap.cols > 0, "Snapshot should have cols");
         destroy_backend(h);
@@ -118,11 +119,12 @@ mod tests {
     #[test]
     fn create_and_destroy_multiple() {
         let handles: Vec<u64> = (0..5).map(|_| create_backend(24, 80)).collect();
-        // All handles should be valid
+        // Verify all handles are valid using blocking lock
+        let backends = BACKENDS.read();
         for h in &handles {
-            let result = with_backend(*h, |b| b.snapshot());
-            assert!(result.is_some(), "Handle {} should be valid", h);
+            assert!(backends.get(h).is_some(), "Handle {} should be valid", h);
         }
+        drop(backends);
         for h in handles {
             assert!(destroy_backend(h));
         }

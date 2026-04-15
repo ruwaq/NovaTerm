@@ -220,6 +220,12 @@ private fun BehaviorSection(
         checked = preferences.bellEnabled,
         onCheckedChange = { onPreferencesChanged(preferences.copy(bellEnabled = it)) },
     )
+    ToggleSettingRow(
+        title = "Session Grouping",
+        subtitle = "Group sessions by project or type in the tab bar",
+        checked = preferences.sessionGroupingEnabled,
+        onCheckedChange = { onPreferencesChanged(preferences.copy(sessionGroupingEnabled = it)) },
+    )
 
     // Scrollback buffer size
     var scrollbackMenuExpanded by remember { mutableStateOf(false) }

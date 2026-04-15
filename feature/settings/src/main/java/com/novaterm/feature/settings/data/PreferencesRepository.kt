@@ -22,6 +22,7 @@ data class TerminalPreferences(
     val useRustBackend: Boolean = false,
     val useGpuRenderer: Boolean = false,
     val pipOnLeave: Boolean = false,
+    val sessionGroupingEnabled: Boolean = true,
     val mcpEnabled: Boolean = false,
     val mcpPort: Int = 8080, // Must match McpServerConfig.DEFAULT_PORT
     val llmEnabled: Boolean = false,
@@ -153,6 +154,7 @@ class PreferencesRepository(private val context: Context) {
             useRustBackend = prefs.getBoolean("use_rust_backend", false),
             useGpuRenderer = prefs.getBoolean("use_gpu_renderer", false),
             pipOnLeave = prefs.getBoolean("pip_on_leave", false),
+            sessionGroupingEnabled = prefs.getBoolean("session_grouping_enabled", true),
             mcpEnabled = prefs.getBoolean("mcp_enabled", false),
             mcpPort = prefs.getInt("mcp_port", 8080), // Must match McpServerConfig.DEFAULT_PORT
             llmEnabled = prefs.getBoolean("llm_enabled", false),
@@ -217,6 +219,7 @@ class PreferencesRepository(private val context: Context) {
             .putBoolean("use_rust_backend", p.useRustBackend)
             .putBoolean("use_gpu_renderer", p.useGpuRenderer)
             .putBoolean("pip_on_leave", p.pipOnLeave)
+            .putBoolean("session_grouping_enabled", p.sessionGroupingEnabled)
             .putBoolean("mcp_enabled", p.mcpEnabled)
             .putInt("mcp_port", p.mcpPort)
             .putBoolean("llm_enabled", p.llmEnabled)
