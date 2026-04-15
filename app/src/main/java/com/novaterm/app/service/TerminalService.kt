@@ -395,6 +395,47 @@ class TerminalService : Service() {
 
         persistence.startPeriodicSave()
         startMcpServerIfEnabled()
+        runBootScripts()
+    }
+
+    /**
+     * Execute boot scripts from ~/.nvterm/boot/ directory.
+     * Scripts run in sorted order, only if the directory exists.
+     * This provides the same functionality as termux-boot without a separate APK.
+     */
+    private fun runBootScripts() {
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val bootDir = java.io.File(shellProvider.defaultWorkingDirectory(), ".nvterm/boot")
+                if (!bootDir.exists() || !bootDir.isDirectory) return@launch
+
+                val scripts = bootDir.listFiles()
+                    ?.filter { it.isFile && it.canExecute() }
+                    ?.sortedBy { it.name }
+                    ?: return@launch
+
+                if (scripts.isEmpty()) return@launch
+
+                Log.i(TAG, "Boot: running ${scripts.size} script(s) from ${bootDir.absolutePath}")
+                for (script in scripts) {
+                    try {
+                        val process = Runtime.getRuntime().exec(
+                            arrayOf("/system/bin/sh", script.absolutePath),
+                            arrayOf("HOME=${shellProvider.defaultWorkingDirectory()}", "TERM_PROGRAM=novaterm"),
+                            bootDir.parentFile,
+                        )
+                        val exitCode = process.waitFor()
+                        if (exitCode != 0) {
+                            Log.w(TAG, "Boot script ${script.name} exited with code $exitCode")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Boot script ${script.name} failed", e)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Boot scripts execution failed", e)
+            }
+        }
     }
 
     /**
@@ -429,6 +470,8 @@ class TerminalService : Service() {
             )
             mcpBridge = bridge
             val server = McpServer(config, bridge, interactiveApproval, context = this@TerminalService)
+            // Register device API MCP tools (clipboard, battery, torch, etc.)
+            com.novaterm.app.mcp.DeviceApiTools.registerAll(server.toolRegistry, this@TerminalService)
             server.start()
             mcpServer = server
             Log.i(TAG, "MCP server started on port [redacted]")
