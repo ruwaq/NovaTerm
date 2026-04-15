@@ -107,7 +107,7 @@ command_not_found_handler() {
   printf '\e[38;5;167m%s\e[0m: command not found\n' "$1" >&2
   pkg=$(apt-cache search --names-only "^$1$" 2>/dev/null | head -1 | cut -d' ' -f1)
   if [ -n "$pkg" ]; then
-    printf '  \e[38;5;208m→\e[0m Install with: \e[1mpkg install %s\e[0m\n' "$pkg" >&2
+    printf '  \e[38;5;208m→\e[0m Install with: \e[1mapt install %s\e[0m\n' "$pkg" >&2
   fi
   return 127
 }

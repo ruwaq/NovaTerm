@@ -318,7 +318,7 @@ class BootstrapInstaller(private val context: Context) {
             // 13. Replace Termux MOTD with NovaTerm branding
             replaceMotd(prefixDir)
 
-            // 14. Copy setup scripts from assets (Claude Code auto-install, etc.)
+            // 14. Copy AI tool setup scripts from assets (manual use only, not auto-executed)
             copyAssetScript("setup-claude.sh", File(prefixDir, "bin/setup-claude"))
 
             _state.value = State.Done
@@ -652,9 +652,10 @@ class BootstrapInstaller(private val context: Context) {
             motd.writeText(buildString {
                 appendLine("Welcome to NovaTerm!")
                 appendLine()
-                appendLine("  Docs:     https://github.com/novaterm-org/NovaTerm")
-                appendLine("  Packages: pkg install <name>")
-                appendLine("  AI:       claude (Claude Code)")
+                appendLine("  Packages:  apt install <name>")
+                appendLine("  Update:    apt update && apt upgrade")
+                appendLine("  AI tools:  Settings \u2192 AI Tools")
+                appendLine("  Docs:      github.com/novaterm-org/NovaTerm")
                 appendLine()
             })
             Log.i(TAG, "Replaced MOTD with NovaTerm branding")

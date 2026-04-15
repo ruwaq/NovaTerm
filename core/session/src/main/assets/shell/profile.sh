@@ -27,10 +27,8 @@ export HISTFILE="$HOME/.local/state/bash_history"
 export PS1='\033[38;5;208m>\033[0m '
 shopt -s histappend 2>/dev/null
 
-# Auto-install Claude Code on first launch (runs once)
-if [ -x "$PREFIX/bin/setup-claude" ]; then
-  "$PREFIX/bin/setup-claude" && rm -f "$PREFIX/bin/setup-claude"
-fi
+# AI tools: install from Settings → AI Tools, or run:
+#   apt install nodejs && npm i -g @anthropic-ai/claude-code
 
 # Mark command start after profile loads (OSC 133)
 printf '\033]133;B\007'
