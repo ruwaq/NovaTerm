@@ -123,6 +123,13 @@ class PreferencesRepository(private val context: Context) {
         prefs.edit().putBoolean("onboarding_completed", true).apply()
     }
 
+    val isAiSetupCompleted: Boolean
+        get() = prefs.getBoolean("ai_setup_completed", false)
+
+    fun completeAiSetup() {
+        prefs.edit().putBoolean("ai_setup_completed", true).apply()
+    }
+
     @Synchronized
     fun update(newPrefs: TerminalPreferences) {
         _preferences.value = newPrefs

@@ -125,6 +125,23 @@
     <string name="settings_ai_tool_aider_desc">AI pair programming in the terminal</string>
     <string name="settings_ai_tool_opencode">OpenCode</string>
     <string name="settings_ai_tool_opencode_desc">Open-source AI coding assistant</string>
+    <string name="settings_ai_tool_ollama">Ollama</string>
+    <string name="settings_ai_tool_ollama_desc">Run AI models locally, no API key needed</string>
+
+    <!-- AI Setup (Onboarding) -->
+    <string name="ai_setup_title">Set up your AI tools</string>
+    <string name="ai_setup_subtitle">Select the tools you want to use. NovaTerm will install dependencies and configure them for you.</string>
+    <string name="ai_setup_update_system">Update packages first</string>
+    <string name="ai_setup_update_system_desc">Run apt update &amp; upgrade before installing</string>
+    <string name="ai_setup_skip">Skip for now</string>
+    <string name="ai_setup_continue">Continue</string>
+    <string name="ai_setup_auth_api_key">API key required</string>
+    <string name="ai_setup_auth_google">Google login</string>
+    <string name="ai_setup_auth_local">No key needed</string>
+    <string name="ai_setup_auth_api_or_local">API key or local model</string>
+    <string name="ai_setup_auth_free_tier">Free tier available</string>
+    <string name="ai_setup_hint_gemini">Run \'gemini auth login\' to sign in with Google</string>
+    <string name="ai_setup_hint_ollama">Models: gemma:2b (2GB), qwen2:0.5b (1GB)</string>
 
     <!-- Reset to defaults -->
     <string name="settings_reset_title">Reset to defaults</string>

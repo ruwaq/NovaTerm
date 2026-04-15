@@ -44,6 +44,7 @@ import com.novaterm.app.ui.components.SessionCreationFailedDialog
 import com.novaterm.app.ui.components.GroupedSessionTabBar
 import com.novaterm.app.ui.components.StatusLine
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
+import com.novaterm.feature.settings.ui.AiSetupScreen
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
 import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
@@ -79,6 +80,7 @@ fun NovaTermApp(
     val altActive = uiState.altActive
     val showSettings = uiState.showSettings
     val showOnboarding = uiState.showOnboarding
+    val showAiSetup = uiState.showAiSetup
     val sessionNames = uiState.sessionNames
     val suggestion = uiState.suggestion
     val isInPipMode = uiState.isInPipMode
@@ -119,10 +121,25 @@ fun NovaTermApp(
         }
     }
 
-    // ── Full-screen overlays (onboarding, about, settings) ───
+    // ── Full-screen overlays (onboarding, AI setup, about, settings) ───
     if (showOnboarding) {
         BackHandler { /* Trap back press during onboarding */ }
         ColorSchemePickerScreen(onSchemeSelected = viewModel::completeOnboarding)
+        return
+    }
+
+    if (showAiSetup) {
+        BackHandler { /* Trap back press during AI setup */ }
+        AiSetupScreen(
+            onSkip = viewModel::skipAiSetup,
+            onContinue = { selectedTools, apiKeys, updateFirst ->
+                // Save API keys to EncryptedSharedPreferences
+                viewModel.saveApiKeys(apiKeys)
+                // Install selected tools to the terminal
+                viewModel.installAiTools(selectedTools, updateFirst)
+                viewModel.completeAiSetup()
+            },
+        )
         return
     }
 

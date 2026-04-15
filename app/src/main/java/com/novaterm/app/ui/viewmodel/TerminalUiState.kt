@@ -19,6 +19,7 @@ data class TerminalUiState(
     val altActive: Boolean = false,
     val showSettings: Boolean = false,
     val showOnboarding: Boolean = false,
+    val showAiSetup: Boolean = false,
     val suggestion: String? = null,
     val sessionCreationFailed: Boolean = false,
     val isInPipMode: Boolean = false,

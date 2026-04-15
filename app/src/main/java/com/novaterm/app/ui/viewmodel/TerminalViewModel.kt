@@ -17,6 +17,7 @@ import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.core.session.manager.SessionGroupManager
 import com.novaterm.core.session.persistence.SessionGroup
 import com.novaterm.feature.settings.data.PreferencesRepository
+import com.novaterm.feature.settings.model.AiTool
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
 import com.novaterm.feature.terminal.ui.pane.PaneNode
@@ -239,6 +240,11 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     private val _showOnboarding = MutableStateFlow(!prefsRepo.isOnboardingCompleted)
     val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
 
+    private val _showAiSetup = MutableStateFlow(
+        prefsRepo.isOnboardingCompleted && !prefsRepo.isAiSetupCompleted
+    )
+    val showAiSetup: StateFlow<Boolean> = _showAiSetup.asStateFlow()
+
     /** Current command suggestion from the prediction engine. Null = no suggestion shown. */
     private val _suggestion = MutableStateFlow<String?>(null)
     val suggestion: StateFlow<String?> = _suggestion.asStateFlow()
@@ -287,9 +293,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
             arrayOf<Any?>(ctrl, alt, sug)
         },
         // Group 3: overlay / dialog state
-        combine(_showSettings, _showOnboarding, _isInPipMode, _sessionToClose, _sessionCreationFailed) {
-                settings, onboarding, pip, toClose, failed ->
-            arrayOf<Any?>(settings, onboarding, pip, toClose, failed)
+        combine(_showSettings, _showOnboarding, _showAiSetup, _isInPipMode, _sessionToClose) {
+                settings, onboarding, aiSetup, pip, toClose ->
+            arrayOf<Any?>(settings, onboarding, aiSetup, pip, toClose, _sessionCreationFailed.value)
         },
         // Group 4: session grouping state
         combine(groupManager.groups, groupManager.sessionGroupMap, groupManager.groupingEnabled) {
@@ -312,9 +318,10 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
             suggestion           = input[2] as String?,
             showSettings         = overlay[0] as Boolean,
             showOnboarding       = overlay[1] as Boolean,
-            isInPipMode          = overlay[2] as Boolean,
-            sessionToClose       = overlay[3] as Int?,
-            sessionCreationFailed = overlay[4] as Boolean,
+            showAiSetup          = overlay[2] as Boolean,
+            isInPipMode          = overlay[3] as Boolean,
+            sessionToClose       = overlay[4] as Int?,
+            sessionCreationFailed = overlay[5] as Boolean,
             groups               = groupManager.getGroupsWithSessionCounts(),
             sessionGroupMap      = sessionGroupMap,
             groupingEnabled      = groupingEnabled,
@@ -322,7 +329,10 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        TerminalUiState(showOnboarding = !prefsRepo.isOnboardingCompleted),
+        TerminalUiState(
+            showOnboarding = !prefsRepo.isOnboardingCompleted,
+            showAiSetup = prefsRepo.isOnboardingCompleted && !prefsRepo.isAiSetupCompleted,
+        ),
     )
 
     /**
@@ -538,6 +548,68 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
         prefsRepo.completeOnboarding()
         _showOnboarding.value = false
+        // Show AI setup next (if not already completed)
+        _showAiSetup.value = !prefsRepo.isAiSetupCompleted
+    }
+
+    fun completeAiSetup() {
+        prefsRepo.completeAiSetup()
+        _showAiSetup.value = false
+    }
+
+    fun skipAiSetup() {
+        prefsRepo.completeAiSetup()
+        _showAiSetup.value = false
+    }
+
+    /**
+     * Save API keys from AI setup to preferences.
+     * Keys will be automatically exported to session environment by EnvironmentBuilder.
+     */
+    fun saveApiKeys(apiKeys: Map<String, String>) {
+        val current = prefsRepo.preferences.value
+        var updated = current
+        apiKeys.forEach { (toolId, key) ->
+            if (key.isNotBlank()) {
+                updated = when (toolId) {
+                    "claude" -> updated.copy(anthropicApiKey = key)
+                    "gemini" -> updated.copy(googleApiKey = key)
+                    "opencode" -> updated.copy(openrouterApiKey = key)
+                    else -> updated
+                }
+            }
+        }
+        if (updated != current) {
+            prefsRepo.update(updated)
+        }
+    }
+
+    /**
+     * Install selected AI tools by writing commands to the terminal session.
+     * Commands are queued: apt update → apt install deps → npm/pip install tools.
+     */
+    fun installAiTools(selectedTools: List<AiTool>, updateFirst: Boolean) {
+        val session = sessions.value.firstOrNull() ?: return
+        val commands = mutableListOf<String>()
+
+        if (updateFirst) {
+            commands.add("apt update && apt upgrade -y")
+        }
+
+        // Collect unique dependencies across all selected tools
+        val allDeps = selectedTools.flatMap { it.dependencies }.distinct()
+        if (allDeps.isNotEmpty()) {
+            commands.add("apt install -y ${allDeps.joinToString(" ")}")
+        }
+
+        // Install each tool
+        selectedTools.forEach { tool ->
+            commands.add(tool.installCommand)
+        }
+
+        // Write all commands to the terminal
+        val commandStr = commands.joinToString(" && ")
+        session.write("$commandStr\n")
     }
 
     fun toggleWakeLock() {
