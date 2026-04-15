@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -341,5 +342,78 @@ class SessionStoreTest {
             assertEquals("tab $index",     meta.title)
             assertEquals("/home/user/project-$index", meta.cwd)
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Group persistence tests
+    // -------------------------------------------------------------------------
+
+    private val groupsFile: File get() = File(filesDir, "session_groups.json")
+
+    @Test
+    fun `saveGroups and loadGroups round-trip`() {
+        val groups = listOf(
+            SessionGroup(id = "shell", name = "Shell", color = "#E85D04", icon = "terminal"),
+            SessionGroup(id = "agents", name = "AI Agents", color = "#8BE9FD", icon = "smart_toy"),
+        )
+
+        store.saveGroups(groups)
+        assertTrue("session_groups.json must exist after saveGroups()", groupsFile.exists())
+
+        val restored = store.loadGroups()
+        assertEquals(2, restored.size)
+        assertEquals("Shell", restored[0].name)
+        assertEquals("agents", restored[1].id)
+    }
+
+    @Test
+    fun `loadGroups returns built-ins when no file exists`() {
+        assertFalse("Pre-condition: file must not exist", groupsFile.exists())
+
+        val groups = store.loadGroups()
+
+        assertTrue("Built-in groups must be returned when no file exists", groups.isNotEmpty())
+        assertNotNull("Must include 'shell' group", groups.find { it.id == "shell" })
+        assertNotNull("Must include 'agents' group", groups.find { it.id == "agents" })
+    }
+
+    @Test
+    fun `loadGroups returns built-ins when file contains invalid json`() {
+        groupsFile.writeText("{broken")
+
+        val groups = store.loadGroups()
+
+        assertTrue("Built-in groups on invalid JSON", groups.isNotEmpty())
+    }
+
+    @Test
+    fun `clearGroups deletes the groups file`() {
+        store.saveGroups(SessionGroup.BUILT_INS)
+        assertTrue("Pre-condition: file must exist before clearGroups()", groupsFile.exists())
+
+        store.clearGroups()
+
+        assertFalse("session_groups.json must be deleted after clearGroups()", groupsFile.exists())
+    }
+
+    @Test
+    fun `all SessionGroup fields survive a save-load round-trip`() {
+        val original = SessionGroup(
+            id = "test", name = "My Group", color = "#50FA7B",
+            icon = "code", isExpanded = false, sortOrder = 5,
+            isAutoCreated = true, createdAt = 1_712_345_678_000L,
+        )
+
+        store.saveGroups(listOf(original))
+        val restored = store.loadGroups().single()
+
+        assertEquals(original.id, restored.id)
+        assertEquals(original.name, restored.name)
+        assertEquals(original.color, restored.color)
+        assertEquals(original.icon, restored.icon)
+        assertEquals(original.isExpanded, restored.isExpanded)
+        assertEquals(original.sortOrder, restored.sortOrder)
+        assertEquals(original.isAutoCreated, restored.isAutoCreated)
+        assertEquals(original.createdAt, restored.createdAt)
     }
 }

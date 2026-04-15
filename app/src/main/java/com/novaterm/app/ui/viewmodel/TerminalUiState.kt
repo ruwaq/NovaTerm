@@ -1,5 +1,6 @@
 package com.novaterm.app.ui.viewmodel
 
+import com.novaterm.core.session.manager.GroupWithCount
 import com.novaterm.feature.terminal.ui.pane.PaneNode
 import com.novaterm.terminal.TerminalSession
 
@@ -24,4 +25,10 @@ data class TerminalUiState(
     val currentPaneLayout: PaneNode? = null,
     val focusedPaneSession: Int = -1,
     val sessionToClose: Int? = null,
+    /** Session groups with counts, for grouped tab bar. */
+    val groups: List<GroupWithCount> = emptyList(),
+    /** Maps session index → group ID. */
+    val sessionGroupMap: Map<Int, String> = emptyMap(),
+    /** Whether session grouping is enabled in settings. */
+    val groupingEnabled: Boolean = true,
 )

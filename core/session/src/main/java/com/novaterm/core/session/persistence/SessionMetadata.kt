@@ -19,6 +19,8 @@ data class SessionMetadata(
     val activeTabIndex: Int = 0,
     val tabNames: Map<Int, String> = emptyMap(),
     val focusedPaneSession: Int = -1,
+    /** Group ID linking this session to a [SessionGroup]. Null = default group. */
+    val groupId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -29,6 +31,7 @@ data class SessionMetadata(
         put("activeTabIndex", activeTabIndex)
         put("tabNames", JSONObject(tabNames.mapValues { (_, name) -> name }))
         put("focusedPaneSession", focusedPaneSession)
+        put("groupId", groupId ?: JSONObject.NULL)
         put("createdAt", createdAt)
     }
 
@@ -47,6 +50,7 @@ data class SessionMetadata(
                 map
             } ?: emptyMap(),
             focusedPaneSession = json.optInt("focusedPaneSession", -1),
+            groupId = json.opt("groupId")?.takeIf { it !== JSONObject.NULL } as? String,
             createdAt = json.optLong("createdAt", System.currentTimeMillis()),
         )
     }

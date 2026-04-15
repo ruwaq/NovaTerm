@@ -14,6 +14,7 @@ import com.novaterm.app.service.TerminalService
 import com.novaterm.core.mcp.security.ApprovalRequest
 import com.novaterm.core.session.manager.AgentStatus
 import com.novaterm.core.session.manager.AgentWorkspace
+import com.novaterm.core.session.manager.SessionGroupManager
 import com.novaterm.feature.settings.data.PreferencesRepository
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
@@ -46,6 +47,12 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     private val prefsRepo = PreferencesRepository(application)
     private val _savedStateHandle = savedStateHandle
+
+    /** Session group manager — auto-groups sessions by project/agent. */
+    val groupManager = SessionGroupManager(
+        sessionStore = com.novaterm.core.session.persistence.SessionStore(application),
+        homeDir = application.filesDir.absolutePath,
+    )
 
     companion object {
         private const val KEY_CURRENT_SESSION_INDEX = "current_session_index"
@@ -253,7 +260,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     /**
      * Combined UI state consumed by [NovaTermApp].
-     * Replaces 13 individual [collectAsState] calls with a single subscription.
+     * Replaces 14 individual [collectAsState] calls with a single subscription.
      */
     val uiState: StateFlow<TerminalUiState> = combine(
         // Group 1: session navigation state
@@ -270,8 +277,14 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
                 settings, onboarding, pip, toClose, failed ->
             arrayOf<Any?>(settings, onboarding, pip, toClose, failed)
         },
-    ) { nav, input, overlay ->
+        // Group 4: session grouping state
+        combine(groupManager.groups, groupManager.sessionGroupMap, groupManager.groupingEnabled) {
+                groups, sessionGroupMap, groupingEnabled ->
+            Triple(groups, sessionGroupMap, groupingEnabled)
+        },
+    ) { nav, input, overlay, grouping ->
         @Suppress("UNCHECKED_CAST")
+        val (groups, sessionGroupMap, groupingEnabled) = grouping
         TerminalUiState(
             sessions             = nav[0] as List<TerminalSession>,
             currentSessionIndex  = nav[1] as Int,
@@ -286,6 +299,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
             isInPipMode          = overlay[2] as Boolean,
             sessionToClose       = overlay[3] as Int?,
             sessionCreationFailed = overlay[4] as Boolean,
+            groups               = groupManager.getGroupsWithSessionCounts(),
+            sessionGroupMap      = sessionGroupMap,
+            groupingEnabled      = groupingEnabled,
         )
     }.stateIn(
         viewModelScope,

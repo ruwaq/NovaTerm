@@ -1,6 +1,7 @@
 package com.novaterm.core.session.persistence
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -53,6 +54,53 @@ class SessionMetadataTest {
         }
         val meta = SessionMetadata.fromJson(json)
         assertEquals("shell", meta.title) // default
+    }
+
+    @Test
+    fun `groupId round-trip through JSON`() {
+        val meta = SessionMetadata(
+            id = 3, shell = "/bin/bash", cwd = "/home/project",
+            title = "dev", groupId = "novaterm",
+        )
+        val json = meta.toJson()
+        assertEquals("novaterm", json.getString("groupId"))
+
+        val restored = SessionMetadata.fromJson(json)
+        assertEquals("novaterm", restored.groupId)
+    }
+
+    @Test
+    fun `groupId null by default and round-trips as JSON NULL`() {
+        val meta = SessionMetadata(
+            id = 0, shell = "/bin/bash", cwd = "/home", title = "shell",
+        )
+        assertNull(meta.groupId)
+
+        val json = meta.toJson()
+        // groupId should be JSONObject.NULL when null
+        assertTrue(json.isNull("groupId"))
+
+        val restored = SessionMetadata.fromJson(json)
+        assertNull(restored.groupId)
+    }
+
+    @Test
+    fun `groupId preserved in full serialize-deserialize cycle`() {
+        val sessions = listOf(
+            SessionMetadata(id = 0, shell = "/bin/bash", cwd = "/home/project",
+                title = "dev", groupId = "project-alpha"),
+            SessionMetadata(id = 1, shell = "/bin/zsh", cwd = "/home",
+                title = "shell", groupId = null),
+            SessionMetadata(id = 2, shell = "/bin/bash", cwd = "/home/agent",
+                title = "claude", groupId = "agents"),
+        )
+
+        val json = SessionMetadataSerializer.serialize(sessions)
+        val restored = SessionMetadataSerializer.deserialize(json)
+
+        assertEquals("project-alpha", restored[0].groupId)
+        assertNull(restored[1].groupId)
+        assertEquals("agents", restored[2].groupId)
     }
 
     @Test
