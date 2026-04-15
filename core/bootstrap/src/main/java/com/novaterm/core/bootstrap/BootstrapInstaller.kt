@@ -252,14 +252,22 @@ class BootstrapInstaller(private val context: Context) {
             val cacheDir = File(context.cacheDir, "apt/archives/partial")
             cacheDir.mkdirs()
 
-            // 9. Write apt sources.list (Termux package repository)
-            //    Without this, apt update fails with "no sources" and no packages can be installed.
+            // 9. Write apt sources.list (Termux + NovaTerm package repositories)
+            //    NovaTerm repo takes priority for packages that exist in both (via preferences).
+            //    Termux repo provides the vast majority of packages; our overlay adds nvterm-specific
+            //    packages like nvterm-exec. The dpkg wrapper patches com.termux paths on install.
             val sourcesList = File(prefixDir, "etc/apt/sources.list")
             if (!sourcesList.exists()) {
                 sourcesList.writeText(
-                    "deb https://packages-cf.termux.dev/apt/termux-main stable main\n"
+                    """
+                    |# NovaTerm packages (nvterm-exec, future NovaTerm-specific packages)
+                    |deb https://novaterm-org.github.io/novaterm-apt-repo stable main
+                    |
+                    |# Termux packages (vim, python, openssh, etc — patched by dpkg wrapper)
+                    |deb https://packages-cf.termux.dev/apt/termux-main stable main
+                    """.trimMargin() + "\n"
                 )
-                Log.i(TAG, "Wrote apt sources.list → Termux main repo")
+                Log.i(TAG, "Wrote apt sources.list → NovaTerm + Termux repos")
             }
 
             // 10. Ensure dpkg status files exist
@@ -277,7 +285,7 @@ class BootstrapInstaller(private val context: Context) {
             //     Since com.nvterm == com.termux in length, sed binary patch works.
             installDpkgWrapper(prefixDir)
 
-            // 12. Copy GPG keys to trusted.gpg.d if they exist in share/
+            // 12. Copy GPG keys to trusted.gpg.d (Termux keyring from bootstrap + NovaTerm key from assets)
             val keyringDir = File(prefixDir, "share/termux-keyring")
             val trustedDir = File(prefixDir, "etc/apt/trusted.gpg.d")
             if (keyringDir.isDirectory) {
@@ -285,7 +293,26 @@ class BootstrapInstaller(private val context: Context) {
                     val dest = File(trustedDir, key.name)
                     if (!dest.exists()) key.copyTo(dest)
                 }
-                Log.i(TAG, "Installed ${trustedDir.listFiles()?.size ?: 0} GPG keys")
+                Log.i(TAG, "Installed ${trustedDir.listFiles()?.size ?: 0} GPG keys from Termux keyring")
+            }
+            // Also install NovaTerm's own GPG key from assets for our APT repository
+            installAssetKey("novaterm-repo.gpg", File(trustedDir, "novaterm-repo.gpg"))
+
+            // 12b. Write APT preferences — prefer NovaTerm repo for overlapping packages
+            //     This ensures that when a package exists in both repos (e.g., termux-exec
+            //     in Termux vs nvterm-exec in NovaTerm), apt picks the NovaTerm version.
+            val prefsDir = File(prefixDir, "etc/apt/preferences.d")
+            prefsDir.mkdirs()
+            val prefsFile = File(prefsDir, "novaterm.pref")
+            if (!prefsFile.exists()) {
+                prefsFile.writeText(
+                    """
+                    |Package: *
+                    |Pin: origin novaterm-org.github.io
+                    |Pin-Priority: 600
+                    """.trimMargin() + "\n"
+                )
+                Log.i(TAG, "Wrote APT preferences → NovaTerm priority 600")
             }
 
             // 13. Replace Termux MOTD with NovaTerm branding
@@ -639,6 +666,19 @@ class BootstrapInstaller(private val context: Context) {
     // ── Asset scripts ─────────────────────────────────────
 
     /** Copy a script from APK assets to the prefix, with execute permission. */
+    private fun installAssetKey(assetName: String, dest: File) {
+        try {
+            context.assets.open(assetName).use { input ->
+                dest.parentFile?.mkdirs()
+                dest.outputStream().use { output -> input.copyTo(output) }
+            }
+            dest.setReadable(true, true)
+            Log.i(TAG, "Installed GPG key: $assetName → ${dest.absolutePath}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to install GPG key: $assetName: ${e.message}")
+        }
+    }
+
     private fun copyAssetScript(assetName: String, dest: File) {
         try {
             context.assets.open(assetName).use { input ->
