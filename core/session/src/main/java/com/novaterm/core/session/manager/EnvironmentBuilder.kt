@@ -114,15 +114,19 @@ class EnvironmentBuilder(
     }
 
     private fun setupLdPreload(env: MutableMap<String, String>) {
-        // Search for nvterm-exec (preferred) first, then fallback to termux-exec (compat)
+        // Search for nvterm-exec and nvterm-core (preferred) first, then fallback to termux-exec (compat)
         val ldPreloadNames = listOf(
             "libnvterm-exec-linker-ld-preload.so",
             "libnvterm-exec-ld-preload.so",
             "libnvterm-exec.so",
+            "libnvterm-core_nos_c_tre.so",
+            "libnvterm-core_nos_cxx_tre.so",
             // Legacy names from Termux bootstrap (renamed during extraction)
             "libtermux-exec-linker-ld-preload.so",
             "libtermux-exec-ld-preload.so",
             "libtermux-exec.so",
+            "libtermux-core_nos_c_tre.so",
+            "libtermux-core_nos_cxx_tre.so",
         )
         val dataDir = context.applicationInfo.dataDir
         val legacyDir = "/data/data/${context.packageName}"

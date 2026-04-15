@@ -310,10 +310,14 @@ class BootstrapInstaller(private val context: Context) {
                 "lib/libnvterm-exec-linker-ld-preload.so",
                 "lib/libnvterm-exec-ld-preload.so",
                 "lib/libnvterm-exec.so",
+                "lib/libnvterm-core_nos_c_tre.so",
+                "lib/libnvterm-core_nos_cxx_tre.so",
                 // Also check old names for backward compatibility
                 "lib/libtermux-exec-linker-ld-preload.so",
                 "lib/libtermux-exec-ld-preload.so",
                 "lib/libtermux-exec.so",
+                "lib/libtermux-core_nos_c_tre.so",
+                "lib/libtermux-core_nos_cxx_tre.so",
             )
             for (f in criticalFiles) {
                 val file = File(prefixDir, f)
@@ -382,13 +386,19 @@ class BootstrapInstaller(private val context: Context) {
                         patchBytes(data, OLD_PKG_BYTES, NEW_PKG_BYTES)
                     }
 
-                    // Rename termux-exec libraries to nvterm-exec during extraction.
-                    // This provides forward-compatibility when we build our own bootstrap.
-                    val finalFile = if (outFile.name.startsWith("libtermux-exec")) {
-                        val renamed = File(outFile.parentFile, outFile.name.replace("libtermux-exec", "libnvterm-exec"))
-                        renamed
-                    } else {
-                        outFile
+                    // Rename termux-exec → nvterm-exec during extraction.
+                    // Libraries, scripts, and binaries all get renamed for consistency.
+                    // This provides forward-compatibility when we build our own packages.
+                    // Note: termux-tools scripts (termux-setup-storage, etc.) are NOT renamed
+                    // because apt packages depend on these exact filenames.
+                    val finalFile = when {
+                        outFile.name.startsWith("libtermux-exec") ->
+                            File(outFile.parentFile, outFile.name.replace("libtermux-exec", "libnvterm-exec"))
+                        outFile.name.startsWith("termux-exec-") ->
+                            File(outFile.parentFile, outFile.name.replace("termux-exec-", "nvterm-exec-"))
+                        outFile.name.startsWith("libtermux-core") ->
+                            File(outFile.parentFile, outFile.name.replace("libtermux-core", "libnvterm-core"))
+                        else -> outFile
                     }
                     finalFile.writeBytes(data)
                 }
@@ -703,6 +713,10 @@ class BootstrapInstaller(private val context: Context) {
             "lib/libtermux-exec.so",                          // Renamed to libnvterm-exec.so at extraction
             "lib/libtermux-exec-ld-preload.so",               // Renamed at extraction
             "lib/libtermux-exec-linker-ld-preload.so",        // Renamed at extraction
+            "bin/termux-exec-ld-preload-lib",                // Renamed to nvterm-exec-ld-preload-lib
+            "bin/termux-exec-system-linker-exec",              // Renamed to nvterm-exec-system-linker-exec
+            "lib/libtermux-core_nos_c_tre.so",                // Renamed to libnvterm-core_nos_c_tre.so
+            "lib/libtermux-core_nos_cxx_tre.so",               // Renamed to libnvterm-core_nos_cxx_tre.so
         )
 
         // Expected SHA-256 checksums for critical bootstrap files.
@@ -713,9 +727,11 @@ class BootstrapInstaller(private val context: Context) {
             "bin/bash" to "0000000000000000000000000000000000000000000000000000000000000000",
             "bin/sh" to "0000000000000000000000000000000000000000000000000000000000000000",
             "bin/login" to "0000000000000000000000000000000000000000000000000000000000000000",
-            "lib/libtermux-exec-linker-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
-            "lib/libtermux-exec-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
-            "lib/libtermux-exec.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-exec-linker-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-exec-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-exec.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-core_nos_c_tre.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-core_nos_cxx_tre.so" to "0000000000000000000000000000000000000000000000000000000000000000",
         )
     }
 }
