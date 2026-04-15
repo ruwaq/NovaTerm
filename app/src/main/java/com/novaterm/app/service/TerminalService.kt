@@ -115,6 +115,7 @@ class TerminalService : Service() {
     // ── MCP server ──────────────────────────────────────────
 
     @Volatile private var mcpServer: McpServer? = null
+    @Volatile private var mcpBridge: ServiceMcpBridge? = null
     private val interactiveApproval = InteractiveApprovalManager()
 
     /** Current MCP auth token (null when server is not running). */
@@ -195,7 +196,9 @@ class TerminalService : Service() {
         }
 
         override fun onTitleChanged(changedSession: TerminalSession) {
-            _sessions.update { it.toList() }
+            if (_sessions.value.contains(changedSession)) {
+                _sessions.update { it.toList() }
+            }
             onTextChanged(changedSession)
         }
 
@@ -385,6 +388,7 @@ class TerminalService : Service() {
             mainHandler = mainHandler,
             serviceScope = serviceScope,
             isServiceDestroyed = { isServiceDestroyed },
+            blockStore = blockStore,
         )
 
         startForeground(notifications.foregroundNotificationId, notifications.buildForegroundNotification())
@@ -398,8 +402,10 @@ class TerminalService : Service() {
      * Safe to call multiple times — stops existing server first.
      */
     fun startMcpServerIfEnabled() {
+        mcpBridge?.cleanup()
         mcpServer?.stop()
         mcpServer = null
+        mcpBridge = null
 
         if (!mcpEnabled.get()) return
 
@@ -421,6 +427,7 @@ class TerminalService : Service() {
                 prefixPath = { "$rootDir/usr" },
                 onGetAgentOrchestrator = { agentOrchestrator },
             )
+            mcpBridge = bridge
             val server = McpServer(config, bridge, interactiveApproval, context = this@TerminalService)
             server.start()
             mcpServer = server
@@ -553,6 +560,8 @@ class TerminalService : Service() {
         isServiceDestroyed = true
         serviceScope.cancel()
         screenUpdateCallbacks.clear()
+        mcpBridge?.cleanup()
+        mcpBridge = null
         mcpServer?.stop()
         mcpServer = null
         llmEngine?.release()
@@ -780,23 +789,21 @@ class TerminalService : Service() {
             removedSession = list[index]
             list.filterIndexed { i, _ -> i != index }
         }
-        val session = removedSession ?: return
+        val s = removedSession ?: return
 
-        // Clean up callbacks in a finally block to ensure no leaks
         try {
-            session.finishIfRunning()
-            screenUpdateCallbacks.remove(session.mHandle)
-            zoneTrackers.remove(session.mHandle)
-            rustEngineManager.detachEngine(session)
-            // Adjust workspace session IDs after removal
+            s.finishIfRunning()
+            screenUpdateCallbacks.remove(s.mHandle)
+            zoneTrackers.remove(s.mHandle)
+            rustEngineManager.detachEngine(s)
             agentOrchestrator.adjustSessionIdsAfterRemoval(index)
             updateNotification()
             updateBootReceiverState()
             if (_sessions.value.isEmpty()) stopSelf()
-        } finally {
-            // Ensure callback cleanup even if an error occurs
-            screenUpdateCallbacks.remove(session.mHandle)
-            zoneTrackers.remove(session.mHandle)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning up session at index $index", e)
+            screenUpdateCallbacks.remove(s.mHandle)
+            zoneTrackers.remove(s.mHandle)
         }
     }
 

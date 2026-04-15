@@ -228,48 +228,50 @@ fun GroupedSessionTabBar(
                         divider = {},
                     ) {
                         expandedSessionIndices.forEach { sessionIdx ->
-                            val groupColor = parseColor(
-                                groups.find { (g, _) -> g.id == sessionToGroup[sessionIdx] }
-                                    ?.group?.color ?: SessionGroup.DEFAULT_COLOR
-                            )
-                            val isTabSelected = safeIndex == sessionIdx
+                            key(sessionIdx) {
+                                val groupColor = parseColor(
+                                    groups.find { (g, _) -> g.id == sessionToGroup[sessionIdx] }
+                                        ?.group?.color ?: SessionGroup.DEFAULT_COLOR
+                                )
+                                val isTabSelected = safeIndex == sessionIdx
 
-                            Tab(
-                                selected = isTabSelected,
-                                onClick = { onSelectTab(sessionIdx) },
-                                modifier = Modifier
-                                    .height(36.dp)
-                                    .combinedClickable(
-                                        onClick = { onSelectTab(sessionIdx) },
-                                        onLongClick = { onLongClickTab(sessionIdx) },
-                                        onLongClickLabel = "Rename session",
-                                    )
-                                    .semantics {
-                                        stateDescription = if (sessions[sessionIdx].isRunning) "Running" else "Stopped"
-                                    },
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                Tab(
+                                    selected = isTabSelected,
+                                    onClick = { onSelectTab(sessionIdx) },
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .combinedClickable(
+                                            onClick = { onSelectTab(sessionIdx) },
+                                            onLongClick = { onLongClickTab(sessionIdx) },
+                                            onLongClickLabel = "Rename session",
+                                        )
+                                        .semantics {
+                                            stateDescription = if (sessions[sessionIdx].isRunning) "Running" else "Stopped"
+                                        },
                                 ) {
-                                    // Status dot tinted with group color
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(
-                                                color = if (sessions[sessionIdx].isRunning) groupColor
-                                                else novaColors.destructive,
-                                                shape = CircleShape,
-                                            )
-                                    )
-                                    Text(
-                                        text = sessionNames[sessionIdx]
-                                            ?: sessions.getOrNull(sessionIdx)?.title?.takeIf { it.isNotBlank() }
-                                            ?: stringResource(R.string.tab_session, sessionIdx + 1),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    ) {
+                                        // Status dot tinted with group color
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(
+                                                    color = if (sessions[sessionIdx].isRunning) groupColor
+                                                    else novaColors.destructive,
+                                                    shape = CircleShape,
+                                                )
+                                        )
+                                        Text(
+                                            text = sessionNames[sessionIdx]
+                                                ?: sessions.getOrNull(sessionIdx)?.title?.takeIf { it.isNotBlank() }
+                                                ?: stringResource(R.string.tab_session, sessionIdx + 1),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }

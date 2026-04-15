@@ -69,7 +69,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         // Restore current session index with validation
         val savedCurrentIndex = _savedStateHandle.get<Int>(KEY_CURRENT_SESSION_INDEX)
         if (savedCurrentIndex != null && savedCurrentIndex >= 0) {
-            _currentSessionIndex.value = savedCurrentIndex.coerceAtMost(0) // Fallback to 0 if index is too high
+            _currentSessionIndex.value = savedCurrentIndex // Validated >= 0 above
         }
 
         // Restore session names with validation
@@ -95,7 +95,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     private fun saveStateToSavedStateHandle() {
         // Save current session index with validation
-        _savedStateHandle.set(KEY_CURRENT_SESSION_INDEX, _currentSessionIndex.value.coerceAtMost(0))
+        _savedStateHandle.set(KEY_CURRENT_SESSION_INDEX, _currentSessionIndex.value.coerceAtLeast(0))
 
         // Save session names
         _savedStateHandle.set(KEY_SESSION_NAMES, _sessionNames.value)
@@ -604,8 +604,9 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         return groupManager.createGroup(name, color)
     }
 
-    /** Move a session to a different group. */
+    /** Move a session to a different group. No-op if index is out of bounds. */
     fun moveSessionToGroup(sessionIndex: Int, targetGroupId: String) {
+        if (sessionIndex < 0 || sessionIndex >= sessions.value.size) return
         groupManager.moveSessionToGroup(sessionIndex, targetGroupId)
     }
 

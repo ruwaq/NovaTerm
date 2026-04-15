@@ -36,8 +36,11 @@ class SessionPersistenceManager(
     private val serviceScope: CoroutineScope,
     private val isServiceDestroyed: () -> Boolean,
     private val uiStateProvider: () -> TerminalViewModelUIState? = { null },
-    private val uiStateConsumer: (TerminalViewModelUIState) -> Unit = {}
+    private val uiStateConsumer: (TerminalViewModelUIState) -> Unit = {},
+    private val blockStore: com.novaterm.core.session.persistence.db.BlockStore? = null,
 ) {
+    private var pruneCounter = 0
+
     private val saveRunnable = object : Runnable {
         override fun run() {
             if (isServiceDestroyed()) return
@@ -48,6 +51,12 @@ class SessionPersistenceManager(
                         saveSessionMetadata()
                     }
                     predictionEngine()?.save()
+                    // Prune BlockStore every 10th save (~5 minutes) to avoid unbounded growth
+                    pruneCounter++
+                    if (pruneCounter >= 10) {
+                        blockStore?.pruneOrphanedData()
+                        pruneCounter = 0
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Periodic save error", e)
                 }

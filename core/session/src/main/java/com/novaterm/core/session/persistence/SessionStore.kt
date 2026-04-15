@@ -21,17 +21,35 @@ class SessionStore(context: Context) {
     private val sessionsLock = Any()
     private val groupsLock = Any()
 
+    // Dirty tracking: skip write when data hasn't changed since last save.
+    @Volatile private var sessionsDirty = true
+    @Volatile private var lastSavedHash: Int = 0
+
     /**
      * Save all active sessions. Called periodically and on service destroy.
+     * Skips the write if data hasn't changed since the last successful save.
      */
     fun save(sessions: List<SessionMetadata>) {
         synchronized(sessionsLock) {
             try {
-                sessionsFile.writeText(SessionMetadataSerializer.serialize(sessions))
+                val serialized = SessionMetadataSerializer.serialize(sessions)
+                val currentHash = serialized.hashCode()
+                if (!sessionsDirty && currentHash == lastSavedHash) return
+                sessionsFile.writeText(serialized)
+                lastSavedHash = currentHash
+                sessionsDirty = false
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save sessions", e)
             }
         }
+    }
+
+    /**
+     * Mark sessions as dirty so the next [save] will write regardless of hash.
+     * Call this when a session is created, removed, or has metadata changed.
+     */
+    fun markSessionsDirty() {
+        sessionsDirty = true
     }
 
     /**

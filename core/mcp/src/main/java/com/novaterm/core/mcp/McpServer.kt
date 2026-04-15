@@ -137,6 +137,14 @@ class McpServer(
                     }
                     if (!validateBearerToken(call)) return@post
                     val body = call.receiveText()
+                    if (body.length > MAX_REQUEST_SIZE) {
+                        call.respondText(
+                            jsonRpcError(null, -32700, "Request too large (max ${MAX_REQUEST_SIZE / 1024}KB)"),
+                            ContentType.Application.Json,
+                            HttpStatusCode.PayloadTooLarge,
+                        )
+                        return@post
+                    }
                     val clientAddress = call.request.local.remoteHost
                     val response = handleJsonRpc(body, clientAddress)
                     call.respondText(response, ContentType.Application.Json)
@@ -410,6 +418,7 @@ class McpServer(
 
     companion object {
         private const val TAG = "McpServer"
+        private const val MAX_REQUEST_SIZE = 1024 * 1024 // 1MB max request body
         /** File name for the bearer token (saved in app-private filesDir). */
         const val TOKEN_FILE_NAME = "mcp-token"
     }

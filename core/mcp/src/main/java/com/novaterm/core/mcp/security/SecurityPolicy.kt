@@ -55,7 +55,28 @@ object SecurityPolicy {
         "/vendor",
         "/proc",
         "/sys",
+        "/dev",
     )
+
+    /** Prefixes that tools cannot read or write (other apps' private data). */
+    private val BLOCKED_PATH_PREFIXES = setOf(
+        "/data/data/",    // other apps' private storage
+        "/data/user/",    // multi-user private storage
+    )
+
+    /** Our own package data prefix — always allowed even under /data/data/. */
+    private const val OWN_DATA_PREFIX = "/data/data/com.nvterm/"
+
+    /** Check if a file path is blocked by policy. */
+    fun isBlockedPath(path: String): Boolean {
+        if (BLOCKED_PATHS.any { blocked -> path == blocked || path.startsWith("$blocked/") }) return true
+        if (BLOCKED_PATH_PREFIXES.any { prefix -> path.startsWith(prefix) }) {
+            // Allow our own app's data directory
+            if (path.startsWith(OWN_DATA_PREFIX)) return false
+            return true
+        }
+        return false
+    }
 
     /** Check if a remote address is allowed to connect. */
     fun isAllowedOrigin(remoteAddress: String): Boolean {
@@ -81,11 +102,6 @@ object SecurityPolicy {
             .any { segment ->
                 BLOCKED_SEGMENT_PATTERNS.any { it.containsMatchIn(segment.trim()) }
             }
-    }
-
-    /** Check if a file path is blocked by policy. */
-    fun isBlockedPath(path: String): Boolean {
-        return BLOCKED_PATHS.any { blocked -> path == blocked || path.startsWith("$blocked/") }
     }
 
     private val LOCALHOST_ADDRESSES = setOf(

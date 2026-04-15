@@ -28,6 +28,7 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -197,9 +198,10 @@ private fun GroupedSessionList(
 
         // Sessions in this group
         sessionsInGroup.forEach { (sessionIdx, _) ->
-            var contextMenuExpanded by remember { mutableStateOf(false) }
+            key(sessionIdx) {
+                var contextMenuExpanded by remember { mutableStateOf(false) }
 
-            NavigationDrawerItem(
+                NavigationDrawerItem(
                 label = { Text(stringResource(R.string.tab_session, sessionIdx + 1)) },
                 selected = sessionIdx == selectedIndex,
                 onClick = { onSelectSession(sessionIdx) },
@@ -251,6 +253,7 @@ private fun GroupedSessionList(
                 },
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
+            }
         }
     }
 }

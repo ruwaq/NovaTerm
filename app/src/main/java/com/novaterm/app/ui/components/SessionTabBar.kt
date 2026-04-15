@@ -84,41 +84,43 @@ fun SessionTabBar(
                     divider = {},
                 ) {
                     sessions.forEachIndexed { index, session ->
-                        Tab(
-                            selected = clampedIndex == index,
-                            onClick = { onSelectTab(index) },
-                            modifier = Modifier
-                                .height(48.dp)
-                                .combinedClickable(
-                                    onClick = { onSelectTab(index) },
-                                    onLongClick = { onLongClickTab(index) },
-                                    onLongClickLabel = "Rename session",
-                                )
-                                .semantics {
-                                    stateDescription = if (session.isRunning) "Running" else "Stopped"
-                                },
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        key(index) {
+                            Tab(
+                                selected = clampedIndex == index,
+                                onClick = { onSelectTab(index) },
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .combinedClickable(
+                                        onClick = { onSelectTab(index) },
+                                        onLongClick = { onLongClickTab(index) },
+                                        onLongClickLabel = "Rename session",
+                                    )
+                                    .semantics {
+                                        stateDescription = if (session.isRunning) "Running" else "Stopped"
+                                    },
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(
-                                            color = if (session.isRunning) novaColors.accent
-                                            else novaColors.destructive,
-                                            shape = CircleShape,
-                                        )
-                                )
-                                Text(
-                                    text = sessionNames[index]
-                                        ?: session.title?.takeIf { it.isNotBlank() }
-                                        ?: stringResource(R.string.tab_session, index + 1),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(
+                                                color = if (session.isRunning) novaColors.accent
+                                                else novaColors.destructive,
+                                                shape = CircleShape,
+                                            )
+                                    )
+                                    Text(
+                                        text = sessionNames[index]
+                                            ?: session.title?.takeIf { it.isNotBlank() }
+                                            ?: stringResource(R.string.tab_session, index + 1),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
                     }

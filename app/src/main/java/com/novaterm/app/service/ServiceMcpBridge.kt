@@ -7,6 +7,7 @@ import com.novaterm.core.mcp.bridge.McpSessionInfo
 import com.novaterm.core.mcp.bridge.McpWorkspaceInfo
 import com.novaterm.terminal.TerminalSession
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -32,17 +33,28 @@ class ServiceMcpBridge(
 
     override val sessions: StateFlow<List<McpSessionInfo>> get() = _mcpSessions
 
+    private val syncJob: Job
+
     init {
         // Keep MCP session list continuously in sync with terminal sessions.
         // Observing the flow catches unexpected session terminations that
         // don't go through closeSession() (e.g., process crash).
-        serviceScope.launch {
+        syncJob = serviceScope.launch {
             sessionsFlow.collect { syncMcpSessions() }
         }
     }
 
+    /**
+     * Cancel the session sync collector. Must be called when the MCP server
+     * is stopped to prevent coroutine leaks.
+     */
+    fun cleanup() {
+        syncJob.cancel()
+    }
+
     private fun syncMcpSessions() {
-        _mcpSessions.value = sessionsFlow.value.mapIndexed { index, session ->
+        val snapshot = sessionsFlow.value.toList()
+        _mcpSessions.value = snapshot.mapIndexed { index, session ->
             McpSessionInfo(
                 index = index,
                 title = session.title?.takeIf { it.isNotBlank() } ?: "shell",
@@ -93,6 +105,8 @@ class ServiceMcpBridge(
     override fun readFile(path: String, maxBytes: Int): String? {
         return try {
             val file = java.io.File(path)
+            val canonical = file.canonicalPath
+            if (com.novaterm.core.mcp.security.SecurityPolicy.isBlockedPath(canonical)) return null
             if (!file.exists() || !file.isFile || !file.canRead()) return null
             if (file.length() > maxBytes) return null
             file.readText()
@@ -105,6 +119,8 @@ class ServiceMcpBridge(
     override fun writeFile(path: String, content: String): Boolean {
         return try {
             val file = java.io.File(path)
+            val canonical = file.canonicalPath
+            if (com.novaterm.core.mcp.security.SecurityPolicy.isBlockedPath(canonical)) return false
             file.parentFile?.mkdirs()
             file.writeText(content)
             true
@@ -117,6 +133,8 @@ class ServiceMcpBridge(
     override fun listDirectory(path: String): List<FileEntry> {
         return try {
             val dir = java.io.File(path)
+            val canonical = dir.canonicalPath
+            if (com.novaterm.core.mcp.security.SecurityPolicy.isBlockedPath(canonical)) return emptyList()
             if (!dir.exists() || !dir.isDirectory) return emptyList()
             dir.listFiles()?.map { file ->
                 FileEntry(

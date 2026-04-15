@@ -92,7 +92,37 @@ class BlockStore(context: Context) {
     fun deleteSession(sessionId: String) {
         synchronized(lock) {
             if (closed) return
-            db.writableDatabase.delete("sessions", "id = ?", arrayOf(sessionId))
+            val wdb = db.writableDatabase
+            wdb.beginTransaction()
+            try {
+                // Get output hashes referenced by this session's blocks for CAS cleanup
+                val cursor = wdb.rawQuery(
+                    "SELECT output_hash FROM blocks WHERE session_id = ? AND output_hash IS NOT NULL",
+                    arrayOf(sessionId),
+                )
+                val hashes = mutableListOf<String>()
+                cursor.use { while (it.moveToNext()) hashes.add(it.getString(0)) }
+
+                // Delete session data
+                wdb.delete("blocks", "session_id = ?", arrayOf(sessionId))
+                wdb.delete("snapshots", "session_id = ?", arrayOf(sessionId))
+                wdb.delete("sessions", "id = ?", arrayOf(sessionId))
+
+                // Decrement ref counts and prune orphaned CAS blobs
+                for (hash in hashes) {
+                    wdb.execSQL(
+                        "UPDATE cas_blobs SET ref_count = ref_count - 1 WHERE hash = ?",
+                        arrayOf(hash),
+                    )
+                }
+                wdb.delete("cas_blobs", "ref_count <= 0", null)
+
+                wdb.setTransactionSuccessful()
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteSession failed for $sessionId", e)
+            } finally {
+                wdb.endTransaction()
+            }
         }
     }
 
@@ -289,6 +319,61 @@ class BlockStore(context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "getSnapshot failed", e)
                 null
+            }
+        }
+    }
+
+    // ── Pruning ──────────────────────────────────────────
+
+    /**
+     * Prune orphaned data to prevent unbounded database growth.
+     * - Removes CAS blobs with ref_count <= 0
+     * - Removes blocks/snapshots belonging to deleted sessions
+     * - Removes old blocks beyond [maxBlocksPerSession]
+     *
+     * Call periodically (e.g., during periodic save) to keep the database lean.
+     */
+    fun pruneOrphanedData(maxBlocksPerSession: Int = 500) {
+        synchronized(lock) {
+            if (closed) return
+            try {
+                val wdb = db.writableDatabase
+                wdb.beginTransaction()
+                try {
+                    // Remove orphaned CAS blobs (ref_count drained by deleteSession)
+                    wdb.delete("cas_blobs", "ref_count <= 0", null)
+
+                    // Remove blocks from non-existent sessions
+                    wdb.execSQL(
+                        "DELETE FROM blocks WHERE session_id NOT IN (SELECT id FROM sessions)"
+                    )
+
+                    // Remove snapshots from non-existent sessions
+                    wdb.execSQL(
+                        "DELETE FROM snapshots WHERE session_id NOT IN (SELECT id FROM sessions)"
+                    )
+
+                    // Trim old blocks per session (keep most recent N)
+                    val cursor = wdb.rawQuery("SELECT id FROM sessions", null)
+                    val sessionIds = mutableListOf<String>()
+                    cursor.use { while (it.moveToNext()) sessionIds.add(it.getString(0)) }
+
+                    for (sid in sessionIds) {
+                        wdb.execSQL(
+                            """DELETE FROM blocks WHERE session_id = ? AND id NOT IN (
+                                SELECT id FROM blocks WHERE session_id = ?
+                                ORDER BY timestamp DESC LIMIT $maxBlocksPerSession
+                            )""",
+                            arrayOf(sid, sid),
+                        )
+                    }
+
+                    wdb.setTransactionSuccessful()
+                } finally {
+                    wdb.endTransaction()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "pruneOrphanedData failed", e)
             }
         }
     }
