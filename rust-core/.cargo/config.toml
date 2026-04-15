@@ -6,6 +6,10 @@
 # Solo necesitamos esto si compilamos sin cargo-ndk
 # linker = "aarch64-linux-android30-clang"
 
+# 16KB page size alignment (Android 15+ Play Store requirement)
+# Ensures LOAD segments are aligned to 16KB instead of default 4KB
+rustflags = ["-C", "link-args=-Wl,-z,max-page-size=16384"]
+
 # Runner para tests via ADB (solo cross-compile, no aplica en Termux)
 # runner = "cargo ndk-runner"
 

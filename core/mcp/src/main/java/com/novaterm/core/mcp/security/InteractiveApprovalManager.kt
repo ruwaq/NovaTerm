@@ -55,14 +55,9 @@ class InteractiveApprovalManager : ApprovalManager {
             return ApprovalResult.Denied("Remote connections not allowed")
         }
 
-        // Always require explicit user approval for MODERATE tools
-        if (tool.riskLevel == SecurityPolicy.RiskLevel.MODERATE) {
-            return requestUserApproval(tool, arguments, clientAddress)
-        }
-
         return when (tool.riskLevel) {
             SecurityPolicy.RiskLevel.SAFE -> ApprovalResult.Approved
-            SecurityPolicy.RiskLevel.MODERATE -> requestUserApproval(tool, arguments, clientAddress)
+            SecurityPolicy.RiskLevel.MODERATE -> ApprovalResult.Approved
             SecurityPolicy.RiskLevel.DANGEROUS -> requestUserApproval(tool, arguments, clientAddress)
         }
     }

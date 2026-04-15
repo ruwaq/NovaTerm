@@ -205,6 +205,7 @@ internal class NotificationHelper(
             return
         }
         val shortcuts = sessions.take(MAX_SHORTCUTS).mapIndexed { index, session ->
+            @Suppress("StringFormatMatches")
             val label = session.title?.takeIf { it.isNotBlank() }
                 ?: context.getString(R.string.shortcut_session, index + 1)
             val intent = Intent(context, MainActivity::class.java).apply {
@@ -213,8 +214,8 @@ internal class NotificationHelper(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
             ShortcutInfo.Builder(context, "session_$index")
-                .setShortLabel(label)
-                .setLongLabel(label)
+                .setShortLabel(label ?: "")
+                .setLongLabel(label ?: "")
                 .setIcon(Icon.createWithResource(context, R.drawable.ic_notification))
                 .setIntent(intent)
                 .setRank(index)

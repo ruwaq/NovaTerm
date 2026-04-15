@@ -42,12 +42,8 @@ internal class WakeLockManager(private val context: Context) {
         if (wifiLock == null) {
             val wm = context.applicationContext
                 .getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                WifiManager.WIFI_MODE_FULL_LOW_LATENCY
-            } else {
-                @Suppress("DEPRECATION")
-                WifiManager.WIFI_MODE_FULL_HIGH_PERF
-            }
+            // minSdk 30 (Android 11) — WIFI_MODE_FULL_LOW_LATENCY always available
+            val mode = WifiManager.WIFI_MODE_FULL_LOW_LATENCY
             wifiLock = wm.createWifiLock(mode, "novaterm:service-wifilock")
         }
         if (wifiLock?.isHeld == false) wifiLock?.acquire()

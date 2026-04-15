@@ -147,8 +147,8 @@ class BlockStore(context: Context) {
             try {
                 val cursor = db.readableDatabase.rawQuery(
                     "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
-                    "FROM blocks WHERE session_id = ? ORDER BY timestamp ASC LIMIT $limit",
-                    arrayOf(sessionId),
+                    "FROM blocks WHERE session_id = ? ORDER BY timestamp ASC LIMIT ?",
+                    arrayOf(sessionId, limit.toString()),
                 )
                 val result = mutableListOf<BlockRecord>()
                 cursor.use {

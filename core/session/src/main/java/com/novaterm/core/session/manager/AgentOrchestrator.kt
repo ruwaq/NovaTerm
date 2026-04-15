@@ -299,20 +299,33 @@ class AgentOrchestrator(
     /**
      * Reject changes in a workspace: `git checkout . && git clean -fd`.
      *
+     * Lists untracked files first for logging, then removes them.
+     * Only runs `clean` if `checkout` succeeded (no point cleaning if checkout failed).
+     *
      * @return true if the reset succeeded
      */
     fun rejectChanges(workspaceId: String): Boolean {
         val workspace = workspaces[workspaceId] ?: return false
         val checkoutResult = runGitCommand(workspace.workingDir, "checkout", ".")
         Log.i(TAG, "git checkout .: $checkoutResult")
-        // Also clean untracked files that the agent may have created
-        runGitCommand(workspace.workingDir, "clean", "-fd")
+        // List untracked files before removing (for audit trail)
+        val untracked = runGitCommand(workspace.workingDir, "ls-files", "--others", "--exclude-standard")
+        if (untracked.isNotEmpty()) {
+            Log.i(TAG, "Untracked files to remove: $untracked")
+            val cleanResult = runGitCommand(workspace.workingDir, "clean", "-fd")
+            Log.i(TAG, "git clean -fd: $cleanResult")
+        } else {
+            Log.i(TAG, "No untracked files to clean")
+        }
         return true
     }
 
     /**
      * Execute a git command in a directory and capture stdout.
      * Runs as a separate Process — doesn't touch the agent's PTY session.
+     *
+     * Times out after 30 seconds to prevent indefinite blocking if git hangs
+     * (e.g., large repo, lock file, NFS mount).
      */
     private fun runGitCommand(workingDir: String, vararg args: String): String {
         return try {
@@ -322,8 +335,14 @@ class AgentOrchestrator(
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            output.trim()
+            val finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                Log.w(TAG, "git ${args.joinToString(" ")} timed out after 30s in $workingDir")
+                ""
+            } else {
+                output.trim()
+            }
         } catch (e: Exception) {
             Log.w(TAG, "git ${args.joinToString(" ")} failed: ${e.message}")
             ""

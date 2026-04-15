@@ -54,12 +54,14 @@ fun AboutScreen(
     var showCrashDialog by remember { mutableStateOf(false) }
     var crashLogContent by remember { mutableStateOf<String?>(null) }
 
-    if (showCrashDialog && crashLogContent != null) {
-        CrashLogDialog(
-            content = crashLogContent!!,
-            onShare = { shareCrashLog(context, crashLogContent!!) },
-            onDismiss = { showCrashDialog = false },
-        )
+    crashLogContent?.let { content ->
+        if (showCrashDialog) {
+            CrashLogDialog(
+                content = content,
+                onShare = { shareCrashLog(context, content) },
+                onDismiss = { showCrashDialog = false },
+            )
+        }
     }
 
     Scaffold(
