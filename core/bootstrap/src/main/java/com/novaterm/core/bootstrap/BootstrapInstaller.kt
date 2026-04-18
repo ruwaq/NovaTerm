@@ -53,11 +53,15 @@ class BootstrapInstaller(private val context: Context) {
     /** The prefix directory where packages are installed ($PREFIX). */
     val prefixDir: File get() = File(filesDir, "usr")
 
-    /** Whether the bootstrap has been installed (bash or sh exists). */
+    /** Whether the bootstrap has been installed and is not in a failed state. */
     // Use exists() NOT canExecute() — W^X makes canExecute() return false
+    // Also check that staging dir doesn't exist (incomplete install) and
+    // apt sources.list exists (post-install file written at the end).
     val isBootstrapped: Boolean
-        get() = File(prefixDir, "bin/bash").exists() ||
-                File(prefixDir, "bin/sh").exists()
+        get() = (File(prefixDir, "bin/bash").exists() ||
+                File(prefixDir, "bin/sh").exists())
+                && !File(filesDir, "usr-staging").exists()
+                && File(prefixDir, "etc/apt/sources.list").exists()
 
     /**
      * Calculate SHA-256 checksum for a file.
@@ -154,7 +158,13 @@ class BootstrapInstaller(private val context: Context) {
         try {
             _state.value = State.Extracting(0f, "Loading...")
 
-            // 0. Check available storage (bootstrap needs ~100MB)
+            // 0. Clean up any previous failed/incomplete install
+            File(filesDir, "usr-staging").deleteRecursively()
+            if (!isBootstrapped) {
+                prefixDir.deleteRecursively()
+            }
+
+            // 0b. Check available storage (bootstrap needs ~100MB)
             val availableBytes = File(filesDir).freeSpace
             val requiredBytes = 100L * 1024 * 1024 // 100MB
             if (availableBytes < requiredBytes) {
@@ -321,17 +331,7 @@ class BootstrapInstaller(private val context: Context) {
             // 14. Copy AI tool setup scripts from assets (manual use only, not auto-executed)
             copyAssetScript("setup-claude.sh", File(prefixDir, "bin/setup-claude"))
 
-            _state.value = State.Done
-            Log.i(TAG, "Bootstrap installation complete: ${prefixDir.absolutePath}")
-            // 23. Verify critical file integrity
-            if (!verifyBootstrapIntegrity(prefixDir.absolutePath)) {
-                Log.e(TAG, "Bootstrap integrity verification failed!")
-                // Clean up on verification failure
-                cleanUpFailedBootstrap(prefixDir.absolutePath)
-                return@withContext false
-            }
-
-            // Diagnostic: verify critical files exist
+            // Diagnostic: verify critical files exist (before integrity check so logs survive cleanup)
             val criticalFiles = listOf(
                 "bin/bash", "bin/sh", "bin/login",
                 "lib/libnvterm-exec-linker-ld-preload.so",
@@ -350,6 +350,17 @@ class BootstrapInstaller(private val context: Context) {
                 val file = File(prefixDir, f)
                 Log.i(TAG, "  $f: exists=${file.exists()} size=${if (file.exists()) file.length() else -1}")
             }
+
+            // Verify critical file integrity BEFORE marking done
+            if (!verifyBootstrapIntegrity(prefixDir.absolutePath)) {
+                Log.e(TAG, "Bootstrap integrity verification failed!")
+                cleanUpFailedBootstrap(prefixDir.absolutePath)
+                _state.value = State.Error("Bootstrap integrity verification failed — critical files missing or corrupted")
+                return@withContext false
+            }
+
+            _state.value = State.Done
+            Log.i(TAG, "Bootstrap installation complete: ${prefixDir.absolutePath}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Bootstrap installation failed", e)
@@ -542,18 +553,19 @@ class BootstrapInstaller(private val context: Context) {
      */
     private fun cleanUpFailedBootstrap(prefixDir: String) {
         val prefix = File(prefixDir)
-        if (prefix.exists()) {
-            try {
-                // Remove the entire prefix directory
-                val oldPrefix = File(prefixDir + "-old")
-                if (oldPrefix.exists()) {
-                    oldPrefix.deleteRecursively()
-                }
-                prefix.deleteRecursively()
-                Log.e(TAG, "Cleaned up failed bootstrap installation at $prefixDir")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to clean up bootstrap: ${e.message}", e)
+        try {
+            val oldPrefix = File(prefixDir + "-old")
+            if (oldPrefix.exists()) {
+                oldPrefix.deleteRecursively()
             }
+            // Also clean staging dir so isBootstrapped doesn't see a stale staging
+            File(prefix.parent, "usr-staging").deleteRecursively()
+            if (prefix.exists()) {
+                prefix.deleteRecursively()
+            }
+            Log.e(TAG, "Cleaned up failed bootstrap installation at $prefixDir")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clean up bootstrap: ${e.message}", e)
         }
     }
 
