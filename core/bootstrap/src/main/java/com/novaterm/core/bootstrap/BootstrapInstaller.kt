@@ -266,9 +266,9 @@ class BootstrapInstaller(private val context: Context) {
             //    NovaTerm repo takes priority for packages that exist in both (via preferences).
             //    Termux repo provides the vast majority of packages; our overlay adds nvterm-specific
             //    packages like nvterm-exec. The dpkg wrapper patches com.termux paths on install.
+            //    Always overwrite — the ZIP's sources.list only has Termux repos.
             val sourcesList = File(prefixDir, "etc/apt/sources.list")
-            if (!sourcesList.exists()) {
-                sourcesList.writeText(
+            sourcesList.writeText(
                     """
                     |# NovaTerm packages (nvterm-exec, future NovaTerm-specific packages)
                     |deb https://novaterm-org.github.io/novaterm-apt-repo stable main
@@ -278,7 +278,6 @@ class BootstrapInstaller(private val context: Context) {
                     """.trimMargin() + "\n"
                 )
                 Log.i(TAG, "Wrote apt sources.list → NovaTerm + Termux repos")
-            }
 
             // 10. Ensure dpkg status files exist
             File(prefixDir, "var/lib/dpkg/available").apply { if (!exists()) createNewFile() }
@@ -336,15 +335,10 @@ class BootstrapInstaller(private val context: Context) {
                 "bin/bash", "bin/sh", "bin/login",
                 "lib/libnvterm-exec-linker-ld-preload.so",
                 "lib/libnvterm-exec-ld-preload.so",
-                "lib/libnvterm-exec.so",
+                "lib/libnvterm-exec-direct-ld-preload.so",
+                "lib/libnvterm-exec_nos_c_tre.so",
                 "lib/libnvterm-core_nos_c_tre.so",
                 "lib/libnvterm-core_nos_cxx_tre.so",
-                // Also check old names for backward compatibility
-                "lib/libtermux-exec-linker-ld-preload.so",
-                "lib/libtermux-exec-ld-preload.so",
-                "lib/libtermux-exec.so",
-                "lib/libtermux-core_nos_c_tre.so",
-                "lib/libtermux-core_nos_cxx_tre.so",
             )
             for (f in criticalFiles) {
                 val file = File(prefixDir, f)
@@ -766,6 +760,8 @@ class BootstrapInstaller(private val context: Context) {
             "lib/libtermux-exec.so",                          // Renamed to libnvterm-exec.so at extraction
             "lib/libtermux-exec-ld-preload.so",               // Renamed at extraction
             "lib/libtermux-exec-linker-ld-preload.so",        // Renamed at extraction
+            "lib/libtermux-exec-direct-ld-preload.so",        // Renamed at extraction
+            "lib/libtermux-exec_nos_c_tre.so",               // Renamed at extraction
             "bin/termux-exec-ld-preload-lib",                // Renamed to nvterm-exec-ld-preload-lib
             "bin/termux-exec-system-linker-exec",              // Renamed to nvterm-exec-system-linker-exec
             "lib/libtermux-core_nos_c_tre.so",                // Renamed to libnvterm-core_nos_c_tre.so
@@ -782,7 +778,8 @@ class BootstrapInstaller(private val context: Context) {
             "bin/login" to "0000000000000000000000000000000000000000000000000000000000000000",
             "lib/libnvterm-exec-linker-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
             "lib/libnvterm-exec-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
-            "lib/libnvterm-exec.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-exec-direct-ld-preload.so" to "0000000000000000000000000000000000000000000000000000000000000000",
+            "lib/libnvterm-exec_nos_c_tre.so" to "0000000000000000000000000000000000000000000000000000000000000000",
             "lib/libnvterm-core_nos_c_tre.so" to "0000000000000000000000000000000000000000000000000000000000000000",
             "lib/libnvterm-core_nos_cxx_tre.so" to "0000000000000000000000000000000000000000000000000000000000000000",
         )
