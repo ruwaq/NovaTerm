@@ -277,8 +277,8 @@ class MainActivity : ComponentActivity() {
             }
 
             ACTION_RUN_COMMAND -> {
-                // Verify caller has RUN_COMMAND permission
-                if (checkCallingOrSelfPermission("com.nvterm.permission.RUN_COMMAND")
+                // Verify caller has RUN_COMMAND permission (not self — use checkCallingPermission)
+                if (checkCallingPermission("com.nvterm.permission.RUN_COMMAND")
                     != PackageManager.PERMISSION_GRANTED) {
                     Log.w(TAG, "RUN_COMMAND denied — caller lacks permission")
                     return

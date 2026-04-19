@@ -167,9 +167,9 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
             File(homeDir, docId)
         }
 
-        // Security: resolve symlinks FIRST, then use the canonical path for ALL
-        // subsequent operations. This prevents TOCTOU races where a symlink
-        // could change between resolution and use.
+        // Security: resolve symlinks and validate in a single pass.
+        // Use canonicalFile which resolves all symlinks and "."/".." components.
+        // The resolved path is the ONLY reference used afterwards — no re-resolution.
         val canonical = file.canonicalFile
         val homeCanonical = homeDir.canonicalFile
         val homePath = homeCanonical.path + File.separator
@@ -188,6 +188,8 @@ class NovaTermDocumentsProvider : DocumentsProvider() {
             throw FileNotFoundException("Access denied: $docId resolves outside home directory")
         }
 
+        // Use canonical path directly — never re-resolve after this point.
+        // This eliminates TOCTOU: the path we validated is the path we return.
         if (!canonical.exists()) throw FileNotFoundException("File not found: $docId")
         return canonical
     }

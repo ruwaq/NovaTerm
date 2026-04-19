@@ -44,6 +44,11 @@ class RunCommandTool(
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
         val command = arguments["command"] as? String
             ?: return ToolResult.Error("Missing required parameter: command")
+
+        if (command.length > MAX_COMMAND_LENGTH) {
+            return ToolResult.Error("Command too long (${command.length} chars, max $MAX_COMMAND_LENGTH)")
+        }
+
         val session = (arguments["session"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
         val waitMs = (arguments["wait_ms"] as? Number)?.toLong()?.coerceIn(500, 30_000) ?: DEFAULT_WAIT_MS
 
@@ -90,5 +95,6 @@ class RunCommandTool(
         /** Default timeout: 10s (was 3s fixed delay — faster for fast commands). */
         private const val DEFAULT_WAIT_MS = 10_000L
         private const val MAX_OUTPUT_LINES = 100
+        private const val MAX_COMMAND_LENGTH = 4096
     }
 }

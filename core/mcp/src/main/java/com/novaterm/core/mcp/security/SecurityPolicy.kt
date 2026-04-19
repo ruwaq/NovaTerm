@@ -42,7 +42,13 @@ object SecurityPolicy {
         Regex("""^rm\s+(-[rRf]+\s+)+(/\s*$|/\*)"""),
         Regex("""^mkfs"""),                     // mkfs anything
         Regex("""^dd\s+if=/dev/"""),            // dd from raw device
+        Regex("""^dd\s+of=/dev/"""),            // dd to raw device
         Regex("""^chmod\s+-R\s+777\s+/\s*$"""), // chmod -R 777 / (exact root)
+        Regex("""^chown\s+-R\s+\S+\s+/\s*$"""),  // chown -R user / (exact root)
+        Regex("""^format\s"""),                   // format (Android shell command)
+        Regex("""^reboot"""),                     // reboot device
+        Regex("""^shutdown"""),                   // shutdown device
+        Regex("""^input\s+keyevent\s+26"""),     // power button injection
     )
 
     // Split on all shell metacharacters that can chain commands or redirect I/O.
