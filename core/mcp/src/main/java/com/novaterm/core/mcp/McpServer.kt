@@ -125,7 +125,8 @@ class McpServer(
             routing {
                 // MCP endpoint (Streamable HTTP)
                 post("/mcp") {
-                    if (!rateLimiter.tryAcquire()) {
+                    val clientId = call.request.local.remoteAddress
+                    if (!rateLimiter.tryAcquire(clientId)) {
                         call.respondText(
                             buildJsonObject {
                                 put("error", "Rate limit exceeded. Max ${rateLimiter.maxRequests} requests per minute.")

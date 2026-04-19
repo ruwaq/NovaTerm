@@ -11,60 +11,60 @@ class RateLimiterTest {
     fun `allows requests under the limit`() {
         val limiter = RateLimiter(maxRequests = 5, windowMs = 60_000)
         repeat(5) { i ->
-            assertTrue("Request ${i + 1} should be allowed", limiter.tryAcquire())
+            assertTrue("Request ${i + 1} should be allowed", limiter.tryAcquire("client1"))
         }
     }
 
     @Test
     fun `rejects requests over the limit`() {
         val limiter = RateLimiter(maxRequests = 3, windowMs = 60_000)
-        repeat(3) { limiter.tryAcquire() }
-        assertFalse("4th request should be rejected", limiter.tryAcquire())
-        assertFalse("5th request should also be rejected", limiter.tryAcquire())
+        repeat(3) { limiter.tryAcquire("client1") }
+        assertFalse("4th request should be rejected", limiter.tryAcquire("client1"))
+        assertFalse("5th request should also be rejected", limiter.tryAcquire("client1"))
     }
 
     @Test
     fun `allows requests after window expires`() {
-        // Use a tiny window so entries expire immediately
         val limiter = RateLimiter(maxRequests = 2, windowMs = 1)
-        assertTrue(limiter.tryAcquire())
-        assertTrue(limiter.tryAcquire())
+        assertTrue(limiter.tryAcquire("client1"))
+        assertTrue(limiter.tryAcquire("client1"))
 
         // Wait for window to expire
         Thread.sleep(5)
 
-        assertTrue("Should allow after window expires", limiter.tryAcquire())
+        assertTrue("Should allow after window expires", limiter.tryAcquire("client1"))
     }
 
     @Test
-    fun `currentCount reflects active requests`() {
-        val limiter = RateLimiter(maxRequests = 10, windowMs = 60_000)
-        assertEquals(0, limiter.currentCount)
-        limiter.tryAcquire()
-        limiter.tryAcquire()
-        assertEquals(2, limiter.currentCount)
+    fun `per-client isolation - one client does not affect another`() {
+        val limiter = RateLimiter(maxRequests = 2, windowMs = 60_000)
+        assertTrue(limiter.tryAcquire("client1"))
+        assertTrue(limiter.tryAcquire("client1"))
+        assertFalse("client1 should be rate limited", limiter.tryAcquire("client1"))
+        assertTrue("client2 should not be affected", limiter.tryAcquire("client2"))
+        assertTrue("client2 second request", limiter.tryAcquire("client2"))
+        assertFalse("client2 should be rate limited", limiter.tryAcquire("client2"))
     }
 
     @Test
     fun `default configuration allows 60 requests per minute`() {
         val limiter = RateLimiter()
         repeat(60) { i ->
-            assertTrue("Request ${i + 1} should be allowed", limiter.tryAcquire())
+            assertTrue("Request ${i + 1} should be allowed", limiter.tryAcquire("client1"))
         }
-        assertFalse("61st request should be rejected", limiter.tryAcquire())
+        assertFalse("61st request should be rejected", limiter.tryAcquire("client1"))
     }
 
     @Test
     fun `concurrent access does not crash`() {
         val limiter = RateLimiter(maxRequests = 1000, windowMs = 60_000)
-        val threads = (1..10).map {
+        val threads = (1..10).map { threadId ->
             Thread {
-                repeat(50) { limiter.tryAcquire() }
+                repeat(50) { limiter.tryAcquire("client$threadId") }
             }
         }
         threads.forEach { it.start() }
         threads.forEach { it.join() }
-        // All 500 requests should have been tracked (under the 1000 limit)
-        assertTrue(limiter.currentCount <= 1000)
+        assertEquals(10, limiter.clientCount)
     }
 }

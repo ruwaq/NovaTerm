@@ -11,7 +11,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.Condition
 import java.io.File
+import kotlin.concurrent.withLock
 
 /**
  * On-device LLM inference engine supporting GGUF models via MediaPipe.
@@ -44,6 +47,10 @@ class GemmaEngine(
 
     /** Guards against concurrent initialization. */
     private val initMutex = Mutex()
+
+    /** Lock for release() to wait on inference completion. */
+    private val releaseLock = ReentrantLock()
+    private val inferenceDone: Condition = releaseLock.newCondition()
 
     override suspend fun initialize(): Boolean = withContext(Dispatchers.IO) {
         initMutex.withLock {
@@ -123,6 +130,7 @@ class GemmaEngine(
                 null
             } finally {
                 _state.value = LlmState.READY
+                releaseLock.withLock { inferenceDone.signalAll() }
             }
         }
     }
@@ -148,6 +156,7 @@ class GemmaEngine(
                 null
             } finally {
                 _state.value = LlmState.READY
+                releaseLock.withLock { inferenceDone.signalAll() }
             }
         }
     }
@@ -156,9 +165,13 @@ class GemmaEngine(
         // Wait for any in-flight inference to complete before closing the backend.
         // Without this, release() could close the native model while a coroutine
         // is mid-inference, causing a native crash.
-        val deadline = System.currentTimeMillis() + 5000
-        while (_state.value == LlmState.INFERRING && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50)
+        releaseLock.withLock {
+            var remaining = RELEASE_TIMEOUT_MS
+            while (_state.value == LlmState.INFERRING && remaining > 0) {
+                remaining = inferenceDone.awaitNanos(remaining * 1_000_000L).let {
+                    if (it == 0L) 0L else it / 1_000_000L + 1
+                }
+            }
         }
         try {
             backend?.close()
@@ -172,5 +185,6 @@ class GemmaEngine(
 
     companion object {
         private const val TAG = "GemmaEngine"
+        private const val RELEASE_TIMEOUT_MS = 5000L
     }
 }

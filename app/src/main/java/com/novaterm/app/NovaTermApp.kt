@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import android.os.StrictMode
 import com.novaterm.app.crash.CrashReporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,9 +18,25 @@ class NovaTermApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) enableStrictMode()
         CrashReporter.install(this)
         createNotificationChannels()
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycle)
+    }
+
+    private fun enableStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .build()
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .build()
+        )
     }
 
     private fun createNotificationChannels() {

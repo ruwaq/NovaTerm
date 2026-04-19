@@ -127,6 +127,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.window)
+    implementation(libs.androidx.work.runtime)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

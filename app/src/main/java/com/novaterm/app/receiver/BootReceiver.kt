@@ -41,6 +41,8 @@ class BootReceiver : BroadcastReceiver() {
             val reason = classifyBootError(e)
             Log.e(TAG, "Boot service start failed: $reason", e)
             notifyBootFailure(context, reason)
+            // Schedule WorkManager retry for Android 12+ restrictions or transient failures
+            SessionRestoreWorker.schedule(context)
         }
     }
 
