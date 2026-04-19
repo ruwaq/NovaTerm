@@ -179,14 +179,15 @@ class AgentOrchestrator(
      * Must be called after every session removal (kill, close, or natural exit).
      */
     fun adjustSessionIdsAfterRemoval(removedIndex: Int) {
-        var changed = false
-        workspaces.forEach { (id, workspace) ->
-            if (workspace.sessionId > removedIndex) {
-                workspaces[id] = workspace.copy(sessionId = workspace.sessionId - 1)
-                changed = true
-            }
+        // Collect modifications first, then apply — avoids ConcurrentModificationException
+        // from writing to the map while iterating over it.
+        val updates = workspaces.entries
+            .filter { (_, ws) -> ws.sessionId > removedIndex }
+            .map { (id, ws) -> id to ws.copy(sessionId = ws.sessionId - 1) }
+        if (updates.isNotEmpty()) {
+            updates.forEach { (id, ws) -> workspaces[id] = ws }
+            emitWorkspaces()
         }
-        if (changed) emitWorkspaces()
     }
 
     /**
@@ -220,10 +221,13 @@ class AgentOrchestrator(
             // Clean up the isolated directory (only if we created it)
             val dir = File(workspace.workingDir)
             if (dir.exists() && dir.absolutePath.startsWith(homeDir)) {
-                dir.deleteRecursively()
-                Log.i(TAG, "Cleaned up workspace directory: ${workspace.workingDir}")
+                val deleted = dir.deleteRecursively()
+                if (deleted) {
+                    Log.i(TAG, "Cleaned up workspace directory: ${workspace.workingDir}")
+                } else {
+                    Log.w(TAG, "Failed to delete workspace directory: ${workspace.workingDir}")
+                }
             }
-            workspaces[workspaceId] = workspace.copy(status = AgentStatus.DESTROYED)
             workspaces.remove(workspaceId)
             emitWorkspaces()
         }
@@ -334,7 +338,7 @@ class AgentOrchestrator(
                 .directory(File(workingDir))
                 .redirectErrorStream(true)
                 .start()
-            val output = process.inputStream.bufferedReader().readText()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
             val finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
             if (!finished) {
                 process.destroyForcibly()

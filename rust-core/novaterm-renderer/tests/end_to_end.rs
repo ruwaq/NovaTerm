@@ -8,6 +8,9 @@
 // 5. Verify cells have valid atlas entries and correct colors/flags
 //
 // This catches integration bugs between novaterm-vt and novaterm-renderer.
+// Requires Android font system for atlas rasterization.
+
+#![cfg(target_os = "android")]
 
 use novaterm_renderer::atlas::{GlyphAtlas, GlyphKey, ATLAS_WIDTH, ATLAS_HEIGHT};
 use novaterm_vt::{AlacrittyBackend, TerminalBackend};

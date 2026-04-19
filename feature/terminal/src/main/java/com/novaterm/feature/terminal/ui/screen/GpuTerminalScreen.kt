@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.novaterm.core.session.engine.GpuRenderer
 import com.novaterm.core.session.engine.RustSessionEngine
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "GpuTerminalScreen"
 
@@ -71,16 +72,16 @@ fun GpuTerminalScreen(
 
             // Start frame loop via Choreographer
             val choreographer = Choreographer.getInstance()
-            var running = true
+            val running = AtomicBoolean(true)
 
             val frameCallback = object : Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
-                    if (!running) return
+                    if (!running.get()) return
 
                     // Check if GPU suggests fallback (too many errors)
                     if (renderer.shouldFallback()) {
                         Log.e(TAG, "GPU renderer error threshold exceeded, falling back")
-                        running = false
+                        running.set(false)
                         if (!fallbackTriggered.value) {
                             fallbackTriggered.value = true
                             onGpuUnavailable()
@@ -101,7 +102,7 @@ fun GpuTerminalScreen(
             }
 
             surface.onDestroyed {
-                running = false
+                running.set(false)
                 choreographer.removeFrameCallback(frameCallback)
                 renderer.detachSurface()
             }

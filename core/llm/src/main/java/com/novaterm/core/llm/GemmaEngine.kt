@@ -153,6 +153,13 @@ class GemmaEngine(
     }
 
     override fun release() {
+        // Wait for any in-flight inference to complete before closing the backend.
+        // Without this, release() could close the native model while a coroutine
+        // is mid-inference, causing a native crash.
+        val deadline = System.currentTimeMillis() + 5000
+        while (_state.value == LlmState.INFERRING && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+        }
         try {
             backend?.close()
         } catch (e: Exception) {

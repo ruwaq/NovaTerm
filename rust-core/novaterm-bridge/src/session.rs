@@ -145,9 +145,12 @@ impl RustSession {
         let writer_handle = match writer_handle {
             Ok(h) => h,
             Err(e) => {
-                // Writer spawn failed — stop the reader thread and close writer fd.
+                // Writer spawn failed — stop the reader thread and close both fds.
                 alive.store(false, Ordering::Release);
                 unsafe { libc::close(writer_raw); }
+                // Reader thread will see alive=false and exit, but close the
+                // raw fd too since the closure may not have run yet.
+                unsafe { libc::close(reader_raw); }
                 return Err(novaterm_pty::Error::Io(e));
             }
         };
@@ -232,6 +235,10 @@ impl RustSession {
         if rc != 0 {
             log::debug!("kill({}, SIGKILL) returned {}", self.child_pid, std::io::Error::last_os_error());
         }
+        // Reap the child process to prevent zombies.
+        // WNOHANG avoids blocking if the process hasn't exited yet (Drop will call wait()).
+        let mut status: i32 = 0;
+        unsafe { libc::waitpid(self.child_pid, &mut status, libc::WNOHANG); }
     }
 
     pub fn wait(&self) -> i32 {

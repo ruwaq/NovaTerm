@@ -70,14 +70,14 @@ class BootstrapInstaller(private val context: Context) {
      */
     private fun calculateFileChecksum(filePath: String): String? {
         return try {
-            val inputStream = FileInputStream(filePath)
             val md = MessageDigest.getInstance("SHA-256")
             val buffer = ByteArray(8192)
-            var length: Int
-            while (inputStream.read(buffer).also { length = it } != -1) {
-                md.update(buffer, 0, length)
+            FileInputStream(filePath).use { inputStream ->
+                var length: Int
+                while (inputStream.read(buffer).also { length = it } != -1) {
+                    md.update(buffer, 0, length)
+                }
             }
-            inputStream.close()
             val digest = md.digest()
             String.format("%064x", BigInteger(1, digest))
         } catch (e: Exception) {

@@ -284,18 +284,20 @@ pub fn snapshot_from_term<T: alacritty_terminal::event::EventListener>(
     let cols = term.grid().columns();
     let rows = term.grid().screen_lines();
 
-    // Guard against integer overflow (#2): reject grids larger than 500x500.
-    if rows > 500 || cols > 500 || rows.checked_mul(cols).is_none() {
-        return GridSnapshot {
-            cells: Vec::new(),
-            rows: rows as i32,
-            cols: cols as i32,
-            cursor: CursorState { row: 0, col: 0, shape: 0, visible: false },
-            damage: Vec::new(),
-            title: String::new(),
-        };
-    }
-    let total_cells = rows * cols;
+    // Guard against integer overflow: reject grids larger than 500x500.
+    let total_cells = match rows.checked_mul(cols) {
+        Some(n) if rows <= 500 && cols <= 500 => n,
+        _ => {
+            return GridSnapshot {
+                cells: Vec::new(),
+                rows: rows as i32,
+                cols: cols as i32,
+                cursor: CursorState { row: 0, col: 0, shape: 0, visible: false },
+                damage: Vec::new(),
+                title: String::new(),
+            };
+        }
+    };
 
     // Read damage FIRST (consumes accumulated damage)
     let damage = match term.damage() {

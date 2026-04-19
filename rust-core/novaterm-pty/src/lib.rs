@@ -413,7 +413,7 @@ pub fn set_utf8_mode(fd: &OwnedFd) -> Result<(), Error> {
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::os::unix::io::AsRawFd;
+    use std::os::unix::io::{AsRawFd, IntoRawFd};
 
     #[test]
     fn test_libc_atoi_valid() {
@@ -463,6 +463,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_pty_open_and_ptsname() {
         let (master, name) = open_ptmx().expect("open_ptmx should succeed");
         assert!(master.as_raw_fd() >= 0);
@@ -473,14 +474,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_termios_utf8() {
         use rustix::termios::{self, InputModes};
 
         let (master, _name) = open_ptmx().expect("open_ptmx should succeed");
         set_utf8_mode(&master).expect("set_utf8_mode should succeed");
 
-        let borrowed = unsafe { rustix::fd::BorrowedFd::borrow_raw(master.as_raw_fd()) };
-        let attrs = termios::tcgetattr(borrowed).expect("tcgetattr should succeed");
+        let attrs = termios::tcgetattr(&master).expect("tcgetattr should succeed");
 
         assert!(
             attrs.input_modes.contains(InputModes::IUTF8),
@@ -497,6 +498,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_winsize() {
         let (master, _name) = open_ptmx().expect("open_ptmx should succeed");
         set_window_size(&master, 24, 80, 8, 16).expect("set_window_size should succeed");
@@ -512,6 +514,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_spawn_system_shell() {
         let (master, pid) = create_subprocess(
             "/system/bin/sh",
@@ -532,11 +535,12 @@ mod tests {
         // Give the shell a moment to start, then send "exit\n".
         std::thread::sleep(std::time::Duration::from_millis(200));
 
-        let mut file = unsafe { std::fs::File::from_raw_fd(master.as_raw_fd()) };
+        // Transfer FD ownership from OwnedFd to File via into_raw_fd().
+        // This is the I/O-safe way to hand off an FD — as_raw_fd() + forget()
+        // violates Rust's I/O safety tracking and causes SIGABRT on modern Rust.
+        let raw_fd = master.into_raw_fd();
+        let mut file = unsafe { std::fs::File::from_raw_fd(raw_fd) };
         file.write_all(b"exit\n").expect("write to master should succeed");
-
-        // Prevent the OwnedFd from double-closing (File took ownership via from_raw_fd).
-        std::mem::forget(master);
 
         // Read any output (non-blocking drain).
         let mut buf = [0u8; 4096];
@@ -552,9 +556,5 @@ mod tests {
         assert!(exited, "child should have exited normally");
         let code = libc::WEXITSTATUS(status);
         assert_eq!(code, 0, "exit code should be 0");
-
-        // File will close the fd on drop.
-        // Forget the file to avoid double-close since we already forgot master.
-        // Actually File owns the fd now, let it close naturally.
     }
 }

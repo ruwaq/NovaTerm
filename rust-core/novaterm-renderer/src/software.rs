@@ -41,7 +41,11 @@ impl Renderer for SoftwareRenderer {
     fn render(&mut self, snapshot: &GridSnapshot) {
         let rows = snapshot.rows as usize;
         let cols = snapshot.cols as usize;
-        let total = rows * cols * 4;
+        // Guard against overflow: reject impossibly large grids
+        let total = match rows.checked_mul(cols).and_then(|n| n.checked_mul(4)) {
+            Some(n) => n,
+            None => return,
+        };
 
         // Resize buffer if dimensions changed
         if self.grid_buffer.len() != total {
@@ -51,14 +55,14 @@ impl Renderer for SoftwareRenderer {
         }
 
         // Pack cells into flat buffer: [char, fg, bg, flags] per cell
+        let max_cells = total / 4;
         for (i, cell) in snapshot.cells.iter().enumerate() {
+            if i >= max_cells { break; }
             let base = i * 4;
-            if base + 3 < self.grid_buffer.len() {
-                self.grid_buffer[base] = cell.character as u32 as i32;
-                self.grid_buffer[base + 1] = cell.fg as i32;
-                self.grid_buffer[base + 2] = cell.bg as i32;
-                self.grid_buffer[base + 3] = cell.flags as i32;
-            }
+            self.grid_buffer[base] = cell.character as u32 as i32;
+            self.grid_buffer[base + 1] = cell.fg as i32;
+            self.grid_buffer[base + 2] = cell.bg as i32;
+            self.grid_buffer[base + 3] = cell.flags as i32;
         }
     }
 

@@ -112,8 +112,8 @@ class SessionManager(
             sessionMap[id] = managed
             newIndex = sessionMap.size - 1
             publishState()
+            _activeSessionIndex.value = newIndex
         }
-        _activeSessionIndex.value = newIndex
         // Channel.UNLIMITED never returns failure, safe to ignore result
         _events.trySend(SessionEvent.Created(id))
         id

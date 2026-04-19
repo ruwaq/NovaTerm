@@ -78,9 +78,6 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
         let mut env_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
         let mut surface_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
 
-        let mut env_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
-        let mut surface_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
-
         let result = env.with_env(|e| -> Result<(), jni::errors::Error> {
             env_ptr = e.get_raw() as *mut std::ffi::c_void;
             surface_ptr = surface.as_raw() as *mut std::ffi::c_void;
@@ -89,11 +86,6 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
 
         if result.is_err() {
             log::error!("Failed to get JNI env or surface pointers");
-            return;
-        }
-
-        if env_ptr.is_null() || surface_ptr.is_null() {
-            log::error!("Null JNI env or surface pointer detected");
             return;
         }
 

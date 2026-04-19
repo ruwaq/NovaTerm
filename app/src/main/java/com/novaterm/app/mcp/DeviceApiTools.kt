@@ -37,7 +37,8 @@ class ClipboardReadTool(private val context: Context) : McpTool {
     override val inputSchema = InputSchema(properties = emptyMap(), required = emptyList())
 
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            ?: return ToolResult.Error("Clipboard service unavailable")
         val clip = clipboard.primaryClip ?: return ToolResult.Success("")
         val text = clip.getItemAt(0)?.text?.toString() ?: ""
         return ToolResult.Success(text)
@@ -55,7 +56,8 @@ class ClipboardWriteTool(private val context: Context) : McpTool {
 
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
         val text = arguments["text"] as? String ?: return ToolResult.Error("Missing required parameter: text")
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            ?: return ToolResult.Error("Clipboard service unavailable")
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NovaTerm", text))
         return ToolResult.Success("Copied ${text.length} characters to clipboard")
     }
@@ -70,7 +72,8 @@ class BatteryStatusTool(private val context: Context) : McpTool {
     override val inputSchema = InputSchema(properties = emptyMap(), required = emptyList())
 
     override suspend fun execute(arguments: Map<String,Any?>): ToolResult {
-        val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+            ?: return ToolResult.Error("Battery service unavailable")
         val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
         val charging = bm.isCharging
         return ToolResult.Success(buildString {
@@ -94,7 +97,8 @@ class VibrateTool(private val context: Context) : McpTool {
 
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
         val duration = (arguments["duration_ms"] as? Number)?.toLong()?.coerceIn(1, 1000) ?: 200L
-        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            ?: return ToolResult.Error("Vibrator service unavailable")
         vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
         return ToolResult.Success("Vibrated for ${duration}ms")
     }
@@ -113,7 +117,8 @@ class TorchTool(private val context: Context) : McpTool {
 
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
         val on = arguments["on"] as? Boolean ?: return ToolResult.Error("Missing required parameter: on")
-        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return ToolResult.Error("Camera service unavailable")
         val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
             cameraManager.getCameraCharacteristics(id)
                 .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
@@ -161,7 +166,8 @@ class NotificationTool(private val context: Context) : McpTool {
         val title = arguments["title"] as? String ?: return ToolResult.Error("Missing: title")
         val text = arguments["text"] as? String ?: return ToolResult.Error("Missing: text")
         val channelId = "novaterm_device_api"
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            ?: return ToolResult.Error("Notification service unavailable")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
@@ -191,7 +197,8 @@ class WifiInfoTool(private val context: Context) : McpTool {
     override val inputSchema = InputSchema(properties = emptyMap(), required = emptyList())
 
     override suspend fun execute(arguments: Map<String, Any?>): ToolResult {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            ?: return ToolResult.Error("WiFi service unavailable")
         val info = wifiManager.connectionInfo
         return ToolResult.Success(buildString {
             appendLine("SSID: ${info.ssid}")
