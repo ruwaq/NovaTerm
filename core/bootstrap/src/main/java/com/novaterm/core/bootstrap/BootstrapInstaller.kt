@@ -278,7 +278,7 @@ class BootstrapInstaller(private val context: Context) {
             val cacheDir = File(context.cacheDir, "apt/archives/partial")
             cacheDir.mkdirs()
 
-            // 9. Write apt sources.list
+            // 9. Write apt sources.list with GPG key verification
             //    NovaTerm repo (native com.nvterm packages, no patching needed) takes priority.
             //    Termux repo provides packages not yet rebuilt by NovaTerm;
             //    the dpkg wrapper patches com.termux paths on install.
@@ -286,11 +286,11 @@ class BootstrapInstaller(private val context: Context) {
             val sourcesList = File(prefixDir, "etc/apt/sources.list")
             sourcesList.writeText(
                     """
-                    |# NovaTerm native packages (com.nvterm paths baked in, no patching needed)
-                    |deb https://packages.novaterm.dev stable main
+                    |# NovaTerm native packages (com.nvterm paths, no patching needed)
+                    |deb [signed-by=/data/data/com.nvterm/files/usr/etc/apt/trusted.gpg.d/novaterm-repo.gpg] https://packages.novaterm.dev stable main
                     |
                     |# Termux packages (patched by dpkg wrapper at install time)
-                    |deb https://packages-cf.termux.dev/apt/termux-main stable main
+                    |deb [signed-by=/data/data/com.nvterm/files/usr/etc/apt/trusted.gpg.d/termux-keyring.gpg] https://packages-cf.termux.dev/apt/termux-main stable main
                     """.trimMargin() + "\n"
                 )
                 Log.i(TAG, "Wrote apt sources.list → NovaTerm + Termux repos")
