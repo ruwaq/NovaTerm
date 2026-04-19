@@ -240,19 +240,18 @@ pub extern "system" fn Java_com_novaterm_core_session_engine_NativeRenderer_nati
 
         match info_str {
             Some(s) => {
-                let mut jstr: jstring = std::ptr::null_mut();
                 let jstr = env.with_env(|e| -> Result<jstring, jni::errors::Error> {
                     let js = e.new_string(&s)?;
                     Ok(js.into_raw())
                 });
 
-                if let Err(err) = jstr {
-                    log::error!("Failed to create Java string for GPU info: {}", err);
-                    return std::ptr::null_mut();
-                } else {
-                    jstr = jstr.unwrap();
+                match jstr {
+                    Ok(ptr) => ptr,
+                    Err(err) => {
+                        log::error!("Failed to create Java string for GPU info: {}", err);
+                        std::ptr::null_mut()
+                    }
                 }
-                jstr
             }
             None => std::ptr::null_mut(),
         }

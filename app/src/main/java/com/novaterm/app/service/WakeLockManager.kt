@@ -31,7 +31,8 @@ internal class WakeLockManager(private val context: Context) {
             return
         }
         if (wakeLock == null) {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                ?: run { Log.e(TAG, "PowerManager service unavailable"); return }
             wakeLock = pm.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "novaterm:service-wakelock",
@@ -41,7 +42,8 @@ internal class WakeLockManager(private val context: Context) {
 
         if (wifiLock == null) {
             val wm = context.applicationContext
-                .getSystemService(Context.WIFI_SERVICE) as WifiManager
+                .getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                ?: run { Log.e(TAG, "WifiManager service unavailable"); return }
             // minSdk 30 (Android 11) — WIFI_MODE_FULL_LOW_LATENCY always available
             val mode = WifiManager.WIFI_MODE_FULL_LOW_LATENCY
             wifiLock = wm.createWifiLock(mode, "novaterm:service-wifilock")

@@ -59,8 +59,8 @@ object OemDetector {
             else -> OemBrand.OTHER
         }
 
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isOptimized = !pm.isIgnoringBatteryOptimizations(context.packageName)
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isOptimized = pm?.isIgnoringBatteryOptimizations(context.packageName) == false
 
         return OemInfo(
             brand = brand,

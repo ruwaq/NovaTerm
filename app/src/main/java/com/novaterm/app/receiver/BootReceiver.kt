@@ -80,7 +80,7 @@ class BootReceiver : BroadcastReceiver() {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
-                as android.app.NotificationManager
+                as? android.app.NotificationManager ?: return
             manager.notify(BOOT_FAILURE_ID, notification)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show boot failure notification", e)
