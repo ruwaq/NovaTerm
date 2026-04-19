@@ -230,11 +230,27 @@ class BootstrapInstaller(private val context: Context) {
             }
             oldPrefix.deleteRecursively()
 
-            // 6. Create symlinks with patched targets (com.termux → com.nvterm in paths)
+            // 6. Create symlinks with patched targets (com.termux → com.nvterm in paths,
+            //    and termux-exec → nvterm-exec for renamed binaries)
             val patchedSymlinks = symlinks.map { (target, link) ->
-                target.replace("com.termux", "com.nvterm") to link
+                target
+                    .replace("com.termux", "com.nvterm")
+                    .replace("termux-exec-", "nvterm-exec-")
+                    .replace("libtermux-exec", "libnvterm-exec")
+                    .replace("libtermux-core", "libnvterm-core") to
+                link
+                    .replace("com.termux", "com.nvterm")
+                    .replace("termux-exec-", "nvterm-exec-")
+                    .replace("libtermux-exec", "libnvterm-exec")
+                    .replace("libtermux-core", "libnvterm-core")
             }
             createSymlinks(patchedSymlinks, prefixDir)
+
+            // 6b. Patch dpkg maintainer scripts — they still reference the original
+            //     termux-exec-* filenames that were renamed to nvterm-exec-* during
+            //     extraction. Without this, termux-exec.postinst fails with
+            //     "termux-exec-ld-preload-lib: not found" which aborts bootstrap.
+            patchDpkgMaintainerScripts(prefixDir)
 
             // 7. Validate critical files exist (after symlinks, so sh→bash resolves)
             val criticalBinaries = listOf("bin/bash", "bin/sh", "bin/login", "bin/apt", "bin/dpkg")
@@ -492,8 +508,8 @@ class BootstrapInstaller(private val context: Context) {
             appendLine("patch_deb() {")
             appendLine("  local deb=\"\$1\"")
             appendLine("  [ -f \"\$deb\" ] || return 0")
-            appendLine("  # Skip if already patched or no com.termux paths")
-            appendLine("  \$DPKG_DEB -c \"\$deb\" 2>/dev/null | grep -q \"com\\.termux\" || return 0")
+            appendLine("  # Skip if already patched or no com.termux / termux-exec paths")
+            appendLine("  \$DPKG_DEB -c \"\$deb\" 2>/dev/null | grep -qE 'com\\.termux|termux-exec-' || return 0")
             appendLine("  # Check package size — large packages (>50MB) use direct extraction")
             appendLine("  local size=\$(wc -c < \"\$deb\" 2>/dev/null || echo 0)")
             appendLine("  if [ \"\$size\" -gt 52428800 ]; then")
@@ -502,9 +518,13 @@ class BootstrapInstaller(private val context: Context) {
             appendLine("    \$DPKG_DEB -x \"\$deb\" \"\$tmp\" 2>/dev/null || { rm -rf \"\$tmp\"; return 1; }")
             appendLine("    if [ -d \"\$tmp/data/data/com.termux/files\" ]; then")
             appendLine("      cp -a \"\$tmp/data/data/com.termux/files/.\" \"\$NVTERM_PREFIX/\" 2>/dev/null")
+            appendLine("      # Rename termux-exec → nvterm-exec files in newly installed paths")
+            appendLine("      find \"\$NVTERM_PREFIX/usr\" -newer \"\$tmp\" -name 'libtermux-exec*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/libtermux-exec/libnvterm-exec/)' _ {} \\; 2>/dev/null")
+            appendLine("      find \"\$NVTERM_PREFIX/usr\" -newer \"\$tmp\" -name 'termux-exec-*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/termux-exec-/nvterm-exec-/)' _ {} \\; 2>/dev/null")
+            appendLine("      find \"\$NVTERM_PREFIX/usr\" -newer \"\$tmp\" -name 'libtermux-core*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/libtermux-core/libnvterm-core/)' _ {} \\; 2>/dev/null")
             appendLine("      # Patch text files in newly installed paths")
-            appendLine("      find \"\$NVTERM_PREFIX\" -newer \"\$tmp\" -type f \\( -name '*.sh' -o -name '*.conf' -o -name '*.cfg' -o -name '*.properties' -o -name '*.xml' -o -name '*.policy' -o -name '*.txt' \\) \\")
-            appendLine("        -exec sed -i 's/com\\.termux/com.nvterm/g' {} + 2>/dev/null")
+            appendLine("      find \"\$NVTERM_PREFIX\" -newer \"\$tmp\" -type f \\( -name '*.sh' -o -name '*.conf' -o -name '*.cfg' -o -name '*.properties' -o -name '*.xml' -o -name '*.policy' -o -name '*.txt' -o -name '*.postinst' -o -name '*.prerm' -o -name '*.postrm' -o -name '*.preinst' \\) \\")
+            appendLine("        -exec sed -i -e 's/com\\.termux/com.nvterm/g' -e 's/termux-exec-/nvterm-exec-/g' {} + 2>/dev/null")
             appendLine("    fi")
             appendLine("    rm -rf \"\$tmp\"")
             appendLine("    # Create a patched stub .deb so dpkg.real doesn't fail")
@@ -520,7 +540,11 @@ class BootstrapInstaller(private val context: Context) {
             appendLine("  local tmp=\"\$(mktemp -d)\"")
             appendLine("  \$DPKG_DEB --raw-extract \"\$deb\" \"\$tmp/pkg\" 2>/dev/null || { rm -rf \"\$tmp\"; return 1; }")
             appendLine("  [ -d \"\$tmp/pkg/data/data/com.termux\" ] && mv \"\$tmp/pkg/data/data/com.termux\" \"\$tmp/pkg/data/data/com.nvterm\"")
-            appendLine("  find \"\$tmp/pkg\" -type f -exec sed -i 's/com\\.termux/com.nvterm/g' {} + 2>/dev/null")
+            appendLine("  # Rename termux-exec → nvterm-exec files (same as bootstrap extraction)")
+            appendLine("  find \"\$tmp/pkg\" -name 'libtermux-exec*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/libtermux-exec/libnvterm-exec/)' _ {} \\; 2>/dev/null")
+            appendLine("  find \"\$tmp/pkg\" -name 'termux-exec-*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/termux-exec-/nvterm-exec-/)' _ {} \\; 2>/dev/null")
+            appendLine("  find \"\$tmp/pkg\" -name 'libtermux-core*' -exec sh -c 'mv \"\$1\" \"\$(dirname \"\$1\")/\$(basename \"\$1\" | sed s/libtermux-core/libnvterm-core/)' _ {} \\; 2>/dev/null")
+            appendLine("  find \"\$tmp/pkg\" -type f -exec sed -i -e 's/com\\.termux/com.nvterm/g' -e 's/termux-exec-/nvterm-exec-/g' {} + 2>/dev/null")
             appendLine("  \$DPKG_DEB -b \"\$tmp/pkg\" \"\$deb\" >/dev/null 2>&1")
             appendLine("  rm -rf \"\$tmp\"")
             appendLine("}")
@@ -609,6 +633,58 @@ class BootstrapInstaller(private val context: Context) {
         prefix.walkTopDown()
             .filter { it.isFile && (it.name.endsWith(".so") || it.name.contains(".so.")) }
             .forEach { it.setExecutable(true, true) }
+    }
+
+    // ── dpkg maintainer script patching ────────────────────
+
+    /**
+     * Patch dpkg maintainer scripts in `var/lib/dpkg/info/` to replace
+     * `termux-exec-` references with `nvterm-exec-`.
+     *
+     * During ZIP extraction, `termux-exec-*` binaries are renamed to
+     * `nvterm-exec-*`, but the postinst/prerm/postrm scripts still
+     * reference the old names. This causes "termux-exec-ld-preload-lib:
+     * not found" errors that abort the bootstrap second stage.
+     */
+    private fun patchDpkgMaintainerScripts(prefix: File) {
+        val dpkgInfo = File(prefix, "var/lib/dpkg/info")
+        if (!dpkgInfo.isDirectory) return
+
+        var patched = 0
+        dpkgInfo.listFiles()?.forEach { script ->
+            if (!script.isFile) return@forEach
+            val name = script.name.lowercase()
+            if (!name.endsWith(".postinst") && !name.endsWith(".prerm") &&
+                !name.endsWith(".postrm") && !name.endsWith(".preinst")) return@forEach
+
+            try {
+                val bytes = script.readBytes()
+                var changed = false
+                var i = 0
+                while (i <= bytes.size - TERMUX_EXEC_OLD.size) {
+                    var match = true
+                    for (j in TERMUX_EXEC_OLD.indices) {
+                        if (bytes[i + j] != TERMUX_EXEC_OLD[j]) { match = false; break }
+                    }
+                    if (match) {
+                        System.arraycopy(TERMUX_EXEC_NEW, 0, bytes, i, TERMUX_EXEC_NEW.size)
+                        i += TERMUX_EXEC_NEW.size
+                        changed = true
+                    } else {
+                        i++
+                    }
+                }
+                if (changed) {
+                    script.writeBytes(bytes)
+                    script.setExecutable(true, true)
+                    patched++
+                    Log.i(TAG, "Patched dpkg script: ${script.name}")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to patch dpkg script ${script.name}: ${e.message}")
+            }
+        }
+        Log.i(TAG, "Patched $patched dpkg maintainer script(s)")
     }
 
     // ── Login script patching ─────────────────────────────
@@ -745,6 +821,11 @@ class BootstrapInstaller(private val context: Context) {
         // com.termux (10 bytes) == com.nvterm (10 bytes) — safe for ELF binaries.
         private val OLD_PKG_BYTES = "com.termux".toByteArray(Charsets.US_ASCII)
         private val NEW_PKG_BYTES = "com.nvterm".toByteArray(Charsets.US_ASCII)
+
+        // termux-exec- (12 bytes) == nvterm-exec- (12 bytes) — same length, safe for scripts.
+        // Used to patch dpkg maintainer scripts that reference renamed binaries.
+        private val TERMUX_EXEC_OLD = "termux-exec-".toByteArray(Charsets.US_ASCII)
+        private val TERMUX_EXEC_NEW = "nvterm-exec-".toByteArray(Charsets.US_ASCII)
 
         // Extensions containing crypto/compressed data — must NOT be patched.
         private val SKIP_PATCH_EXTENSIONS = setOf(
