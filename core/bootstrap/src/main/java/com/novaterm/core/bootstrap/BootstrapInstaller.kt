@@ -639,16 +639,23 @@ class BootstrapInstaller(private val context: Context) {
 
     /**
      * Patch dpkg maintainer scripts in `var/lib/dpkg/info/` to replace
-     * `termux-exec-` references with `nvterm-exec-`.
+     * renamed references: `termux-exec-` → `nvterm-exec-`,
+     * `libtermux-exec` → `libnvterm-exec`, `libtermux-core` → `libnvterm-core`.
      *
-     * During ZIP extraction, `termux-exec-*` binaries are renamed to
-     * `nvterm-exec-*`, but the postinst/prerm/postrm scripts still
-     * reference the old names. This causes "termux-exec-ld-preload-lib:
+     * During ZIP extraction, these files are renamed but the postinst/prerm/postrm
+     * scripts still reference the old names. This causes "termux-exec-ld-preload-lib:
      * not found" errors that abort the bootstrap second stage.
      */
     private fun patchDpkgMaintainerScripts(prefix: File) {
         val dpkgInfo = File(prefix, "var/lib/dpkg/info")
         if (!dpkgInfo.isDirectory) return
+
+        // All same-length replacements (safe for binary patching).
+        val replacements = listOf(
+            TERMUX_EXEC_OLD to TERMUX_EXEC_NEW,
+            LIBTERMUX_EXEC_OLD to LIBTERMUX_EXEC_NEW,
+            LIBTERMUX_CORE_OLD to LIBTERMUX_CORE_NEW,
+        )
 
         var patched = 0
         dpkgInfo.listFiles()?.forEach { script ->
@@ -660,18 +667,20 @@ class BootstrapInstaller(private val context: Context) {
             try {
                 val bytes = script.readBytes()
                 var changed = false
-                var i = 0
-                while (i <= bytes.size - TERMUX_EXEC_OLD.size) {
-                    var match = true
-                    for (j in TERMUX_EXEC_OLD.indices) {
-                        if (bytes[i + j] != TERMUX_EXEC_OLD[j]) { match = false; break }
-                    }
-                    if (match) {
-                        System.arraycopy(TERMUX_EXEC_NEW, 0, bytes, i, TERMUX_EXEC_NEW.size)
-                        i += TERMUX_EXEC_NEW.size
-                        changed = true
-                    } else {
-                        i++
+                for ((old, newBytes) in replacements) {
+                    var i = 0
+                    while (i <= bytes.size - old.size) {
+                        var match = true
+                        for (j in old.indices) {
+                            if (bytes[i + j] != old[j]) { match = false; break }
+                        }
+                        if (match) {
+                            System.arraycopy(newBytes, 0, bytes, i, newBytes.size)
+                            i += newBytes.size
+                            changed = true
+                        } else {
+                            i++
+                        }
                     }
                 }
                 if (changed) {
@@ -826,6 +835,14 @@ class BootstrapInstaller(private val context: Context) {
         // Used to patch dpkg maintainer scripts that reference renamed binaries.
         private val TERMUX_EXEC_OLD = "termux-exec-".toByteArray(Charsets.US_ASCII)
         private val TERMUX_EXEC_NEW = "nvterm-exec-".toByteArray(Charsets.US_ASCII)
+
+        // libtermux-exec (14 bytes) == libnvterm-exec (14 bytes) — same length.
+        private val LIBTERMUX_EXEC_OLD = "libtermux-exec".toByteArray(Charsets.US_ASCII)
+        private val LIBTERMUX_EXEC_NEW = "libnvterm-exec".toByteArray(Charsets.US_ASCII)
+
+        // libtermux-core (14 bytes) == libnvterm-core (14 bytes) — same length.
+        private val LIBTERMUX_CORE_OLD = "libtermux-core".toByteArray(Charsets.US_ASCII)
+        private val LIBTERMUX_CORE_NEW = "libnvterm-core".toByteArray(Charsets.US_ASCII)
 
         // Extensions containing crypto/compressed data — must NOT be patched.
         private val SKIP_PATCH_EXTENSIONS = setOf(

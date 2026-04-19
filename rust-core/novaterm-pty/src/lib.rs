@@ -166,8 +166,9 @@ pub fn libc_atoi(s: &[u8]) -> i32 {
 unsafe fn close_fds_except(keep_fd: RawFd) {
     let dir = libc::opendir(b"/proc/self/fd\0".as_ptr() as *const libc::c_char);
     if dir.is_null() {
-        // Fallback: brute-force close fds 3..256
-        for fd in 3..256 {
+        // Fallback: brute-force close fds 3..1024.
+        // Covers the typical range on Android even without /proc.
+        for fd in 3..1024 {
             if fd != keep_fd {
                 libc::close(fd);
             }

@@ -28,6 +28,7 @@ class SessionStore(context: Context) {
     /**
      * Save all active sessions. Called periodically and on service destroy.
      * Skips the write if data hasn't changed since the last successful save.
+     * Uses atomic write (temp file + rename) to prevent corruption on crash.
      */
     fun save(sessions: List<SessionMetadata>) {
         synchronized(sessionsLock) {
@@ -35,7 +36,12 @@ class SessionStore(context: Context) {
                 val serialized = SessionMetadataSerializer.serialize(sessions)
                 val currentHash = serialized.hashCode()
                 if (!sessionsDirty && currentHash == lastSavedHash) return
-                sessionsFile.writeText(serialized)
+                val tmp = File(sessionsFile.parentFile, "${SESSIONS_FILENAME}.tmp")
+                tmp.writeText(serialized)
+                if (!tmp.renameTo(sessionsFile)) {
+                    // renameTo can fail on some filesystems; fall back to direct write
+                    sessionsFile.writeText(serialized)
+                }
                 lastSavedHash = currentHash
                 sessionsDirty = false
             } catch (e: Exception) {
@@ -90,11 +96,17 @@ class SessionStore(context: Context) {
 
     /**
      * Save session group definitions.
+     * Uses atomic write to prevent corruption on crash.
      */
     fun saveGroups(groups: List<SessionGroup>) {
         synchronized(groupsLock) {
             try {
-                groupsFile.writeText(SessionGroupSerializer.serialize(groups))
+                val serialized = SessionGroupSerializer.serialize(groups)
+                val tmp = File(groupsFile.parentFile, "${GROUPS_FILENAME}.tmp")
+                tmp.writeText(serialized)
+                if (!tmp.renameTo(groupsFile)) {
+                    groupsFile.writeText(serialized)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save session groups", e)
             }
