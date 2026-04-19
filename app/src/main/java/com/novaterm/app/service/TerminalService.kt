@@ -170,8 +170,8 @@ class TerminalService : Service() {
 
     // ── Clipboard ──────────────────────────────────────────
 
-    private val clipboardManager: ClipboardManager by lazy {
-        getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    private val clipboardManager: ClipboardManager? by lazy {
+        getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
     }
 
     // ── Session client callbacks ───────────────────────────
@@ -223,14 +223,14 @@ class TerminalService : Service() {
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
             if (!text.isNullOrEmpty()) {
-                clipboardManager.setPrimaryClip(
+                clipboardManager?.setPrimaryClip(
                     ClipData.newPlainText(getString(R.string.app_name), text)
                 )
             }
         }
 
         override fun onPasteTextFromClipboard(session: TerminalSession?) {
-            val clip = clipboardManager.primaryClip
+            val clip = clipboardManager?.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0).coerceToText(this@TerminalService).toString()
                 session?.emulator?.paste(text)
@@ -238,7 +238,7 @@ class TerminalService : Service() {
         }
 
         override fun getClipboardText(): String? {
-            val clip = clipboardManager.primaryClip
+            val clip = clipboardManager?.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 return clip.getItemAt(0).coerceToText(this@TerminalService).toString()
             }

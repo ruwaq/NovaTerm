@@ -29,8 +29,8 @@ class TerminalNotificationProvider(
     private val alertIconRes: Int = android.R.drawable.ic_dialog_alert,
 ) : NotificationProvider {
 
-    private val notificationManager: NotificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val notificationManager: NotificationManager? =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
     override fun buildServiceNotification(
         sessions: List<SessionInfo>,
@@ -80,11 +80,11 @@ class TerminalNotificationProvider(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
-        notificationManager.notify(notificationId, notification)
+        notificationManager?.notify(notificationId, notification)
     }
 
     override fun dismiss(notificationId: Int) {
-        notificationManager.cancel(notificationId)
+        notificationManager?.cancel(notificationId)
     }
 
     companion object {

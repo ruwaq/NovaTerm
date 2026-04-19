@@ -34,7 +34,8 @@ class ModelManager(context: Context) {
 
     private val context: Context = context.applicationContext
     private val modelsDir = File(this.context.getExternalFilesDir(null), "models").also { it.mkdirs() }
-    private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+        ?: throw IllegalStateException("DownloadManager service unavailable")
     private val prefs = context.getSharedPreferences("llm_models", Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow<ModelState>(ModelState.Idle)

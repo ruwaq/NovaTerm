@@ -152,7 +152,7 @@ private fun openUrl(context: Context, url: String) {
 }
 
 private fun copyToClipboard(context: Context, text: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText("NovaTerm", text))
     Toast.makeText(context, context.getString(R.string.url_copied), Toast.LENGTH_SHORT).show()
 }
