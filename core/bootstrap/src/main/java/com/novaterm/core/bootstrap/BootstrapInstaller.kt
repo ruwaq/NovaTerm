@@ -278,18 +278,18 @@ class BootstrapInstaller(private val context: Context) {
             val cacheDir = File(context.cacheDir, "apt/archives/partial")
             cacheDir.mkdirs()
 
-            // 9. Write apt sources.list (Termux + NovaTerm package repositories)
-            //    NovaTerm repo takes priority for packages that exist in both (via preferences).
-            //    Termux repo provides the vast majority of packages; our overlay adds nvterm-specific
-            //    packages like nvterm-exec. The dpkg wrapper patches com.termux paths on install.
+            // 9. Write apt sources.list
+            //    NovaTerm repo (native com.nvterm packages, no patching needed) takes priority.
+            //    Termux repo provides packages not yet rebuilt by NovaTerm;
+            //    the dpkg wrapper patches com.termux paths on install.
             //    Always overwrite — the ZIP's sources.list only has Termux repos.
             val sourcesList = File(prefixDir, "etc/apt/sources.list")
             sourcesList.writeText(
                     """
-                    |# NovaTerm packages (nvterm-exec, future NovaTerm-specific packages)
-                    |deb https://novaterm-org.github.io/novaterm-apt-repo stable main
+                    |# NovaTerm native packages (com.nvterm paths baked in, no patching needed)
+                    |deb https://packages.novaterm.dev stable main
                     |
-                    |# Termux packages (vim, python, openssh, etc — patched by dpkg wrapper)
+                    |# Termux packages (patched by dpkg wrapper at install time)
                     |deb https://packages-cf.termux.dev/apt/termux-main stable main
                     """.trimMargin() + "\n"
                 )
@@ -323,21 +323,28 @@ class BootstrapInstaller(private val context: Context) {
             // Also install NovaTerm's own GPG key from assets for our APT repository
             installAssetKey("novaterm-repo.gpg", File(trustedDir, "novaterm-repo.gpg"))
 
-            // 12b. Write APT preferences — prefer NovaTerm repo for overlapping packages
-            //     This ensures that when a package exists in both repos (e.g., termux-exec
-            //     in Termux vs nvterm-exec in NovaTerm), apt picks the NovaTerm version.
+            // 12b. Write APT preferences — prefer NovaTerm native packages.
+            //     Native NovaTerm packages have com.nvterm paths baked in and need
+            //     no runtime patching. When a package exists in both repos, apt
+            //     picks the NovaTerm version (priority 600 > default 500).
             val prefsDir = File(prefixDir, "etc/apt/preferences.d")
             prefsDir.mkdirs()
             val prefsFile = File(prefsDir, "novaterm.pref")
             if (!prefsFile.exists()) {
                 prefsFile.writeText(
                     """
+                    |# NovaTerm native packages (com.nvterm paths, no patching needed)
                     |Package: *
-                    |Pin: origin novaterm-org.github.io
+                    |Pin: origin packages.novaterm.dev
                     |Pin-Priority: 600
+                    |
+                    |# Fallback: Termux packages (patched by dpkg wrapper at install)
+                    |Package: *
+                    |Pin: origin packages-cf.termux.dev
+                    |Pin-Priority: 400
                     """.trimMargin() + "\n"
                 )
-                Log.i(TAG, "Wrote APT preferences → NovaTerm priority 600")
+                Log.i(TAG, "Wrote APT preferences → NovaTerm native=600, Termux=400")
             }
 
             // 13. Replace Termux MOTD with NovaTerm branding
