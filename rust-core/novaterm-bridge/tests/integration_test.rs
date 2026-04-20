@@ -252,7 +252,7 @@ fn jni_error_pattern_grid_size_guard() {
 
 #[test]
 fn jni_error_pattern_byte_patching_same_length() {
-    // The com.termux → com.nvterm patch requires same-length arrays
+    // Byte patching: com.termux → com.nvterm requires same-length arrays (both 10 bytes)
     let old = b"com.termux"; // 10 bytes
     let new = b"com.nvterm"; // 10 bytes
     assert_eq!(old.len(), new.len(), "Patch arrays must be same length");

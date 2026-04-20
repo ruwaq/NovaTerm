@@ -401,7 +401,7 @@ class TerminalService : Service() {
     /**
      * Execute boot scripts from ~/.nvterm/boot/ directory.
      * Scripts run in sorted order, only if the directory exists.
-     * This provides the same functionality as termux-boot without a separate APK.
+     * This provides boot-on-start functionality integrated into NovaTerm (no separate APK needed).
      */
     private fun runBootScripts() {
         serviceScope.launch(Dispatchers.IO) {

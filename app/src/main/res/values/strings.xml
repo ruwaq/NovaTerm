@@ -82,10 +82,10 @@
     <string name="about_value_unicode">Full support</string>
     <string name="about_value_scrollback">10,000 lines</string>
     <string name="about_value_ui">Kotlin + Jetpack Compose</string>
-    <string name="about_value_core">Termux terminal-emulator (Apache 2.0)</string>
+    <string name="about_value_core">NovaTerm terminal-emulator (Apache 2.0)</string>
     <string name="about_value_persistence">SQLite + CAS dedup</string>
     <string name="about_value_protocols">OSC 8, OSC 133, OSC 52</string>
-    <string name="about_credits">Built on Termux\'s terminal emulation engine.\nTerminal core licensed under Apache 2.0.\nColor schemes: Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula.</string>
+    <string name="about_credits">Built on NovaTerm\'s terminal emulation engine.\nTerminal core licensed under Apache 2.0.\nColor schemes: Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula.</string>
     <string name="about_unknown">unknown</string>
 
     <!-- Bootstrap -->

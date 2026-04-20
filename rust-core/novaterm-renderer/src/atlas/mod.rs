@@ -397,7 +397,7 @@ mod tests {
         let mut atlas = create_atlas();
         // Emoji may or may not be available depending on system fonts
         let _entry = atlas.lookup(GlyphKey { codepoint: '🚀', flags: 0 });
-        // Don't assert Some — emoji font may not be installed in Termux
+        // Don't assert Some — emoji font may not be installed in NovaTerm
         // Just verify no panic
     }
 

@@ -11,7 +11,7 @@ import java.io.File
  * Builds the environment variable array for terminal sessions.
  *
  * Handles core terminal vars, XDG dirs, AI tool hints, W^X bypass
- * (LD_PRELOAD), NovaTerm/Termux compat vars, and API key export
+ * (LD_PRELOAD), NovaTerm compat vars, and API key export
  * from EncryptedSharedPreferences.
  */
 class EnvironmentBuilder(
@@ -85,7 +85,7 @@ class EnvironmentBuilder(
         env["LINES"] = extraVars.getOrDefault("LINES", "40")
         env["COLUMNS"] = extraVars.getOrDefault("COLUMNS", "120")
 
-        // W^X bypass: LD_PRELOAD with termux-exec
+        // W^X bypass: LD_PRELOAD with nvterm-exec
         setupLdPreload(env)
 
         // NovaTerm environment
@@ -93,7 +93,7 @@ class EnvironmentBuilder(
         env["NOVATERM__PREFIX"] = prefix
         env["NOVATERM_APP__DATA_DIR"] = context.applicationInfo.dataDir
 
-        // Termux-exec compatibility
+        // Termux compat: legacy env vars for packages that reference TERMUX__*
         env["TERMUX__ROOTFS"] = rootDir
         env["TERMUX__PREFIX"] = prefix
         env["TERMUX_APP__DATA_DIR"] = context.applicationInfo.dataDir
