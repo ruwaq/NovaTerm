@@ -90,7 +90,7 @@ class DataStoreConfigStore(
             showExtraKeys = this[Keys.SHOW_EXTRA_KEYS] ?: true,
             backIsEscape = this[Keys.BACK_IS_ESCAPE] ?: true,
             terminalType = this[Keys.TERMINAL_TYPE] ?: "xterm-256color",
-            useRustBackend = this[Keys.USE_RUST_BACKEND] ?: false,
+            useRustBackend = this[Keys.USE_RUST_BACKEND] ?: true,
         )
     }
 

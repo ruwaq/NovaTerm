@@ -13,7 +13,7 @@ data class TerminalConfig(
     val showExtraKeys: Boolean = true,
     val backIsEscape: Boolean = true,
     val terminalType: String = "xterm-256color",
-    val useRustBackend: Boolean = false,
+    val useRustBackend: Boolean = true,
 ) {
     init {
         require(fontSize in ConfigConstants.FONT_SIZE_RANGE) { "fontSize must be in ${ConfigConstants.FONT_SIZE_RANGE}, got $fontSize" }
