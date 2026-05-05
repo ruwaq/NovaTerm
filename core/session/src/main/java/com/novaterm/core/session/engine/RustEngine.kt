@@ -1,6 +1,7 @@
 package com.novaterm.core.session.engine
 
 import android.util.Log
+import com.novaterm.core.common.contract.NativeEngine
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.contract.TerminalEngineFactory
 import com.novaterm.core.common.model.CursorPosition
@@ -18,9 +19,11 @@ class RustEngine private constructor(
     handle: Long,
     @Volatile private var rows: Int,
     @Volatile private var cols: Int,
-) : TerminalEngine {
+) : TerminalEngine, NativeEngine {
 
     private val handleRef = AtomicLong(handle)
+
+    override fun nativeHandle(): Long = validHandle()
 
     private fun validHandle(): Long {
         val h = handleRef.get()

@@ -50,6 +50,7 @@ import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
 import com.novaterm.feature.terminal.ui.pane.PaneTreeView
 import com.novaterm.feature.terminal.ui.pane.SplitDirection
+import com.novaterm.feature.terminal.ui.screen.GpuTerminalScreen
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
 import com.novaterm.view.TerminalView
 import kotlinx.coroutines.launch
@@ -339,34 +340,50 @@ fun NovaTermApp(
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
-                        // Single TerminalScreen — one View, one InputConnection, swap sessions via attachSession()
-                        TerminalScreen(
-                            session = currentSession,
-                            fontSize = preferences.fontSize,
-                            fontFamily = preferences.fontFamily,
-                            colorScheme = preferences.colorScheme,
-                            keepScreenOn = preferences.keepScreenOn,
-                            ctrlActive = ctrlActive,
-                            altActive = altActive,
-                            backIsEscape = preferences.backIsEscape,
-                            onModifiersConsumed = viewModel::resetModifiers,
-                            onBlockComplete = { command, exitCode ->
-                                val sessionId = "session_$safeIndex"
-                                val cwd = currentSession.cwd
-                                service?.blockStore?.insertBlock(
-                                    sessionId = sessionId,
-                                    command = command,
-                                    exitCode = exitCode,
-                                    cwd = cwd,
-                                )
-                                    },
-                            onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
-                            onViewReady = { terminalView ->
-                                activeTerminalView = terminalView
-                                registerRustScreenCallback(service, currentSession.mHandle, terminalView)
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                        val rustHandle = service?.getRustNativeHandle(currentSession)
+                        if (preferences.useGpuRenderer && rustHandle != null && rustHandle > 0) {
+                            // GPU-accelerated rendering with Rust VT backend
+                            GpuTerminalScreen(
+                                sessionHandle = rustHandle,
+                                session = currentSession,
+                                onGpuUnavailable = {
+                                    // Fallback handled by switching preference off
+                                    viewModel.updatePreferences(
+                                        preferences.copy(useGpuRenderer = false)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            // Software Canvas rendering (legacy path)
+                            TerminalScreen(
+                                session = currentSession,
+                                fontSize = preferences.fontSize,
+                                fontFamily = preferences.fontFamily,
+                                colorScheme = preferences.colorScheme,
+                                keepScreenOn = preferences.keepScreenOn,
+                                ctrlActive = ctrlActive,
+                                altActive = altActive,
+                                backIsEscape = preferences.backIsEscape,
+                                onModifiersConsumed = viewModel::resetModifiers,
+                                onBlockComplete = { command, exitCode ->
+                                    val sessionId = "session_$safeIndex"
+                                    val cwd = currentSession.cwd
+                                    service?.blockStore?.insertBlock(
+                                        sessionId = sessionId,
+                                        command = command,
+                                        exitCode = exitCode,
+                                        cwd = cwd,
+                                    )
+                                        },
+                                onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
+                                onViewReady = { terminalView ->
+                                    activeTerminalView = terminalView
+                                    registerRustScreenCallback(service, currentSession.mHandle, terminalView)
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
 
                     // Cleanup old callbacks when session changes

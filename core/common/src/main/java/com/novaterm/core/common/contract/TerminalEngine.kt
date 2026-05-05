@@ -64,6 +64,15 @@ interface TerminalEngine {
     fun destroy()
 }
 
+/**
+ * Marker interface for engines backed by a Rust native handle.
+ * Required for GPU rendering which passes the handle to the Vulkan renderer.
+ */
+interface NativeEngine {
+    /** The Rust native handle for this engine instance. */
+    fun nativeHandle(): Long
+}
+
 /** Events emitted by the terminal engine. */
 sealed interface EngineEvent {
     data object Bell : EngineEvent

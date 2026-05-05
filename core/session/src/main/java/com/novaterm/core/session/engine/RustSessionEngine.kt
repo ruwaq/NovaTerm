@@ -1,6 +1,7 @@
 package com.novaterm.core.session.engine
 
 import android.util.Log
+import com.novaterm.core.common.contract.NativeEngine
 import com.novaterm.core.common.contract.TerminalEngine
 import com.novaterm.core.common.model.CursorPosition
 import com.novaterm.core.common.model.TerminalDimensions
@@ -29,7 +30,7 @@ class RustSessionEngine private constructor(
     @Volatile private var cols: Int,
     /** Child process PID. */
     val pid: Int,
-) : TerminalEngine {
+) : TerminalEngine, NativeEngine {
 
     private val handleRef = AtomicLong(handle)
 
@@ -42,7 +43,7 @@ class RustSessionEngine private constructor(
      * Expose the raw native handle for the GPU renderer.
      * Package-internal: only [GpuRenderer] should call this.
      */
-    internal fun nativeHandle(): Long = validHandle()
+    override fun nativeHandle(): Long = validHandle()
 
     /**
      * Process pending PTY output through the VT parser.

@@ -84,13 +84,12 @@ class GpuRenderer private constructor(handle: Long) {
     /**
      * Render one frame from a session's grid.
      *
-     * @param sessionEngine The Rust session engine providing grid data.
+     * @param sessionHandle The Rust native handle for the session providing grid data.
      * @return true if a frame was presented to the surface.
      */
-    fun renderFrame(sessionEngine: RustSessionEngine): Boolean {
+    fun renderFrame(sessionHandle: Long): Boolean {
         val h = validHandle()
         if (h < 0) return false
-        val sessionHandle = sessionEngine.nativeHandle()
         if (sessionHandle <= 0) return false
         return NativeRenderer.nativeRenderFrame(h, sessionHandle)
     }

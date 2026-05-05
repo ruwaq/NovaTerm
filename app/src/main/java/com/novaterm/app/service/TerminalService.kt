@@ -114,6 +114,12 @@ class TerminalService : Service() {
     /** Get the Rust engine for a session handle, if one exists. */
     fun getRustEngine(sessionHandle: String) = rustEngineManager.getEngine(sessionHandle)
 
+    /** Get the native Rust handle for a session, if a Rust engine is attached. */
+    fun getRustNativeHandle(session: TerminalSession): Long? {
+        val engine = rustEngineManager.getEngine(session.mHandle)
+        return (engine as? com.novaterm.core.common.contract.NativeEngine)?.nativeHandle()
+    }
+
     // ── Lifecycle flag ──────────────────────────────────────
 
     @Volatile private var isServiceDestroyed = false
