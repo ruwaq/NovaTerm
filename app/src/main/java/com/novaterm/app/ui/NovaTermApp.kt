@@ -153,32 +153,46 @@ fun NovaTermApp(
         Box(modifier = Modifier.fillMaxSize()) {
             if (sessions.isNotEmpty() && safeIndex in sessions.indices) {
                 val pipSession = sessions[safeIndex]
-                TerminalScreen(
-                    session = pipSession,
-                    fontSize = preferences.fontSize,
-                    fontFamily = preferences.fontFamily,
-                    colorScheme = preferences.colorScheme,
-                    keepScreenOn = preferences.keepScreenOn,
-                    ctrlActive = false,
-                    altActive = false,
-                    backIsEscape = false,
-                    onModifiersConsumed = {},
-                    onBlockComplete = { command, exitCode ->
-                        val sessionId = "session_$safeIndex"
-                        val cwd = pipSession.cwd
-                        service?.blockStore?.insertBlock(
-                            sessionId = sessionId,
-                            command = command,
-                            exitCode = exitCode,
-                            cwd = cwd,
-                        )
-                    },
-                    onPromptNavigatorReady = {},
-                    onViewReady = { terminalView ->
-                        registerRustScreenCallback(service, pipSession.mHandle, terminalView)
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                val pipRustHandle = service?.getRustNativeHandle(pipSession)
+                if (preferences.useGpuRenderer && pipRustHandle != null && pipRustHandle > 0) {
+                    GpuTerminalScreen(
+                        sessionHandle = pipRustHandle,
+                        session = pipSession,
+                        onGpuUnavailable = {
+                            viewModel.updatePreferences(
+                                preferences.copy(useGpuRenderer = false)
+                            )
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    TerminalScreen(
+                        session = pipSession,
+                        fontSize = preferences.fontSize,
+                        fontFamily = preferences.fontFamily,
+                        colorScheme = preferences.colorScheme,
+                        keepScreenOn = preferences.keepScreenOn,
+                        ctrlActive = false,
+                        altActive = false,
+                        backIsEscape = false,
+                        onModifiersConsumed = {},
+                        onBlockComplete = { command, exitCode ->
+                            val sessionId = "session_$safeIndex"
+                            val cwd = pipSession.cwd
+                            service?.blockStore?.insertBlock(
+                                sessionId = sessionId,
+                                command = command,
+                                exitCode = exitCode,
+                                cwd = cwd,
+                            )
+                        },
+                        onPromptNavigatorReady = {},
+                        onViewReady = { terminalView ->
+                            registerRustScreenCallback(service, pipSession.mHandle, terminalView)
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
 
                 DisposableEffect(pipSession.mHandle) {
                     onDispose {
