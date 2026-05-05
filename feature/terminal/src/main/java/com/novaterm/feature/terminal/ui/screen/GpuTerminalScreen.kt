@@ -1,11 +1,15 @@
 package com.novaterm.feature.terminal.ui.screen
 
+import android.content.Context
 import android.util.Log
 import android.view.Choreographer
 import android.view.KeyEvent
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +19,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.novaterm.core.session.engine.GpuRenderer
 import com.novaterm.terminal.TerminalSession
 import java.util.concurrent.atomic.AtomicBoolean
@@ -48,6 +54,8 @@ fun GpuTerminalScreen(
     val rendererState = remember { mutableStateOf<GpuRenderer?>(null) }
     val fallbackTriggered = remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
+    val inputViewRef = remember { mutableStateOf<TerminalInputView?>(null) }
 
     // Create GPU renderer on first composition
     DisposableEffect(Unit) {
@@ -73,100 +81,85 @@ fun GpuTerminalScreen(
 
     val renderer = rendererState.value ?: return
 
-    AndroidExternalSurface(
-        modifier = modifier
-            .fillMaxSize()
-            .focusRequester(focusRequester)
-            .focusable()
-            .onKeyEvent { keyEvent ->
-                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    val bytes = keyEventToBytes(keyEvent.nativeKeyEvent)
-                    if (bytes != null) {
-                        session.write(bytes, 0, bytes.size)
-                        true
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidExternalSurface(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                        val bytes = keyEventToBytes(keyEvent.nativeKeyEvent)
+                        if (bytes != null) {
+                            session.write(bytes, 0, bytes.size)
+                            true
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }
-                } else {
-                    false
+                },
+        ) {
+            onSurface { surface, width, height ->
+                renderer.attachSurface(surface, width, height)
+                focusRequester.requestFocus()
+
+                // Ensure the IME proxy view has focus so software keyboards work
+                val inputView = inputViewRef.value
+                if (inputView != null && inputView.windowToken != null) {
+                    inputView.requestFocus()
+                    imm.showSoftInput(inputView, InputMethodManager.SHOW_IMPLICIT)
+                }
+
+                // Start frame loop via Choreographer
+                val choreographer = Choreographer.getInstance()
+                val running = AtomicBoolean(true)
+
+                val frameCallback = object : Choreographer.FrameCallback {
+                    override fun doFrame(frameTimeNanos: Long) {
+                        if (!running.get()) return
+
+                        // Check if GPU suggests fallback (too many errors)
+                        if (renderer.shouldFallback()) {
+                            Log.e(TAG, "GPU renderer error threshold exceeded, falling back")
+                            running.set(false)
+                            if (!fallbackTriggered.value) {
+                                fallbackTriggered.value = true
+                                onGpuUnavailable()
+                            }
+                            return
+                        }
+
+                        // Render frame from the Rust grid
+                        renderer.renderFrame(sessionHandle)
+                        choreographer.postFrameCallback(this)
+                    }
+                }
+                choreographer.postFrameCallback(frameCallback)
+
+                surface.onChanged { newWidth, newHeight ->
+                    renderer.resizeSurface(newWidth, newHeight)
+                }
+
+                surface.onDestroyed {
+                    running.set(false)
+                    choreographer.removeFrameCallback(frameCallback)
+                    renderer.detachSurface()
+                }
+            }
+        }
+
+        AndroidView(
+            factory = { ctx ->
+                TerminalInputView(ctx).apply {
+                    terminalSession = session
+                    inputViewRef.value = this
                 }
             },
-    ) {
-        onSurface { surface, width, height ->
-            renderer.attachSurface(surface, width, height)
-            focusRequester.requestFocus()
-
-            // Start frame loop via Choreographer
-            val choreographer = Choreographer.getInstance()
-            val running = AtomicBoolean(true)
-
-            val frameCallback = object : Choreographer.FrameCallback {
-                override fun doFrame(frameTimeNanos: Long) {
-                    if (!running.get()) return
-
-                    // Check if GPU suggests fallback (too many errors)
-                    if (renderer.shouldFallback()) {
-                        Log.e(TAG, "GPU renderer error threshold exceeded, falling back")
-                        running.set(false)
-                        if (!fallbackTriggered.value) {
-                            fallbackTriggered.value = true
-                            onGpuUnavailable()
-                        }
-                        return
-                    }
-
-                    // Render frame from the Rust grid
-                    renderer.renderFrame(sessionHandle)
-                    choreographer.postFrameCallback(this)
-                }
-            }
-            choreographer.postFrameCallback(frameCallback)
-
-            surface.onChanged { newWidth, newHeight ->
-                renderer.resizeSurface(newWidth, newHeight)
-            }
-
-            surface.onDestroyed {
-                running.set(false)
-                choreographer.removeFrameCallback(frameCallback)
-                renderer.detachSurface()
-            }
-        }
-    }
-}
-
-/**
- * Convert an Android KeyEvent to terminal bytes.
- * Basic mapping for common keys.
- */
-private fun keyEventToBytes(event: KeyEvent): ByteArray? {
-    return when (event.keyCode) {
-        KeyEvent.KEYCODE_ENTER -> byteArrayOf(0x0D)
-        KeyEvent.KEYCODE_DEL -> byteArrayOf(0x7F)
-        KeyEvent.KEYCODE_FORWARD_DEL -> byteArrayOf(0x1B.toByte(), 0x5B, 0x33, 0x7E)
-        KeyEvent.KEYCODE_TAB -> byteArrayOf(0x09)
-        KeyEvent.KEYCODE_ESCAPE -> byteArrayOf(0x1B.toByte())
-        KeyEvent.KEYCODE_DPAD_UP -> byteArrayOf(0x1B.toByte(), 0x5B, 0x41)
-        KeyEvent.KEYCODE_DPAD_DOWN -> byteArrayOf(0x1B.toByte(), 0x5B, 0x42)
-        KeyEvent.KEYCODE_DPAD_RIGHT -> byteArrayOf(0x1B.toByte(), 0x5B, 0x43)
-        KeyEvent.KEYCODE_DPAD_LEFT -> byteArrayOf(0x1B.toByte(), 0x5B, 0x44)
-        KeyEvent.KEYCODE_MOVE_HOME -> byteArrayOf(0x1B.toByte(), 0x5B, 0x48)
-        KeyEvent.KEYCODE_MOVE_END -> byteArrayOf(0x1B.toByte(), 0x5B, 0x46)
-        KeyEvent.KEYCODE_PAGE_UP -> byteArrayOf(0x1B.toByte(), 0x5B, 0x35, 0x7E)
-        KeyEvent.KEYCODE_PAGE_DOWN -> byteArrayOf(0x1B.toByte(), 0x5B, 0x36, 0x7E)
-        else -> {
-            val c = event.unicodeChar
-            if (c != 0) {
-                val bytes = c.toString().toByteArray(Charsets.UTF_8)
-                // Apply CTRL modifier
-                if (event.isCtrlPressed && c in 'a'.code..'z'.code) {
-                    byteArrayOf((c - 'a'.code + 1).toByte())
-                } else {
-                    bytes
-                }
-            } else {
-                null
-            }
-        }
+            modifier = Modifier.size(1.dp)
+        )
     }
 }
