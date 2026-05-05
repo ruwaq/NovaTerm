@@ -65,8 +65,8 @@ class PreferencesRepositoryTest {
         assertTrue(prefs.bellEnabled)
         assertTrue(prefs.showExtraKeys)
         assertTrue(prefs.backIsEscape)
-        assertFalse(prefs.useRustBackend)
-        assertFalse(prefs.useGpuRenderer)
+        assertTrue(prefs.useRustBackend)
+        assertTrue(prefs.useGpuRenderer)
         assertFalse(prefs.pipOnLeave)
     }
 
@@ -113,7 +113,7 @@ class PreferencesRepositoryTest {
         original.copy(fontSize = 24, useRustBackend = true)
 
         assertEquals(12, original.fontSize)
-        assertFalse(original.useRustBackend)
+        assertTrue(original.useRustBackend)
     }
 
     @Test

@@ -16,7 +16,7 @@ data class TerminalPreferences(
     val extraKeysStyle: String = EXTRA_KEYS_STYLE_DEFAULT,
     val backIsEscape: Boolean = true,
     val colorScheme: String = "gruvbox-dark",
-    val useRustBackend: Boolean = false,
+    val useRustBackend: Boolean = true,
     val useGpuRenderer: Boolean = true,
     val pipOnLeave: Boolean = false,
     val sessionGroupingEnabled: Boolean = true,
