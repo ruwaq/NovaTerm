@@ -17,8 +17,8 @@ class ExtraKeyModelTest {
 
     @Test
     fun `custom code overrides label`() {
-        val key = ExtraKey(label = "ESC", code = "\u001b")
-        assertEquals("\u001b", key.code)
+        val key = ExtraKey(label = "ESC", code = "")
+        assertEquals("", key.code)
         assertEquals("ESC", key.label)
     }
 
@@ -42,14 +42,14 @@ class ExtraKeyModelTest {
 
     @Test
     fun `popup can be set`() {
-        val key = ExtraKey("UP", "\u001b[A", popup = "PgUp")
+        val key = ExtraKey("UP", "[A", popup = "PgUp")
         assertEquals("PgUp", key.popup)
     }
 
     @Test
     fun `data class equality works`() {
-        val a = ExtraKey("ESC", "\u001b", popup = "exit")
-        val b = ExtraKey("ESC", "\u001b", popup = "exit")
+        val a = ExtraKey("ESC", "", popup = "exit")
+        val b = ExtraKey("ESC", "", popup = "exit")
         assertEquals(a, b)
     }
 
@@ -62,7 +62,7 @@ class ExtraKeyModelTest {
         assertEquals("^C", copy.popup)
     }
 
-    // ── extraKeysRowsForStyle tests ──────────────────────────
+    // -- extraKeysRowsForStyle tests --------------------------
 
     @Test
     fun `default style returns two rows`() {
@@ -102,7 +102,7 @@ class ExtraKeyModelTest {
 
     @Test
     fun `all styles have CTRL modifier`() {
-        listOf("default", "vim", "dev", "minimal", "ai").forEach { style ->
+        listOf("default", "vim", "dev", "minimal").forEach { style ->
             val keys = extraKeysRowsForStyle(style).flatten()
             val ctrl = keys.find { it.label == "CTRL" }
             assertNotNull("Style '$style' missing CTRL", ctrl)
@@ -112,32 +112,10 @@ class ExtraKeyModelTest {
 
     @Test
     fun `all styles have keyboard toggle`() {
-        listOf("default", "vim", "dev", "minimal", "ai").forEach { style ->
+        listOf("default", "vim", "dev", "minimal").forEach { style ->
             val keys = extraKeysRowsForStyle(style).flatten()
             val kbd = keys.find { it.code == "__KEYBOARD__" }
             assertNotNull("Style '$style' missing keyboard toggle", kbd)
         }
-    }
-
-    @Test
-    fun `ai style returns two rows`() {
-        val rows = extraKeysRowsForStyle("ai")
-        assertEquals(2, rows.size)
-    }
-
-    @Test
-    fun `ai style has dedicated Ctrl+O key`() {
-        val keys = extraKeysRowsForStyle("ai").flatten()
-        val ctrlO = keys.find { it.label == "^O" }
-        assertNotNull("AI style missing dedicated ^O key", ctrlO)
-        assertEquals("\u000F", ctrlO!!.code)
-    }
-
-    @Test
-    fun `ai style has Ctrl+B for scroll`() {
-        val keys = extraKeysRowsForStyle("ai").flatten()
-        val ctrlB = keys.find { it.label == "^B" }
-        assertNotNull("AI style missing ^B key", ctrlB)
-        assertEquals("\u0002", ctrlB!!.code)
     }
 }

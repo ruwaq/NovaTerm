@@ -63,7 +63,6 @@ data class HistoryEntry(
     val cwd: String?,
     val exitCode: Int?,
     val timestamp: Long,
-    val isAiGenerated: Boolean,
 )
 
 /**
@@ -471,24 +470,14 @@ private fun HistoryRow(
         )
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = entry.command,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (entry.isAiGenerated) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "AI",
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
+            Text(
+                text = entry.command,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             if (entry.cwd != null) {
                 Text(
                     text = entry.cwd.replace(Regex(".*/home/"), "~/"),

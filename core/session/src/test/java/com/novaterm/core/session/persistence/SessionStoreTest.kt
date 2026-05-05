@@ -374,7 +374,6 @@ class SessionStoreTest {
 
         assertTrue("Built-in groups must be returned when no file exists", groups.isNotEmpty())
         assertNotNull("Must include 'shell' group", groups.find { it.id == "shell" })
-        assertNotNull("Must include 'agents' group", groups.find { it.id == "agents" })
     }
 
     @Test

@@ -38,25 +38,16 @@ import androidx.compose.ui.unit.dp
 import com.novaterm.app.R
 import com.novaterm.app.ui.components.CloseSessionDialog
 import com.novaterm.app.ui.components.DrawerContent
-import com.novaterm.app.ui.components.McpApprovalDialog
 import com.novaterm.app.ui.components.RenameSessionDialog
 import com.novaterm.app.ui.components.SessionCreationFailedDialog
 import com.novaterm.app.ui.components.GroupedSessionTabBar
 import com.novaterm.app.ui.components.StatusLine
 import com.novaterm.app.ui.viewmodel.TerminalViewModel
-import com.novaterm.feature.settings.ui.AiSetupScreen
 import com.novaterm.feature.settings.ui.ColorSchemePickerScreen
-import com.novaterm.core.llm.ModelState
 import com.novaterm.feature.settings.ui.SettingsScreen
-import com.novaterm.core.session.manager.AgentPreset
-import com.novaterm.feature.agent.ui.AgentDashboardScreen
-import com.novaterm.feature.agent.ui.DiffViewerScreen
-import com.novaterm.feature.agent.data.DiffParser
-import com.novaterm.feature.terminal.ui.components.AgentPresetSheet
 import com.novaterm.feature.terminal.ui.components.ExtraKeysBar
 import com.novaterm.feature.terminal.ui.components.HistoryEntry
 import com.novaterm.feature.terminal.ui.components.HistorySearchSheet
-import com.novaterm.feature.terminal.ui.components.SuggestionBar
 import com.novaterm.feature.terminal.ui.pane.PaneTreeView
 import com.novaterm.feature.terminal.ui.pane.SplitDirection
 import com.novaterm.feature.terminal.ui.screen.TerminalScreen
@@ -72,7 +63,6 @@ fun NovaTermApp(
     val uiState by viewModel.uiState.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val service by viewModel.service.collectAsState()
-    val modelState = service?.modelManager?.state?.collectAsState()?.value ?: ModelState.Idle
     // Unpack frequently-used fields for readability
     val sessions = uiState.sessions
     val selectedTab = uiState.currentSessionIndex
@@ -80,19 +70,11 @@ fun NovaTermApp(
     val altActive = uiState.altActive
     val showSettings = uiState.showSettings
     val showOnboarding = uiState.showOnboarding
-    val showAiSetup = uiState.showAiSetup
     val sessionNames = uiState.sessionNames
-    val suggestion = uiState.suggestion
     val isInPipMode = uiState.isInPipMode
     val paneLayout = uiState.currentPaneLayout
     val focusedPaneSession = uiState.focusedPaneSession
     val view = LocalView.current
-    val mcpApproval by viewModel.mcpApprovalRequest.collectAsState()
-    var showCameraOcr by remember { mutableStateOf(false) }
-    var showAgentSheet by remember { mutableStateOf(false) }
-    var showAgentDashboard by remember { mutableStateOf(false) }
-    var diffWorkspace by remember { mutableStateOf<com.novaterm.core.session.manager.AgentWorkspace?>(null) }
-    var diffResult by remember { mutableStateOf(DiffParser.DiffResult(emptyList(), DiffParser.DiffStats(0, 0, 0))) }
 
     // Sync preferences to service
     LaunchedEffect(preferences.bellEnabled, preferences.useRustBackend, preferences.scrollbackLines, service) {
@@ -101,45 +83,10 @@ fun NovaTermApp(
         service?.scrollbackLines?.set(preferences.scrollbackLines)
     }
 
-    // Sync MCP preferences to service and start/stop server
-    LaunchedEffect(preferences.mcpEnabled, preferences.mcpPort, service) {
-        service?.mcpEnabled?.set(preferences.mcpEnabled)
-        service?.mcpPort?.set(preferences.mcpPort)
-        service?.startMcpServerIfEnabled()
-    }
-
-    // Sync LLM preference — only loads model when user enables it
-    LaunchedEffect(preferences.llmEnabled, service) {
-        service?.llmEnabled?.set(preferences.llmEnabled)
-        service?.updateLlmState()
-    }
-
-    // Poll model download progress when downloading
-    LaunchedEffect(modelState, service) {
-        if (modelState is ModelState.Downloading) {
-            service?.modelManager?.pollProgress()
-        }
-    }
-
-    // ── Full-screen overlays (onboarding, AI setup, about, settings) ───
+    // ── Full-screen overlays (onboarding, about, settings) ───
     if (showOnboarding) {
         BackHandler { /* Trap back press during onboarding */ }
         ColorSchemePickerScreen(onSchemeSelected = viewModel::completeOnboarding)
-        return
-    }
-
-    if (showAiSetup) {
-        BackHandler { /* Trap back press during AI setup */ }
-        AiSetupScreen(
-            onSkip = viewModel::skipAiSetup,
-            onContinue = { selectedTools, apiKeys, updateFirst ->
-                // Save API keys to EncryptedSharedPreferences
-                viewModel.saveApiKeys(apiKeys)
-                // Install selected tools to the terminal
-                viewModel.installAiTools(selectedTools, updateFirst)
-                viewModel.completeAiSetup()
-            },
-        )
         return
     }
 
@@ -157,20 +104,6 @@ fun NovaTermApp(
             onPreferencesChanged = viewModel::updatePreferences,
             onBack = viewModel::hideSettings,
             onResetToDefaults = viewModel::resetPreferencesToDefaults,
-            modelState = modelState,
-            onDownloadModel = { modelId -> service?.modelManager?.startDownload(modelId) },
-            onCancelDownload = { service?.modelManager?.cancelDownload() },
-            onDeleteModel = { service?.modelManager?.deleteModel() },
-            mcpAuthToken = service?.mcpAuthToken,
-            onInstallAiTool = { command ->
-                // Write the install command to the active terminal session and switch back
-                val currentSessions = sessions
-                val idx = selectedTab.coerceIn(0, (currentSessions.size - 1).coerceAtLeast(0))
-                if (idx in currentSessions.indices) {
-                    currentSessions[idx].write(command + "\n")
-                }
-                viewModel.hideSettings()
-            },
         )
         return
     }
@@ -203,96 +136,6 @@ fun NovaTermApp(
         )
     }
 
-    mcpApproval?.let { request ->
-        McpApprovalDialog(
-            request = request,
-            onApprove = { request.approve() },
-            onDeny = { request.deny() },
-        )
-    }
-
-    if (showCameraOcr) {
-        val context = LocalView.current.context
-        val ocrManager = remember { com.novaterm.feature.terminal.ocr.CameraOcrManager(context) }
-        DisposableEffect(Unit) { onDispose { ocrManager.release() } }
-        com.novaterm.feature.terminal.ocr.CameraOcrSheet(
-            ocrManager = ocrManager,
-            onDismiss = { showCameraOcr = false },
-            onTextConfirmed = { text ->
-                showCameraOcr = false
-                val safeIdx = uiState.currentSessionIndex
-                if (safeIdx in sessions.indices) {
-                    sessions[safeIdx].write(text)
-                }
-            },
-        )
-    }
-
-    if (showAgentSheet) {
-        AgentPresetSheet(
-            presets = AgentPreset.BUILT_INS,
-            onLaunchAgent = { preset ->
-                service?.createAgentSession(preset)
-            },
-            onDismiss = { showAgentSheet = false },
-        )
-    }
-
-    if (showAgentDashboard) {
-        BackHandler { showAgentDashboard = false }
-        val agentWorkspaces by viewModel.agentWorkspaces.collectAsState()
-        AgentDashboardScreen(
-            workspaces = agentWorkspaces,
-            onOpenSession = { workspace ->
-                viewModel.openAgentSession(workspace)
-                showAgentDashboard = false
-            },
-            onPauseResume = { workspace ->
-                viewModel.pauseAgent(workspace.id)
-            },
-            onKill = { workspace ->
-                viewModel.killAgent(workspace.id)
-            },
-            onViewDiff = { workspace ->
-                val rawDiff = viewModel.runAgentDiff(workspace.id)
-                diffResult = DiffParser.parse(rawDiff)
-                diffWorkspace = workspace
-            },
-            onLaunchAgent = {
-                showAgentDashboard = false
-                showAgentSheet = true
-            },
-            onBack = { showAgentDashboard = false },
-        )
-        return
-    }
-
-    // ── Diff Viewer ──────────────────────────────────────────────
-    diffWorkspace?.let { workspace ->
-        BackHandler { diffWorkspace = null }
-        DiffViewerScreen(
-            diffResult = diffResult,
-            workspaceName = workspace.displayName,
-            onApprove = {
-                viewModel.approveAgentChanges(workspace.id)
-                // Refresh diff after approval
-                val rawDiff = viewModel.runAgentDiff(workspace.id)
-                diffResult = DiffParser.parse(rawDiff)
-            },
-            onReject = {
-                viewModel.rejectAgentChanges(workspace.id)
-                // Refresh diff after rejection
-                val rawDiff = viewModel.runAgentDiff(workspace.id)
-                diffResult = DiffParser.parse(rawDiff)
-            },
-            onOpenTerminal = {
-                viewModel.openAgentSession(workspace)
-                diffWorkspace = null
-            },
-            onBack = { diffWorkspace = null },
-        )
-        return
-    }
 
     renamingTabIndex?.let { index ->
         RenameSessionDialog(
@@ -319,7 +162,6 @@ fun NovaTermApp(
                     altActive = false,
                     backIsEscape = false,
                     onModifiersConsumed = {},
-                    onTabAcceptSuggestion = { null },
                     onBlockComplete = { command, exitCode ->
                         val sessionId = "session_$safeIndex"
                         val cwd = pipSession.cwd
@@ -329,12 +171,6 @@ fun NovaTermApp(
                             exitCode = exitCode,
                             cwd = cwd,
                         )
-                        service?.predictionEngine?.onCommandExecuted(
-                            sessionId = sessionId,
-                            command = command,
-                            cwd = cwd,
-                        )
-                        viewModel.refreshSuggestion()
                     },
                     onPromptNavigatorReady = {},
                     onViewReady = { terminalView ->
@@ -402,21 +238,8 @@ fun NovaTermApp(
                             onSearchClick = { showHistory = true },
                             onSettingsClick = viewModel::showSettings,
                             onNewSession = viewModel::createSession,
-                            onAgentsClick = { showAgentDashboard = true },
                         )
                     }
-
-                    // Command suggestion — subtle bar, only visible when there's a prediction
-                    SuggestionBar(
-                        suggestion = suggestion,
-                        onAccept = { cmd ->
-                            val accepted = viewModel.acceptSuggestion()
-                            if (accepted != null) {
-                                sessions.getOrNull(safeIndex)?.write(accepted)
-                            }
-                        },
-                        onDismiss = { viewModel.dismissSuggestion() },
-                    )
 
                     AnimatedVisibility(
                         visible = preferences.showExtraKeys,
@@ -426,14 +249,6 @@ fun NovaTermApp(
                         ExtraKeysBar(
                             onKey = { code ->
                                 if (safeIndex in sessions.indices) {
-                                    // Tab or Right arrow accepts suggestion if one is active
-                                    if ((code == "\t" || code == "\u001b[C") && suggestion != null) {
-                                        val accepted = viewModel.acceptSuggestion()
-                                        if (accepted != null) {
-                                            sessions.getOrNull(safeIndex)?.write(accepted)
-                                            return@ExtraKeysBar
-                                        }
-                                    }
                                     // In split mode, write to the focused pane session
                                     val targetIndex = if (paneLayout != null && focusedPaneSession in sessions.indices) {
                                         focusedPaneSession
@@ -461,7 +276,6 @@ fun NovaTermApp(
                                 }
                             },
                             onVoiceInput = onVoiceInput,
-                            onCameraOcr = { showCameraOcr = true },
                             onSplitHorizontal = { viewModel.splitPane(SplitDirection.HORIZONTAL) },
                             onSplitVertical = { viewModel.splitPane(SplitDirection.VERTICAL) },
                             onCloseSplitPane = { viewModel.closeSplitPane() },
@@ -470,7 +284,6 @@ fun NovaTermApp(
                             altActive = altActive,
                             hapticEnabled = preferences.hapticFeedback,
                             extraKeysStyle = preferences.extraKeysStyle,
-                            onAgentLaunch = { showAgentSheet = true },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -514,14 +327,7 @@ fun NovaTermApp(
                                     exitCode = exitCode,
                                     cwd = cwd,
                                 )
-                                service?.predictionEngine?.onCommandExecuted(
-                                    sessionId = sessionId,
-                                    command = command,
-                                    cwd = cwd,
-                                )
-                                viewModel.refreshSuggestion()
-                            },
-                            onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
+                                    },
                             onViewReady = { sessionIndex, terminalView ->
                                 if (sessionIndex == focusedPaneSession) {
                                     activeTerminalView = terminalView
@@ -544,7 +350,6 @@ fun NovaTermApp(
                             altActive = altActive,
                             backIsEscape = preferences.backIsEscape,
                             onModifiersConsumed = viewModel::resetModifiers,
-                            onTabAcceptSuggestion = { viewModel.acceptSuggestion() },
                             onBlockComplete = { command, exitCode ->
                                 val sessionId = "session_$safeIndex"
                                 val cwd = currentSession.cwd
@@ -554,13 +359,7 @@ fun NovaTermApp(
                                     exitCode = exitCode,
                                     cwd = cwd,
                                 )
-                                service?.predictionEngine?.onCommandExecuted(
-                                    sessionId = sessionId,
-                                    command = command,
-                                    cwd = cwd,
-                                )
-                                viewModel.refreshSuggestion()
-                            },
+                                    },
                             onPromptNavigatorReady = { nav -> jumpToPrompt = nav },
                             onViewReady = { terminalView ->
                                 activeTerminalView = terminalView
@@ -602,7 +401,6 @@ fun NovaTermApp(
                     HistoryEntry(
                         command = block.command, cwd = block.cwd,
                         exitCode = block.exitCode, timestamp = block.timestamp,
-                        isAiGenerated = block.isAiGenerated,
                     )
                 } ?: emptyList()
         }

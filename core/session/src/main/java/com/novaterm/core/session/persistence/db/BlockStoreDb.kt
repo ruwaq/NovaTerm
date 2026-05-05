@@ -47,7 +47,6 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
                 exit_code INTEGER,
                 duration_ms INTEGER,
                 cwd TEXT,
-                is_ai_generated INTEGER NOT NULL DEFAULT 0,
                 content_hash TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
@@ -87,10 +86,11 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         Log.w(TAG, "Upgrading database from v$oldVersion to v$newVersion")
         if (oldVersion < 2) {
-            // Drop block_output: streaming-chunk storage was replaced by cas_blobs (CAS dedup).
-            // The table was created but never written to.
             db.execSQL("DROP INDEX IF EXISTS idx_block_output_block")
             db.execSQL("DROP TABLE IF EXISTS block_output")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE blocks DROP COLUMN is_ai_generated")
         }
     }
 
@@ -104,6 +104,6 @@ class BlockStoreDb(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "BlockStoreDb"
         private const val DATABASE_NAME = "novaterm_blocks.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
     }
 }

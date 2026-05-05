@@ -103,14 +103,6 @@ class SessionGroupManager(
         return getOrCreateShellGroup().id
     }
 
-    /**
-     * Detect the appropriate group for an agent workspace.
-     * Maps agent types to their dedicated groups.
-     */
-    fun detectGroupForAgent(agentType: AgentType): String {
-        return getOrCreateAgentGroup(agentType).id
-    }
-
     // ── Group management ────────────────────────────────────────
 
     /**
@@ -171,7 +163,7 @@ class SessionGroupManager(
      */
     fun deleteGroup(groupId: String): Boolean {
         val group = _groups.value.find { it.id == groupId } ?: return false
-        if (group.isAutoCreated && group.id in listOf("shell", "agents")) {
+        if (group.isAutoCreated && group.id == "shell") {
             Log.w(TAG, "Cannot delete built-in group: ${group.id}")
             return false
         }
@@ -299,17 +291,6 @@ class SessionGroupManager(
             _groups.value = (_groups.value + group).sortedBy { it.sortOrder }
             group
         }
-    }
-
-    private fun getOrCreateAgentGroup(agentType: AgentType): SessionGroup {
-        // Try to find existing "AI Agents" group first
-        val existing = _groups.value.find { it.id == "agents" }
-        if (existing != null) return existing
-
-        // Create the built-in agents group
-        val group = SessionGroup.BUILT_INS.first { it.id == "agents" }
-        _groups.value = (_groups.value + group).sortedBy { it.sortOrder }
-        return group
     }
 
     private fun getOrCreateGroupForProject(projectName: String): SessionGroup {

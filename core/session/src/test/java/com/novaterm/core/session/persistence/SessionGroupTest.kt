@@ -12,17 +12,14 @@ class SessionGroupTest {
     fun `serialize and deserialize round-trip`() {
         val groups = listOf(
             SessionGroup(id = "shell", name = "Shell", color = "#E85D04", icon = "terminal"),
-            SessionGroup(id = "agents", name = "AI Agents", color = "#8BE9FD", icon = "smart_toy"),
         )
 
         val json = SessionGroupSerializer.serialize(groups)
         val restored = SessionGroupSerializer.deserialize(json)
 
-        assertEquals(2, restored.size)
+        assertEquals(1, restored.size)
         assertEquals("Shell", restored[0].name)
         assertEquals("#E85D04", restored[0].color)
-        assertEquals("agents", restored[1].id)
-        assertEquals("smart_toy", restored[1].icon)
     }
 
     @Test
@@ -68,23 +65,18 @@ class SessionGroupTest {
         assertEquals(SessionGroup.DEFAULT_ICON, group.icon)
         assertTrue(group.isExpanded)
         assertEquals(0, group.sortOrder)
-        assertNull(group.isAutoCreated?.let { if (!it) null else true }) // false by default
+        assertNull(group.isAutoCreated?.let { if (!it) null else true })
     }
 
     @Test
     fun `built-in groups have expected values`() {
         val builtIns = SessionGroup.BUILT_INS
-        assertTrue(builtIns.size >= 2)
+        assertTrue(builtIns.size >= 1)
 
         val shell = builtIns.first { it.id == "shell" }
         assertEquals("Shell", shell.name)
         assertEquals("terminal", shell.icon)
         assertTrue(shell.isAutoCreated)
-
-        val agents = builtIns.first { it.id == "agents" }
-        assertEquals("AI Agents", agents.name)
-        assertEquals("smart_toy", agents.icon)
-        assertTrue(agents.isAutoCreated)
     }
 
     @Test
@@ -92,14 +84,6 @@ class SessionGroupTest {
         val group = SessionGroup.forProject("/home/user/projects/novaterm")
         assertEquals("novaterm", group.name)
         assertEquals("code", group.icon)
-        assertTrue(group.isAutoCreated)
-    }
-
-    @Test
-    fun `forAgentType creates group with agent label`() {
-        val group = SessionGroup.forAgentType("Claude Code")
-        assertEquals("Claude Code", group.name)
-        assertEquals("smart_toy", group.icon)
         assertTrue(group.isAutoCreated)
     }
 

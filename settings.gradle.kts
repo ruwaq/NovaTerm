@@ -28,11 +28,7 @@ include(":core:session")
 include(":core:bootstrap")
 // core:notification — reserved for Phase 2 (not used in Phase 1)
 include(":core:config")
-include(":core:mcp")
-include(":core:llm")
-
 // Feature modules - UI + ViewModel per feature
 include(":feature:terminal")
 include(":feature:settings")
 include(":feature:oem-compat")
-include(":feature:agent")

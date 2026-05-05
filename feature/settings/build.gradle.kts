@@ -8,7 +8,6 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    implementation(project(":core:llm"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

@@ -5,7 +5,6 @@ import android.util.Log
 import com.novaterm.app.BuildConfig
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
-import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.terminal.TerminalSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +30,6 @@ class SessionPersistenceManager(
     private val sessionsSnapshot: () -> List<TerminalSession>,
     private val shellFinder: () -> String,
     private val defaultCwd: () -> String,
-    private val predictionEngine: () -> PredictionEngine?,
     private val mainHandler: Handler,
     private val serviceScope: CoroutineScope,
     private val isServiceDestroyed: () -> Boolean,
@@ -50,7 +48,6 @@ class SessionPersistenceManager(
                     if (sessions.isNotEmpty()) {
                         saveSessionMetadata()
                     }
-                    predictionEngine()?.save()
                     // Prune BlockStore every 10th save (~5 minutes) to avoid unbounded growth
                     pruneCounter++
                     if (pruneCounter >= 10) {

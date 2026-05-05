@@ -47,7 +47,6 @@ fun PaneTreeView(
     onModifiersConsumed: () -> Unit,
     onFocusPane: (sessionIndex: Int) -> Unit,
     onBlockComplete: ((sessionIndex: Int, command: String, exitCode: Int?) -> Unit)?,
-    onTabAcceptSuggestion: (() -> String?)?,
     onViewReady: ((sessionIndex: Int, TerminalView) -> Unit)?,
     onPromptNavigatorReady: ((jumpToPrompt: (Int) -> Unit) -> Unit)?,
     modifier: Modifier = Modifier,
@@ -89,7 +88,6 @@ fun PaneTreeView(
                     onBlockComplete = { command, exitCode ->
                         onBlockComplete?.invoke(sessionIndex, command, exitCode)
                     },
-                    onTabAcceptSuggestion = if (isFocused) onTabAcceptSuggestion else null,
                     onViewReady = { view -> onViewReady?.invoke(sessionIndex, view) },
                     onPromptNavigatorReady = if (isFocused) onPromptNavigatorReady else null,
                     modifier = Modifier.fillMaxSize(),
@@ -116,7 +114,6 @@ fun PaneTreeView(
                     onModifiersConsumed = onModifiersConsumed,
                     onFocusPane = onFocusPane,
                     onBlockComplete = onBlockComplete,
-                    onTabAcceptSuggestion = onTabAcceptSuggestion,
                     onViewReady = onViewReady,
                     onPromptNavigatorReady = onPromptNavigatorReady,
                 )

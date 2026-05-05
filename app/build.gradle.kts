@@ -110,14 +110,11 @@ dependencies {
     implementation(project(":core:session"))
     implementation(project(":core:bootstrap"))
     implementation(project(":core:terminal-view"))
-    implementation(project(":core:mcp"))
-    implementation(project(":core:llm"))
 
     // Feature modules
     implementation(project(":feature:terminal"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:oem-compat"))
-    implementation(project(":feature:agent"))
 
     // Android
     implementation(libs.androidx.core.ktx)
@@ -136,10 +133,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
-
-    // On-device LLM inference (GGUF models via llama.cpp, optional feature)
-    implementation(libs.mediapipe.tasks.genai)
-    implementation(libs.litertlm.android)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

@@ -6,25 +6,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.novaterm.app.service.TerminalService
-import com.novaterm.core.mcp.security.ApprovalRequest
-import com.novaterm.core.session.manager.AgentStatus
-import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.core.session.manager.SessionGroupManager
 import com.novaterm.core.session.persistence.SessionGroup
 import com.novaterm.feature.settings.data.PreferencesRepository
-import com.novaterm.feature.settings.model.AiTool
 import com.novaterm.feature.settings.data.TerminalPreferences
 import com.novaterm.feature.terminal.ui.pane.PaneManager
 import com.novaterm.feature.terminal.ui.pane.PaneNode
 import com.novaterm.feature.terminal.ui.pane.SplitDirection
 import com.novaterm.feature.terminal.ui.pane.leafCount
 import com.novaterm.terminal.TerminalSession
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,7 +29,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -50,7 +43,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     private val prefsRepo = PreferencesRepository(application)
     private val _savedStateHandle = savedStateHandle
 
-    /** Session group manager — auto-groups sessions by project/agent. */
+    /** Session group manager — auto-groups sessions by project. */
     val groupManager = SessionGroupManager(
         sessionStore = com.novaterm.core.session.persistence.SessionStore(application),
         homeDir = application.filesDir.absolutePath,
@@ -65,7 +58,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         private const val KEY_FOCUSED_PANE_SESSION = "focused_pane_session"
     }
 
-    // ── State persistence ───────────────────────────────────
+    // ── State persistence ──────────────────────────────────────────────────
     private fun restoreStateFromSavedStateHandle() {
         // Restore current session index with validation
         val savedCurrentIndex = _savedStateHandle.get<Int>(KEY_CURRENT_SESSION_INDEX)
@@ -108,8 +101,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         // and will be restored when the service is connected and the session is loaded
     }
 
-    // ── Service binding ────────────────────────────────────
-
+    // ── Service binding ───────────────────────────────────────────────────────────
     private val _service = MutableStateFlow<TerminalService?>(null)
 
     init {
@@ -136,23 +128,6 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     @OptIn(ExperimentalCoroutinesApi::class)
     val sessions: StateFlow<List<TerminalSession>> = _service
         .flatMapLatest { svc -> svc?.sessions ?: flowOf(emptyList()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** Pending MCP approval request for DANGEROUS tool calls (e.g., run_command). */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val mcpApprovalRequest: StateFlow<ApprovalRequest?> = _service
-        .flatMapLatest { svc -> svc?.mcpApprovalRequest ?: flowOf(null) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /**
-     * Agent workspaces derived from the service's AgentOrchestrator.
-     * Reactive — updates whenever workspace status changes.
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val agentWorkspaces: StateFlow<List<AgentWorkspace>> = _service
-        .flatMapLatest { svc ->
-            svc?.getAgentOrchestrator()?.workspacesState ?: flowOf(emptyList())
-        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val serviceConnection = object : ServiceConnection {
@@ -219,7 +194,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         bound = false
     }
 
-    // ── Session UI state ───────────────────────────────────
+    // ── Session UI state ──────────────────────────────────────────────────
 
     private val _currentSessionIndex = MutableStateFlow(0)
     val currentSessionIndex: StateFlow<Int> = _currentSessionIndex.asStateFlow()
@@ -240,15 +215,6 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     private val _showOnboarding = MutableStateFlow(!prefsRepo.isOnboardingCompleted)
     val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
 
-    private val _showAiSetup = MutableStateFlow(
-        prefsRepo.isOnboardingCompleted && !prefsRepo.isAiSetupCompleted
-    )
-    val showAiSetup: StateFlow<Boolean> = _showAiSetup.asStateFlow()
-
-    /** Current command suggestion from the prediction engine. Null = no suggestion shown. */
-    private val _suggestion = MutableStateFlow<String?>(null)
-    val suggestion: StateFlow<String?> = _suggestion.asStateFlow()
-
     private val _sessionCreationFailed = MutableStateFlow(false)
     val sessionCreationFailed: StateFlow<Boolean> = _sessionCreationFailed.asStateFlow()
 
@@ -260,7 +226,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         saveStateToSavedStateHandle()
     }
 
-    // ── Pane management (built-in multiplexer) ────────────
+    // ── Pane management (built-in multiplexer) ─────────────────────────────────────────
 
     /** Per-tab pane managers. Key = tab index. Only populated for tabs with splits. */
     private val _paneManagers = java.util.concurrent.ConcurrentHashMap<Int, PaneManager>()
@@ -280,7 +246,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
 
     /**
      * Combined UI state consumed by [NovaTermApp].
-     * Replaces 14 individual [collectAsState] calls with a single subscription.
+     * Combines all flows into a single subscription to reduce recomposition overhead.
      */
     val uiState: StateFlow<TerminalUiState> = combine(
         // Group 1: session navigation state
@@ -288,14 +254,14 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
                 s, idx, names, layout, focusedPane ->
             arrayOf<Any?>(s, idx, names, layout, focusedPane)
         },
-        // Group 2: input / suggestion state
-        combine(_ctrlActive, _altActive, _suggestion) { ctrl, alt, sug ->
-            arrayOf<Any?>(ctrl, alt, sug)
+        // Group 2: input / modifier state
+        combine(_ctrlActive, _altActive) { ctrl, alt ->
+            arrayOf<Any?>(ctrl, alt)
         },
         // Group 3: overlay / dialog state
-        combine(_showSettings, _showOnboarding, _showAiSetup, _isInPipMode, _sessionToClose) {
-                settings, onboarding, aiSetup, pip, toClose ->
-            arrayOf<Any?>(settings, onboarding, aiSetup, pip, toClose, _sessionCreationFailed.value)
+        combine(_showSettings, _showOnboarding, _isInPipMode, _sessionToClose) {
+                settings, onboarding, pip, toClose ->
+            arrayOf<Any?>(settings, onboarding, pip, toClose, _sessionCreationFailed.value)
         },
         // Group 4: session grouping state
         combine(groupManager.groups, groupManager.sessionGroupMap, groupManager.groupingEnabled) {
@@ -315,13 +281,11 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
             focusedPaneSession   = nav[4] as Int,
             ctrlActive           = input[0] as Boolean,
             altActive            = input[1] as Boolean,
-            suggestion           = input[2] as String?,
             showSettings         = overlay[0] as Boolean,
             showOnboarding       = overlay[1] as Boolean,
-            showAiSetup          = overlay[2] as Boolean,
-            isInPipMode          = overlay[3] as Boolean,
-            sessionToClose       = overlay[4] as Int?,
-            sessionCreationFailed = overlay[5] as Boolean,
+            isInPipMode          = overlay[2] as Boolean,
+            sessionToClose       = overlay[3] as Int?,
+            sessionCreationFailed = overlay[4] as Boolean,
             groups               = groupManager.getGroupsWithSessionCounts(),
             sessionGroupMap      = sessionGroupMap,
             groupingEnabled      = groupingEnabled,
@@ -331,7 +295,6 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         SharingStarted.WhileSubscribed(5_000),
         TerminalUiState(
             showOnboarding = !prefsRepo.isOnboardingCompleted,
-            showAiSetup = prefsRepo.isOnboardingCompleted && !prefsRepo.isAiSetupCompleted,
         ),
     )
 
@@ -426,7 +389,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         saveStateToSavedStateHandle()
     }
 
-    // ── Actions ────────────────────────────────────────────
+    // ── Actions ────────────────────────────────────────────────────────────────
 
     fun createSession() {
         val svc = _service.value ?: return
@@ -436,7 +399,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
             _currentSessionIndex.value = newIndex
             _sessionCreationFailed.value = false
             // Auto-assign to group based on CWD
-            val cwd = session.cwd.ifBlank { homeDir }
+            val cwd = session.cwd?.ifBlank { homeDir } ?: homeDir
             val groupId = groupManager.detectGroupForCwd(cwd)
             groupManager.assignSessionToGroup(newIndex, groupId)
             saveStateToSavedStateHandle()
@@ -449,7 +412,7 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         _sessionCreationFailed.value = false
     }
 
-    // ── Session close confirmation ─────────────────────────
+    // ── Session close confirmation ───────────────────────────────────────────
 
     fun requestCloseSession(index: Int) {
         val svc = _service.value ?: return
@@ -548,123 +511,13 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
         prefsRepo.update(prefsRepo.preferences.value.copy(colorScheme = colorScheme))
         prefsRepo.completeOnboarding()
         _showOnboarding.value = false
-        // Show AI setup next (if not already completed)
-        _showAiSetup.value = !prefsRepo.isAiSetupCompleted
-    }
-
-    fun completeAiSetup() {
-        prefsRepo.completeAiSetup()
-        _showAiSetup.value = false
-    }
-
-    fun skipAiSetup() {
-        prefsRepo.completeAiSetup()
-        _showAiSetup.value = false
-    }
-
-    /**
-     * Save API keys from AI setup to preferences.
-     * Keys will be automatically exported to session environment by EnvironmentBuilder.
-     */
-    fun saveApiKeys(apiKeys: Map<String, String>) {
-        val current = prefsRepo.preferences.value
-        var updated = current
-        apiKeys.forEach { (toolId, key) ->
-            if (key.isNotBlank()) {
-                updated = when (toolId) {
-                    "claude" -> updated.copy(anthropicApiKey = key)
-                    "gemini" -> updated.copy(googleApiKey = key)
-                    "opencode" -> updated.copy(openrouterApiKey = key)
-                    else -> updated
-                }
-            }
-        }
-        if (updated != current) {
-            prefsRepo.update(updated)
-        }
-    }
-
-    /**
-     * Install selected AI tools by writing commands to the terminal session.
-     * Commands are queued: apt update → apt install deps → npm/pip install tools.
-     */
-    fun installAiTools(selectedTools: List<AiTool>, updateFirst: Boolean) {
-        val session = sessions.value.firstOrNull() ?: return
-        val commands = mutableListOf<String>()
-
-        if (updateFirst) {
-            commands.add("apt update && apt upgrade -y")
-        }
-
-        // Collect unique dependencies across all selected tools
-        val allDeps = selectedTools.flatMap { it.dependencies }.distinct()
-        if (allDeps.isNotEmpty()) {
-            commands.add("apt install -y ${allDeps.joinToString(" ")}")
-        }
-
-        // Install each tool
-        selectedTools.forEach { tool ->
-            commands.add(tool.installCommand)
-        }
-
-        // Write all commands to the terminal
-        val commandStr = commands.joinToString(" && ")
-        session.write("$commandStr\n")
     }
 
     fun toggleWakeLock() {
         _service.value?.toggleWakeLock()
     }
 
-    // ── Command prediction ────────────────────────────────
-
-    /** Update the suggestion based on what the user just executed. */
-    fun refreshSuggestion() {
-        val svc = _service.value ?: return
-        if (!svc.predictionEngineReady) {
-            _suggestion.value = null
-            return
-        }
-        viewModelScope.launch(Dispatchers.Default) {
-            try {
-                val sessionIndex = _currentSessionIndex.value
-                val sessionId = "session_$sessionIndex"
-                val cwd = sessions.value.getOrNull(sessionIndex)?.cwd
-
-                // Re-check service readiness inside coroutine
-                val currentSvc = _service.value ?: return@launch
-                if (!currentSvc.predictionEngineReady) {
-                    _suggestion.value = null
-                    return@launch
-                }
-
-                // N-gram prediction (fast, no model needed)
-                val predictions = currentSvc.predictionEngine.predict(
-                    sessionId = sessionId,
-                    cwd = cwd,
-                    maxResults = 1,
-                )
-                _suggestion.value = predictions.firstOrNull()?.command
-            } catch (e: Exception) {
-                if (com.novaterm.app.BuildConfig.DEBUG) Log.d("NovaTerm", "Suggestion failed: ${e.message}")
-                _suggestion.value = null
-            }
-        }
-    }
-
-    /** Accept the current suggestion — write it to the terminal. */
-    fun acceptSuggestion(): String? {
-        val cmd = _suggestion.value
-        _suggestion.value = null
-        return cmd
-    }
-
-    /** Dismiss suggestion without accepting. */
-    fun dismissSuggestion() {
-        _suggestion.value = null
-    }
-
-    // ── Session group actions ──────────────────────────────────
+    // ── Session group actions ───────────────────────────────────────────────────────
 
     /** Toggle a group's expanded/collapsed state in the tab bar. */
     fun toggleGroup(groupId: String) {
@@ -685,59 +538,5 @@ class TerminalViewModel(application: Application, savedStateHandle: SavedStateHa
     /** Toggle session grouping on/off. */
     fun setGroupingEnabled(enabled: Boolean) {
         groupManager.setGroupingEnabled(enabled)
-    }
-
-    // ── Agent workspace actions ────────────────────────────
-
-    /** Switch to the session tab for an agent workspace. */
-    fun openAgentSession(workspace: AgentWorkspace) {
-        val sessionId = workspace.sessionId
-        if (sessionId >= 0) {
-            selectSession(sessionId)
-        }
-    }
-
-    /** Pause or resume an agent workspace (SIGSTOP/SIGCONT). */
-    fun pauseAgent(workspaceId: String) {
-        val svc = _service.value ?: return
-        val workspace = svc.getAgentOrchestrator().findById(workspaceId) ?: return
-        if (workspace.status == AgentStatus.RUNNING) {
-            svc.pauseWorkspace(workspaceId)
-        } else if (workspace.status == AgentStatus.PAUSED) {
-            svc.resumeWorkspace(workspaceId)
-        }
-    }
-
-    /** Kill an agent workspace — terminates process and cleans up. */
-    fun killAgent(workspaceId: String) {
-        val svc = _service.value ?: return
-        svc.killWorkspace(workspaceId)
-    }
-
-    /**
-     * Run `git diff` in a workspace's directory.
-     * Returns raw unified diff output, or empty string on failure.
-     */
-    fun runAgentDiff(workspaceId: String): String {
-        val svc = _service.value ?: return ""
-        return svc.getAgentOrchestrator().runDiff(workspaceId)
-    }
-
-    /**
-     * Approve (commit) all changes in a workspace.
-     * @return true if commit succeeded
-     */
-    fun approveAgentChanges(workspaceId: String): Boolean {
-        val svc = _service.value ?: return false
-        return svc.getAgentOrchestrator().approveChanges(workspaceId)
-    }
-
-    /**
-     * Reject (discard) all changes in a workspace.
-     * @return true if checkout succeeded
-     */
-    fun rejectAgentChanges(workspaceId: String): Boolean {
-        val svc = _service.value ?: return false
-        return svc.getAgentOrchestrator().rejectChanges(workspaceId)
     }
 }

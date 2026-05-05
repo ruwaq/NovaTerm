@@ -9,16 +9,14 @@ import org.junit.Test
 /**
  * Unit tests for TerminalPreferences data class and PreferencesRepository companion constants.
  *
- * PreferencesRepository itself requires an Android Context (SharedPreferences +
- * EncryptedSharedPreferences) and cannot be instantiated in pure JVM tests without
- * Robolectric. All testable logic — defaults, copy semantics, constant values,
- * and validation rules — lives in TerminalPreferences, which is pure Kotlin.
+ * PreferencesRepository itself requires an Android Context (SharedPreferences)
+ * and cannot be instantiated in pure JVM tests without Robolectric. All testable
+ * logic -- defaults, copy semantics, constant values, and validation rules --
+ * lives in TerminalPreferences, which is pure Kotlin.
  */
 class PreferencesRepositoryTest {
 
-    // -------------------------------------------------------------------------
-    // Default values
-    // -------------------------------------------------------------------------
+    // -- Default values -------------------------------------------------
 
     @Test
     fun `default font size is 12sp`() {
@@ -52,25 +50,11 @@ class PreferencesRepositoryTest {
     }
 
     @Test
-    fun `default mcp port is 8080`() {
-        assertEquals(8080, TerminalPreferences().mcpPort)
-    }
-
-    @Test
     fun `default extra keys style is default`() {
         assertEquals(
             TerminalPreferences.EXTRA_KEYS_STYLE_DEFAULT,
             TerminalPreferences().extraKeysStyle,
         )
-    }
-
-    @Test
-    fun `default api keys are empty strings`() {
-        val prefs = TerminalPreferences()
-        assertEquals("", prefs.anthropicApiKey)
-        assertEquals("", prefs.googleApiKey)
-        assertEquals("", prefs.openaiApiKey)
-        assertEquals("", prefs.openrouterApiKey)
     }
 
     @Test
@@ -84,13 +68,9 @@ class PreferencesRepositoryTest {
         assertFalse(prefs.useRustBackend)
         assertFalse(prefs.useGpuRenderer)
         assertFalse(prefs.pipOnLeave)
-        assertFalse(prefs.mcpEnabled)
-        assertFalse(prefs.llmEnabled)
     }
 
-    // -------------------------------------------------------------------------
-    // copy() semantics
-    // -------------------------------------------------------------------------
+    // -- copy() semantics -----------------------------------------------
 
     @Test
     fun `copy with fontSize preserves all other fields`() {
@@ -108,7 +88,6 @@ class PreferencesRepositoryTest {
         assertEquals(original.backIsEscape, modified.backIsEscape)
         assertEquals(original.useRustBackend, modified.useRustBackend)
         assertEquals(original.extraKeysStyle, modified.extraKeysStyle)
-        assertEquals(original.mcpPort, modified.mcpPort)
     }
 
     @Test
@@ -123,22 +102,9 @@ class PreferencesRepositoryTest {
         assertEquals(16, modified.fontSize)
         assertTrue(modified.keepScreenOn)
         assertEquals("dracula", modified.colorScheme)
-        // unchanged
         assertEquals(original.scrollbackLines, modified.scrollbackLines)
         assertEquals(original.fontFamily, modified.fontFamily)
         assertEquals(original.hapticFeedback, modified.hapticFeedback)
-    }
-
-    @Test
-    fun `copy with api key does not affect other fields`() {
-        val original = TerminalPreferences()
-        val modified = original.copy(anthropicApiKey = "sk-ant-test")
-
-        assertEquals("sk-ant-test", modified.anthropicApiKey)
-        assertEquals("", modified.googleApiKey)
-        assertEquals("", modified.openaiApiKey)
-        assertEquals("", modified.openrouterApiKey)
-        assertEquals(original.fontSize, modified.fontSize)
     }
 
     @Test
@@ -146,7 +112,6 @@ class PreferencesRepositoryTest {
         val original = TerminalPreferences()
         original.copy(fontSize = 24, useRustBackend = true)
 
-        // data class copy returns new object — original is unchanged
         assertEquals(12, original.fontSize)
         assertFalse(original.useRustBackend)
     }
@@ -166,13 +131,11 @@ class PreferencesRepositoryTest {
         assertNotEquals(a, b)
     }
 
-    // -------------------------------------------------------------------------
-    // Extra keys styles
-    // -------------------------------------------------------------------------
+    // -- Extra keys styles ----------------------------------------------
 
     @Test
-    fun `EXTRA_KEYS_STYLES contains exactly 5 styles`() {
-        assertEquals(5, TerminalPreferences.EXTRA_KEYS_STYLES.size)
+    fun `EXTRA_KEYS_STYLES contains exactly 4 styles`() {
+        assertEquals(4, TerminalPreferences.EXTRA_KEYS_STYLES.size)
     }
 
     @Test
@@ -182,7 +145,6 @@ class PreferencesRepositoryTest {
         assertTrue(TerminalPreferences.EXTRA_KEYS_STYLE_VIM in styles)
         assertTrue(TerminalPreferences.EXTRA_KEYS_STYLE_DEV in styles)
         assertTrue(TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL in styles)
-        assertTrue(TerminalPreferences.EXTRA_KEYS_STYLE_AI in styles)
     }
 
     @Test
@@ -198,14 +160,11 @@ class PreferencesRepositoryTest {
             TerminalPreferences.EXTRA_KEYS_STYLE_VIM,
             TerminalPreferences.EXTRA_KEYS_STYLE_DEV,
             TerminalPreferences.EXTRA_KEYS_STYLE_MINIMAL,
-            TerminalPreferences.EXTRA_KEYS_STYLE_AI,
         )
-        assertEquals(5, values.size)
+        assertEquals(4, values.size)
     }
 
-    // -------------------------------------------------------------------------
-    // Font families
-    // -------------------------------------------------------------------------
+    // -- Font families --------------------------------------------------
 
     @Test
     fun `FONT_FAMILIES contains exactly 5 entries`() {
@@ -235,9 +194,7 @@ class PreferencesRepositoryTest {
         assertEquals(ids.size, ids.toSet().size)
     }
 
-    // -------------------------------------------------------------------------
-    // Scrollback options
-    // -------------------------------------------------------------------------
+    // -- Scrollback options ---------------------------------------------
 
     @Test
     fun `SCROLLBACK_OPTIONS are ordered ascending`() {
@@ -280,24 +237,14 @@ class PreferencesRepositoryTest {
         assertEquals(50_000, TerminalPreferences.SCROLLBACK_OPTIONS.last())
     }
 
-    // -------------------------------------------------------------------------
-    // Prefs constants (companion in PreferencesRepository)
-    // -------------------------------------------------------------------------
+    // -- Prefs constants ------------------------------------------------
 
     @Test
     fun `PREFS_NAME is non-blank`() {
         assertTrue(PreferencesRepository.PREFS_NAME.isNotBlank())
     }
 
-    @Test
-    fun `SECURE_PREFS_NAME is non-blank and distinct from PREFS_NAME`() {
-        assertTrue(PreferencesRepository.SECURE_PREFS_NAME.isNotBlank())
-        assertNotEquals(PreferencesRepository.PREFS_NAME, PreferencesRepository.SECURE_PREFS_NAME)
-    }
-
-    // -------------------------------------------------------------------------
-    // Color scheme validation (isDark heuristic via id convention)
-    // -------------------------------------------------------------------------
+    // -- Color scheme validation ----------------------------------------
 
     @Test
     fun `gruvbox-dark scheme id contains dark suffix`() {
@@ -309,7 +256,6 @@ class PreferencesRepositoryTest {
         val darkSchemes = listOf(
             "gruvbox-dark", "catppuccin-mocha", "solarized-dark", "monokai", "nord", "dracula",
         )
-        // All dark schemes either end in -dark or are well-known dark themes
         darkSchemes.forEach { id ->
             assertFalse("Dark scheme id '$id' should not be blank", id.isBlank())
         }
@@ -320,9 +266,7 @@ class PreferencesRepositoryTest {
         assertNotEquals("gruvbox-light", TerminalPreferences().colorScheme)
     }
 
-    // -------------------------------------------------------------------------
-    // StateFlow simulation — TerminalPreferences as value in a MutableStateFlow
-    // -------------------------------------------------------------------------
+    // -- StateFlow simulation -------------------------------------------
 
     @Test
     fun `MutableStateFlow of TerminalPreferences emits initial value`() {
@@ -339,7 +283,6 @@ class PreferencesRepositoryTest {
 
         assertEquals(18, flow.value.fontSize)
         assertEquals("dracula", flow.value.colorScheme)
-        // Unmodified field preserved
         assertEquals(TerminalPreferences.DEFAULT_SCROLLBACK_LINES, flow.value.scrollbackLines)
     }
 
@@ -371,7 +314,6 @@ class PreferencesRepositoryTest {
         assertEquals(16, flow.value.fontSize)
         assertEquals(5_000, flow.value.scrollbackLines)
         assertTrue(flow.value.useRustBackend)
-        // Unmodified fields stay at default
         assertEquals("gruvbox-dark", flow.value.colorScheme)
         assertFalse(flow.value.keepScreenOn)
     }

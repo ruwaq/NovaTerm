@@ -9,14 +9,13 @@ import org.junit.Test
  * Tests for EnvironmentBuilder logic.
  *
  * Since EnvironmentBuilder requires an Android Context (for dataDir,
- * packageName, EncryptedSharedPreferences), we test the pure logic
- * patterns extracted from buildEnvironment:
+ * packageName), we test the pure logic patterns extracted from
+ * buildEnvironment:
  * - Environment variable construction
  * - PATH ordering
  * - XDG directory mapping
  * - LINES/COLUMNS from extraVars
  * - LD_PRELOAD candidate resolution
- * - API key export filtering
  */
 class EnvironmentBuilderTest {
 
@@ -54,8 +53,6 @@ class EnvironmentBuilderTest {
         env["XDG_RUNTIME_DIR"] = "$prefix/tmp"
         env["TERM_PROGRAM"] = "novaterm"
         env["TERM_PROGRAM_VERSION"] = appVersion
-        env["CLAUDE_CODE_SCROLL_SPEED"] = "3"
-        env["AIDER_DARK_MODE"] = "true"
         env["LINES"] = extraVars.getOrDefault("LINES", "40")
         env["COLUMNS"] = extraVars.getOrDefault("COLUMNS", "120")
         env["NOVATERM__ROOTFS"] = rootDir
@@ -156,13 +153,6 @@ class EnvironmentBuilderTest {
     }
 
     @Test
-    fun `AI tool vars are set`() {
-        val env = buildEnv()
-        assertEquals("3", env["CLAUDE_CODE_SCROLL_SPEED"])
-        assertEquals("true", env["AIDER_DARK_MODE"])
-    }
-
-    @Test
     fun `Termux compat vars match NovaTerm vars`() {
         val env = buildEnv()
         assertEquals(env["NOVATERM__ROOTFS"], env["TERMUX__ROOTFS"])
@@ -184,7 +174,6 @@ class EnvironmentBuilderTest {
 
     @Test
     fun `LD_PRELOAD candidate ordering`() {
-        // Test the candidate path generation logic
         val prefix = "/usr"
         val dataDir = "/data/app"
         val legacyDir = "/data/legacy"
@@ -197,48 +186,8 @@ class EnvironmentBuilderTest {
             listOf("$prefix/lib/$name", "$dataDir/files/usr/lib/$name", "$legacyDir/files/usr/lib/$name")
         }
         assertEquals(9, candidates.size)
-        // First candidate should be the preferred library in the preferred location
         assertEquals("$prefix/lib/libtermux-exec-linker-ld-preload.so", candidates[0])
-        // Last candidate is the least preferred combo
         assertEquals("$legacyDir/files/usr/lib/libtermux-exec.so", candidates[8])
-    }
-
-    @Test
-    fun `API key export filters empty strings`() {
-        // Simulate the export logic
-        val env = mutableMapOf<String, String>()
-        val keys = mapOf(
-            "api_key_anthropic" to "sk-ant-123",
-            "api_key_google" to "",        // empty — should be skipped
-            "api_key_openai" to null,      // null — should be skipped
-            "api_key_openrouter" to "or-key-456",
-        )
-
-        keys["api_key_anthropic"]?.takeIf { it.isNotEmpty() }?.let { env["ANTHROPIC_API_KEY"] = it }
-        keys["api_key_google"]?.takeIf { it.isNotEmpty() }?.let {
-            env["GOOGLE_API_KEY"] = it
-            env["GEMINI_API_KEY"] = it
-        }
-        keys["api_key_openai"]?.takeIf { it.isNotEmpty() }?.let { env["OPENAI_API_KEY"] = it }
-        keys["api_key_openrouter"]?.takeIf { it.isNotEmpty() }?.let { env["OPENROUTER_API_KEY"] = it }
-
-        assertEquals("sk-ant-123", env["ANTHROPIC_API_KEY"])
-        assertFalse(env.containsKey("GOOGLE_API_KEY"))
-        assertFalse(env.containsKey("GEMINI_API_KEY"))
-        assertFalse(env.containsKey("OPENAI_API_KEY"))
-        assertEquals("or-key-456", env["OPENROUTER_API_KEY"])
-    }
-
-    @Test
-    fun `Google API key sets both GOOGLE and GEMINI`() {
-        val env = mutableMapOf<String, String>()
-        val googleKey = "goog-key-789"
-        googleKey.takeIf { it.isNotEmpty() }?.let {
-            env["GOOGLE_API_KEY"] = it
-            env["GEMINI_API_KEY"] = it
-        }
-        assertEquals(googleKey, env["GOOGLE_API_KEY"])
-        assertEquals(googleKey, env["GEMINI_API_KEY"])
     }
 
     @Test

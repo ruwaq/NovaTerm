@@ -8,17 +8,17 @@ import java.util.UUID
  * A named group that contains related terminal sessions.
  *
  * Inspired by Superset IDE workspaces and cmux named workspace groups.
- * Sessions are auto-grouped by project (git root of CWD) or agent type,
+ * Sessions are auto-grouped by project (git root of CWD),
  * but users can also manually create and organize groups.
  *
  * @property id Unique identifier (8-char UUID prefix for readability).
- * @property name Human-readable group name (e.g. "NovaTerm", "AI Agents", "Shell").
+ * @property name Human-readable group name (e.g. "NovaTerm", "Shell").
  * @property color Accent color in hex (e.g. "#E85D04"). Used for group header
  *   and status dot tinting in the tab bar.
  * @property icon Material icon key for the group header. Default: "folder".
  * @property isExpanded Whether the group is expanded in the tab bar.
  * @property sortOrder Display order — lower values appear first.
- * @property isAutoCreated True if this group was auto-created from CWD/agent detection.
+ * @property isAutoCreated True if this group was auto-created from CWD detection.
  *   Auto-created groups can be renamed but won't be deleted even if empty
  *   (they'll be reused when a matching session appears).
  * @property createdAt Creation timestamp for ordering.
@@ -54,7 +54,7 @@ data class SessionGroup(
             "#E85D04" to "Ember",    // Default
             "#50FA7B" to "Green",    // Running/success
             "#FF5555" to "Red",      // Error/alert
-            "#8BE9FD" to "Cyan",     // Info/agent
+            "#8BE9FD" to "Cyan",     // Info
             "#F1FA8C" to "Yellow",   // Warning
             "#BD93F9" to "Purple",   // Special
             "#FFB86C" to "Orange",   // Secondary
@@ -65,7 +65,6 @@ data class SessionGroup(
         val GROUP_ICONS = listOf(
             "folder" to "Folder",
             "terminal" to "Terminal",
-            "smart_toy" to "AI Agent",
             "code" to "Code",
             "build" to "Build",
             "bug_report" to "Debug",
@@ -93,15 +92,7 @@ data class SessionGroup(
                 icon = "terminal",
                 sortOrder = 0,
                 isAutoCreated = true,
-            ),
-            SessionGroup(
-                id = "agents",
-                name = "AI Agents",
-                color = "#8BE9FD",
-                icon = "smart_toy",
-                sortOrder = 100,
-                isAutoCreated = true,
-            ),
+            )
         )
 
         /** Find or create a group for a project directory.
@@ -114,17 +105,6 @@ data class SessionGroup(
                 color = "#BD93F9",  // Purple for projects
                 icon = "code",
                 sortOrder = 50,
-                isAutoCreated = true,
-            )
-        }
-
-        /** Find or create a group for an agent type. */
-        fun forAgentType(agentLabel: String): SessionGroup {
-            return SessionGroup(
-                name = agentLabel,
-                color = "#8BE9FD",  // Cyan for agents
-                icon = "smart_toy",
-                sortOrder = 100,
                 isAutoCreated = true,
             )
         }

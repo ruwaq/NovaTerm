@@ -20,23 +20,9 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
 import com.novaterm.app.receiver.BootReceiver
-import com.novaterm.core.mcp.McpServer
-import com.novaterm.core.mcp.McpServerConfig
-import com.novaterm.core.mcp.security.ApprovalRequest
-import com.novaterm.core.mcp.security.InteractiveApprovalManager
-import com.novaterm.core.mcp.security.SecurityPolicy
-import com.novaterm.core.session.manager.AgentOrchestrator
-import com.novaterm.core.session.manager.AgentPreset
-import com.novaterm.core.session.manager.AgentWorkspace
 import com.novaterm.core.session.manager.AndroidShellProvider
 import com.novaterm.core.session.persistence.SessionMetadata
 import com.novaterm.core.session.persistence.SessionStore
-import com.novaterm.core.llm.GemmaEngine
-import com.novaterm.core.llm.LlmConfig
-import com.novaterm.core.llm.LlmEngine
-import com.novaterm.core.llm.ModelCatalog
-import com.novaterm.core.llm.ModelManager
-import com.novaterm.core.mcp.prediction.PredictionEngine
 import com.novaterm.core.session.persistence.db.BlockStore
 import com.novaterm.feature.terminal.semantic.SemanticZoneTracker
 import com.novaterm.terminal.TerminalEmulator
@@ -74,13 +60,9 @@ class TerminalService : Service() {
     // ── Core delegates ────────────────────────────────────
 
     private lateinit var shellProvider: AndroidShellProvider
-    private lateinit var agentOrchestrator: AgentOrchestrator
     private lateinit var persistence: SessionPersistenceManager
     lateinit var blockStore: BlockStore
         private set
-    lateinit var predictionEngine: PredictionEngine
-        private set
-    val predictionEngineReady: Boolean get() = ::predictionEngine.isInitialized
 
     // ── Session state (observable) ─────────────────────────
 
@@ -112,35 +94,10 @@ class TerminalService : Service() {
         screenUpdateCallbacks.remove(sessionHandle)
     }
 
-    // ── MCP server ──────────────────────────────────────────
-
-    @Volatile private var mcpServer: McpServer? = null
-    @Volatile private var mcpBridge: ServiceMcpBridge? = null
-    private val interactiveApproval = InteractiveApprovalManager()
-
-    /** Current MCP auth token (null when server is not running). */
-    val mcpAuthToken: String? get() = mcpServer?.authToken
-
-    /** Pending approval request for DANGEROUS tool calls. UI observes this. */
-    val mcpApprovalRequest: StateFlow<ApprovalRequest?> = interactiveApproval.pendingRequest
-
-    // ── On-device LLM (optional) ────────────────────────────
-
-    lateinit var modelManager: ModelManager
-        private set
-    @Volatile var llmEngine: LlmEngine? = null
-        private set
-
-    // Synchronization object for LLM engine access
-    private val llmSync = Any()
-    val llmEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
-
     // ── Preferences bridge (atomic for cross-thread safety) ──
 
     val bellEnabled = java.util.concurrent.atomic.AtomicBoolean(true)
     val useRustBackend = java.util.concurrent.atomic.AtomicBoolean(false)
-    val mcpEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
-    val mcpPort = java.util.concurrent.atomic.AtomicInteger(McpServerConfig.DEFAULT_PORT)
     val scrollbackLines = java.util.concurrent.atomic.AtomicInteger(TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS)
 
     // ── Semantic zone trackers (per-session, for command completion notifications) ──
@@ -186,13 +143,6 @@ class TerminalService : Service() {
                     mainHandler.post(callback)
                 }
             }
-            // Update agent workspace output timestamp for dashboard
-            val sessionIndex = _sessions.value.indexOf(changedSession)
-            if (sessionIndex >= 0) {
-                agentOrchestrator.findBySessionId(sessionIndex)?.let { workspace ->
-                    agentOrchestrator.markOutput(workspace.id)
-                }
-            }
         }
 
         override fun onTitleChanged(changedSession: TerminalSession) {
@@ -204,19 +154,8 @@ class TerminalService : Service() {
 
         override fun onSessionFinished(finishedSession: TerminalSession) {
             zoneTrackers.remove(finishedSession.mHandle)
-            // Mark workspace as completed before removing session
-            val finishedIndex = _sessions.value.indexOf(finishedSession)
-            if (finishedIndex >= 0) {
-                agentOrchestrator.findBySessionId(finishedIndex)?.let { workspace ->
-                    agentOrchestrator.markCompleted(workspace.id, 0)
-                }
-            }
             _sessions.update { current ->
                 current.filter { it !== finishedSession }
-            }
-            // Adjust workspace session IDs after removal
-            if (finishedIndex >= 0) {
-                agentOrchestrator.adjustSessionIdsAfterRemoval(finishedIndex)
             }
             updateNotification()
         }
@@ -354,10 +293,6 @@ class TerminalService : Service() {
         private fun sanitizeLogMessage(message: String): String {
             // Filter sensitive data from logs to prevent accidental exposure
             return message
-                .replace(Regex("""ANTHROPIC_API_KEY=[a-zA-Z0-9_-]{32,}"""), "ANTHROPIC_API_KEY=***")
-                .replace(Regex("""GOOGLE_API_KEY=[a-zA-Z0-9_-]{32,}"""), "GOOGLE_API_KEY=***")
-                .replace(Regex("""OPENAI_API_KEY=[a-zA-Z0-9_-]{32,}"""), "OPENAI_API_KEY=***")
-                .replace(Regex("""OPENROUTER_API_KEY=[a-zA-Z0-9_-]{32,}"""), "OPENROUTER_API_KEY=***")
                 .replace(Regex("""\b[A-Za-z0-9_-]{32,}\b"""), "****")
                 .replace(Regex("""\bhttps?://\S{30,}\b"""), "****")
                 .replace(Regex("""\b[A-Za-z0-9_-]+@\S+\.[A-Za-z]{2,}\b"""), "****@****.***")
@@ -371,11 +306,8 @@ class TerminalService : Service() {
         super.onCreate()
 
         shellProvider = AndroidShellProvider(this, appVersion = com.novaterm.app.BuildConfig.VERSION_NAME)
-        agentOrchestrator = AgentOrchestrator(shellProvider, shellProvider.agentHomeDir)
         val sessionStore = SessionStore(this)
         blockStore = BlockStore(this)
-        predictionEngine = PredictionEngine(filesDir).also { it.load() }
-        modelManager = ModelManager(this)
         notifications = NotificationHelper(this, { _sessions.value }, { isWakeLockHeld })
         wakeLocks = WakeLockManager(this)
 
@@ -384,7 +316,6 @@ class TerminalService : Service() {
             sessionsSnapshot = { _sessions.value.toList() },
             shellFinder = { shellProvider.findShell() },
             defaultCwd = { shellProvider.defaultWorkingDirectory() },
-            predictionEngine = { if (::predictionEngine.isInitialized) predictionEngine else null },
             mainHandler = mainHandler,
             serviceScope = serviceScope,
             isServiceDestroyed = { isServiceDestroyed },
@@ -394,7 +325,6 @@ class TerminalService : Service() {
         startForeground(notifications.foregroundNotificationId, notifications.buildForegroundNotification())
 
         persistence.startPeriodicSave()
-        startMcpServerIfEnabled()
         runBootScripts()
     }
 
@@ -438,87 +368,6 @@ class TerminalService : Service() {
         }
     }
 
-    /**
-     * Start or restart the MCP server based on current preference state.
-     * Safe to call multiple times — stops existing server first.
-     */
-    fun startMcpServerIfEnabled() {
-        mcpBridge?.cleanup()
-        mcpServer?.stop()
-        mcpServer = null
-        mcpBridge = null
-
-        if (!mcpEnabled.get()) return
-
-        try {
-            val config = McpServerConfig(
-                enabled = true,
-                port = mcpPort.get(),
-            )
-            val home = shellProvider.defaultWorkingDirectory()
-            val rootDir = java.io.File(home).parent ?: home
-            val bridge = ServiceMcpBridge(
-                sessionsFlow = _sessions,
-                serviceScope = serviceScope,
-                onCreateSession = { cwd ->
-                    if (cwd != null) createSessionInDir(cwd) else createSession()
-                },
-                onRemoveSession = { index -> removeSession(index) },
-                defaultCwd = { shellProvider.defaultWorkingDirectory() },
-                prefixPath = { "$rootDir/usr" },
-                onGetAgentOrchestrator = { agentOrchestrator },
-            )
-            mcpBridge = bridge
-            val server = McpServer(config, bridge, interactiveApproval, context = this@TerminalService)
-            // Register device API MCP tools (clipboard, battery, torch, etc.)
-            com.novaterm.app.mcp.DeviceApiTools.registerAll(server.toolRegistry, this@TerminalService)
-            server.start()
-            mcpServer = server
-            Log.i(TAG, "MCP server started on port [redacted]")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start MCP server (port: [redacted])", e)
-        }
-    }
-
-    /**
-     * Initialize or release the on-device LLM based on user preference.
-     * Safe to call multiple times — releases previous engine first.
-     */
-    fun updateLlmState() {
-        llmEngine?.release()
-        llmEngine = null
-
-        if (!llmEnabled.get() || !modelManager.isModelReady()) return
-
-        val modelPath = modelManager.getModelPath() ?: return
-        val selectedModel = modelManager.getSelectedModel()
-        try {
-            val config = LlmConfig(
-                modelPath = modelPath,
-                modelFamily = selectedModel?.family ?: ModelCatalog.ModelFamily.GEMMA4,
-            )
-            val engine = GemmaEngine(config, context = applicationContext)
-            serviceScope.launch {
-                try {
-                    val success = engine.initialize()
-                    if (success) {
-                        llmEngine = engine
-                        Log.i(TAG, "LLM engine initialized successfully (model: [redacted])")
-                    } else {
-                        Log.w(TAG, "LLM initialization failed")
-                        engine.release()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "LLM initialization error", e)
-                    engine.release()
-                }
-            }
-            Log.i(TAG, "LLM engine loading in background...")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create LLM engine", e)
-        }
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_EXIT -> {
@@ -545,8 +394,6 @@ class TerminalService : Service() {
                     // Security: validate command before execution
                     if (command.length > MAX_COMMAND_LENGTH) {
                         Log.w(TAG, "RUN_COMMAND: command exceeds max length (${command.length})")
-                    } else if (SecurityPolicy.isBlockedCommand(command)) {
-                        Log.w(TAG, "RUN_COMMAND: blocked by security policy")
                     } else {
                         val cwd = intent.getStringExtra("cwd")
                         val session = if (!cwd.isNullOrBlank()) {
@@ -603,16 +450,9 @@ class TerminalService : Service() {
         isServiceDestroyed = true
         serviceScope.cancel()
         screenUpdateCallbacks.clear()
-        mcpBridge?.cleanup()
-        mcpBridge = null
-        mcpServer?.stop()
-        mcpServer = null
-        llmEngine?.release()
-        llmEngine = null
         persistence.stopPeriodicSave()
         persistence.saveSessionMetadata()
         getSystemService(ShortcutManager::class.java)?.removeAllDynamicShortcuts()
-        if (::predictionEngine.isInitialized) predictionEngine.save()
         if (::blockStore.isInitialized) blockStore.close()
         val snapshot = _sessions.value.toList()
         snapshot.forEach { session ->
@@ -661,130 +501,6 @@ class TerminalService : Service() {
             Log.e(TAG, "LAUNCH_PRESET: failed to create session for preset '$preset'")
         }
         return session
-    }
-
-    /**
-     * Launch an agent in an isolated workspace.
-     *
-     * Creates an [AgentWorkspace] with isolated environment variables,
-     * then starts a terminal session in that workspace's directory.
-     * The agent command is written to the PTY after a short delay
-     * (to allow the shell to initialize and LD_PRELOAD to take effect).
-     *
-     * @return The workspace that was created, or null if session creation failed.
-     */
-    fun createAgentSession(preset: AgentPreset): AgentWorkspace? {
-        if (_sessions.value.size >= MAX_SESSIONS) {
-            Log.w(TAG, "Max sessions reached ($MAX_SESSIONS) — cannot create agent session")
-            return null
-        }
-
-        // 1. Create isolated workspace
-        val workspace = agentOrchestrator.createWorkspace(preset)
-
-        // 2. Build environment for this workspace
-        val env = shellProvider.buildAgentEnvironment(workspace)
-
-        // 3. Create session in workspace directory
-        val session = try {
-            val shellCmd = shellProvider.agentShellCommand()
-            val shell = shellCmd[0]
-            val lastSession = _sessions.value.lastOrNull()
-            val rows = try { lastSession?.emulator?.mRows?.toString() } catch (_: Exception) { null } ?: DEFAULT_ROWS.toString()
-            val cols = try { lastSession?.emulator?.mColumns?.toString() } catch (_: Exception) { null } ?: DEFAULT_COLS.toString()
-
-            TerminalSession(
-                shell,
-                workspace.workingDir,
-                shellCmd,
-                env,
-                scrollbackLines.get(),
-                sessionClient,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create agent session", e)
-            agentOrchestrator.destroyWorkspace(workspace.id)
-            return null
-        }
-
-        // 4. Attach Rust engine if enabled
-        if (useRustBackend.get()) {
-            rustEngineManager.attachEngine(session)
-        }
-
-        _sessions.update { it + session }
-        updateNotification()
-
-        // 5. Register workspace with orchestrator
-        val sessionIndex = _sessions.value.indexOf(session)
-        agentOrchestrator.markRunning(workspace.id, sessionIndex, session.pid)
-
-        // 6. Write agent command to PTY after shell initializes
-        val launchCommand = agentOrchestrator.buildLaunchCommand(workspace).joinToString(" ")
-        mainHandler.postDelayed({
-            if (session.isRunning) {
-                session.write(launchCommand + "\n")
-                Log.i(TAG, "AGENT_LAUNCH: started '${preset.agentType.label}' in workspace [${workspace.id}]")
-            } else {
-                Log.w(TAG, "AGENT_LAUNCH: session died before command could be written")
-                agentOrchestrator.markCompleted(workspace.id, -1)
-            }
-        }, PRESET_COMMAND_DELAY_MS)
-
-        return workspace
-    }
-
-    /**
-     * Get the agent orchestrator for dashboard observation.
-     */
-    fun getAgentOrchestrator(): AgentOrchestrator = agentOrchestrator
-
-    /**
-     * Pause an agent workspace (SIGSTOP).
-     * The process is frozen but not killed — can be resumed with [resumeWorkspace].
-     */
-    fun pauseWorkspace(workspaceId: String) {
-        val workspace = agentOrchestrator.findById(workspaceId) ?: return
-        val pid = workspace.pid
-        if (pid > 0) {
-            try {
-                android.system.Os.kill(pid, android.system.OsConstants.SIGSTOP)
-                agentOrchestrator.markPaused(workspaceId)
-                Log.i(TAG, "Paused workspace: ${workspace.displayName} (pid=$pid)")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to pause workspace ${workspace.displayName}: pid=$pid", e)
-            }
-        }
-    }
-
-    /**
-     * Resume a paused agent workspace (SIGCONT).
-     */
-    fun resumeWorkspace(workspaceId: String) {
-        val workspace = agentOrchestrator.findById(workspaceId) ?: return
-        val pid = workspace.pid
-        if (pid > 0) {
-            try {
-                android.system.Os.kill(pid, android.system.OsConstants.SIGCONT)
-                agentOrchestrator.markResumed(workspaceId)
-                Log.i(TAG, "Resumed workspace: ${workspace.displayName} (pid=$pid)")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to resume workspace ${workspace.displayName}: pid=$pid", e)
-            }
-        }
-    }
-
-    /**
-     * Kill an agent workspace — terminates the process and cleans up.
-     */
-    fun killWorkspace(workspaceId: String) {
-        val workspace = agentOrchestrator.findById(workspaceId) ?: return
-        val sessionId = workspace.sessionId
-        if (sessionId >= 0 && sessionId < _sessions.value.size) {
-            removeSession(sessionId)
-        }
-        agentOrchestrator.destroyWorkspace(workspaceId)
-        Log.i(TAG, "Killed workspace: ${workspace.displayName}")
     }
 
     private fun createSessionInternal(cwd: String): TerminalSession? {
@@ -839,7 +555,6 @@ class TerminalService : Service() {
             screenUpdateCallbacks.remove(s.mHandle)
             zoneTrackers.remove(s.mHandle)
             rustEngineManager.detachEngine(s)
-            agentOrchestrator.adjustSessionIdsAfterRemoval(index)
             updateNotification()
             updateBootReceiverState()
             if (_sessions.value.isEmpty()) stopSelf()
@@ -918,11 +633,6 @@ class TerminalService : Service() {
         private const val DEFAULT_COLS = 120
 
         /** Map of preset names to commands that should be executed in a new session. */
-        private val PRESET_COMMANDS = mapOf(
-            "claude" to "claude",
-            "gemini" to "gemini",
-            "aider" to "aider",
-            "opencode" to "opencode",
-        )
+        private val PRESET_COMMANDS = emptyMap<String, String>()
     }
 }

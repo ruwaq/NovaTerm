@@ -151,7 +151,6 @@ class BlockStore(context: Context) {
         cwd: String? = null,
         exitCode: Int? = null,
         durationMs: Long? = null,
-        isAiGenerated: Boolean = false,
     ): String? {
         val id = UUID.randomUUID().toString()
         synchronized(lock) {
@@ -164,7 +163,6 @@ class BlockStore(context: Context) {
                 put("cwd", cwd)
                 put("exit_code", exitCode)
                 put("duration_ms", durationMs)
-                put("is_ai_generated", if (isAiGenerated) 1 else 0)
             }
             db.writableDatabase.insert("blocks", null, values)
         }
@@ -176,7 +174,7 @@ class BlockStore(context: Context) {
             if (closed) return emptyList()
             try {
                 val cursor = db.readableDatabase.rawQuery(
-                    "SELECT id, timestamp, command, exit_code, duration_ms, cwd, is_ai_generated " +
+                    "SELECT id, timestamp, command, exit_code, duration_ms, cwd " +
                     "FROM blocks WHERE session_id = ? ORDER BY timestamp ASC LIMIT ?",
                     arrayOf(sessionId, limit.toString()),
                 )
@@ -190,7 +188,6 @@ class BlockStore(context: Context) {
                             exitCode = if (it.isNull(3)) null else it.getInt(3),
                             durationMs = if (it.isNull(4)) null else it.getLong(4),
                             cwd = it.getString(5),
-                            isAiGenerated = it.getInt(6) == 1,
                         ))
                     }
                 }
@@ -469,7 +466,6 @@ data class BlockRecord(
     val exitCode: Int?,
     val durationMs: Long?,
     val cwd: String?,
-    val isAiGenerated: Boolean,
 )
 
 data class SnapshotRecord(

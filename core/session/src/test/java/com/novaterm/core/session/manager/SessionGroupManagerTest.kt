@@ -44,7 +44,7 @@ class SessionGroupManagerTest {
         manager = SessionGroupManager(sessionStore, homeDir = "/data/data/com.nvterm/files/home")
     }
 
-    // ── Initialization ──────────────────────────────────────────
+    // -- Initialization ------------------------------------------
 
     @Test
     fun `initialize loads built-in groups when no saved groups exist`() {
@@ -53,12 +53,10 @@ class SessionGroupManagerTest {
         val groups = manager.groups.value
         assertTrue("Must have at least built-in groups", groups.isNotEmpty())
         assertNotNull("Must include shell group", groups.find { it.id == "shell" })
-        assertNotNull("Must include agents group", groups.find { it.id == "agents" })
     }
 
     @Test
     fun `initialize loads saved groups`() {
-        // Pre-save some groups
         val customGroups = listOf(
             SessionGroup(id = "custom", name = "My Project", color = "#50FA7B"),
         )
@@ -71,7 +69,7 @@ class SessionGroupManagerTest {
         assertEquals("My Project", groups[0].name)
     }
 
-    // ── Auto-detection ─────────────────────────────────────────
+    // -- Auto-detection -----------------------------------------
 
     @Test
     fun `detectGroupForCwd returns shell group for home directory`() {
@@ -97,32 +95,12 @@ class SessionGroupManagerTest {
 
         val groupId = manager.detectGroupForCwd("/data/data/com.nvterm/files/home/projects/novaterm")
 
-        // Should create a group for "novaterm" or return a project group
         assertNotNull("Group ID must not be null", groupId)
         assertTrue("Group must exist in groups list",
             manager.groups.value.any { it.id == groupId })
     }
 
-    @Test
-    fun `detectGroupForAgent returns agents group for Claude Code`() {
-        manager.initialize()
-
-        val groupId = manager.detectGroupForAgent(AgentType.CLAUDE_CODE)
-
-        assertEquals("agents", groupId)
-    }
-
-    @Test
-    fun `detectGroupForAgent returns agents group for any agent type`() {
-        manager.initialize()
-
-        for (agentType in AgentType.entries) {
-            val groupId = manager.detectGroupForAgent(agentType)
-            assertEquals("All agent types should map to agents group", "agents", groupId)
-        }
-    }
-
-    // ── Group management ────────────────────────────────────────
+    // -- Group management ----------------------------------------
 
     @Test
     fun `createGroup adds a new custom group`() {
@@ -135,7 +113,6 @@ class SessionGroupManagerTest {
         assertEquals("dns", group.icon)
         assertFalse("Custom groups are not auto-created", group.isAutoCreated)
 
-        // Group should appear in groups list
         assertTrue("Group must be in groups list",
             manager.groups.value.any { it.id == group.id })
     }
@@ -161,7 +138,6 @@ class SessionGroupManagerTest {
 
         manager.deleteGroup(group.id)
 
-        // Sessions should be moved to shell group
         assertNull("Session 0 should be reassigned",
             manager.getGroupIdForSession(0)?.let { if (it != "shell") it else null })
     }
@@ -190,27 +166,31 @@ class SessionGroupManagerTest {
         assertFalse("Shell group should now be collapsed", toggled.isExpanded)
     }
 
-    // ── Session → Group mapping ─────────────────────────────────
+    // -- Session -> Group mapping ---------------------------------
 
     @Test
     fun `assignSessionToGroup maps session to group`() {
         manager.initialize()
 
+        val group = manager.createGroup(name = "Custom")
+
         manager.assignSessionToGroup(0, "shell")
-        manager.assignSessionToGroup(1, "agents")
+        manager.assignSessionToGroup(1, group.id)
 
         assertEquals("shell", manager.getGroupIdForSession(0))
-        assertEquals("agents", manager.getGroupIdForSession(1))
+        assertEquals(group.id, manager.getGroupIdForSession(1))
     }
 
     @Test
     fun `moveSessionToGroup reassigns session`() {
         manager.initialize()
 
-        manager.assignSessionToGroup(0, "shell")
-        manager.moveSessionToGroup(0, "agents")
+        val group = manager.createGroup(name = "Custom")
 
-        assertEquals("agents", manager.getGroupIdForSession(0))
+        manager.assignSessionToGroup(0, "shell")
+        manager.moveSessionToGroup(0, group.id)
+
+        assertEquals(group.id, manager.getGroupIdForSession(0))
     }
 
     @Test
@@ -227,18 +207,20 @@ class SessionGroupManagerTest {
     fun `adjustSessionIndicesAfterRemoval shifts higher indices down`() {
         manager.initialize()
 
+        val group = manager.createGroup(name = "Custom")
+
         manager.assignSessionToGroup(0, "shell")
         manager.assignSessionToGroup(1, "shell")
-        manager.assignSessionToGroup(2, "agents")
-        manager.assignSessionToGroup(3, "agents")
+        manager.assignSessionToGroup(2, group.id)
+        manager.assignSessionToGroup(3, group.id)
 
         // Remove session at index 1
         manager.adjustSessionIndicesAfterRemoval(1)
 
-        // Session 0 stays, session 2→1, session 3→2
+        // Session 0 stays, session 2->1, session 3->2
         assertEquals("shell", manager.getGroupIdForSession(0))
-        assertEquals("agents", manager.getGroupIdForSession(1))
-        assertEquals("agents", manager.getGroupIdForSession(2))
+        assertEquals(group.id, manager.getGroupIdForSession(1))
+        assertEquals(group.id, manager.getGroupIdForSession(2))
         assertNull("Removed index should not exist", manager.getGroupIdForSession(3))
     }
 
@@ -246,9 +228,11 @@ class SessionGroupManagerTest {
     fun `getSessionsForGroup returns sessions in order`() {
         manager.initialize()
 
+        val group = manager.createGroup(name = "Custom")
+
         manager.assignSessionToGroup(0, "shell")
         manager.assignSessionToGroup(2, "shell")
-        manager.assignSessionToGroup(1, "agents")
+        manager.assignSessionToGroup(1, group.id)
 
         val shellSessions = manager.getSessionsForGroup("shell")
         assertEquals(listOf(0, 2), shellSessions)
@@ -258,19 +242,21 @@ class SessionGroupManagerTest {
     fun `getGroupsWithSessionCounts returns correct counts`() {
         manager.initialize()
 
+        val group = manager.createGroup(name = "Custom")
+
         manager.assignSessionToGroup(0, "shell")
         manager.assignSessionToGroup(1, "shell")
-        manager.assignSessionToGroup(2, "agents")
+        manager.assignSessionToGroup(2, group.id)
 
         val counts = manager.getGroupsWithSessionCounts()
         val shellCount = counts.find { it.group.id == "shell" }?.sessionCount
-        val agentsCount = counts.find { it.group.id == "agents" }?.sessionCount
+        val customCount = counts.find { it.group.id == group.id }?.sessionCount
 
         assertEquals(2, shellCount)
-        assertEquals(1, agentsCount)
+        assertEquals(1, customCount)
     }
 
-    // ── Persistence ──────────────────────────────────────────────
+    // -- Persistence ----------------------------------------------
 
     @Test
     fun `saveGroups persists groups and they can be reloaded`() {
@@ -279,7 +265,6 @@ class SessionGroupManagerTest {
 
         manager.saveGroups()
 
-        // Create a new manager and initialize — should load the saved groups
         val newManager = SessionGroupManager(sessionStore,
             homeDir = "/data/data/com.nvterm/files/home")
         newManager.initialize()
@@ -288,7 +273,7 @@ class SessionGroupManagerTest {
             newManager.groups.value.any { it.name == "Test Project" })
     }
 
-    // ── Settings toggle ─────────────────────────────────────────
+    // -- Settings toggle -----------------------------------------
 
     @Test
     fun `groupingEnabled defaults to true`() {

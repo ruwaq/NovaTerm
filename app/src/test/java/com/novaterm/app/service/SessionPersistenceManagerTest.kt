@@ -107,26 +107,4 @@ class SessionPersistenceManagerTest {
         assertTrue("Should continue when alive", !guard())
     }
 
-    @Test
-    fun `predictionEngine save is called even with empty sessions`() {
-        // Documents behavior: predictionEngine?.save() runs regardless
-        var predictionSaved = false
-        val sessions = emptyList<String>()
-        val predictionEngine: (() -> Unit)? = { predictionSaved = true }
-
-        // Simulate saveRunnable logic
-        if (sessions.isNotEmpty()) {
-            // saveSessionMetadata() — skipped
-        }
-        predictionEngine?.invoke()
-
-        assertTrue(predictionSaved)
-    }
-
-    @Test
-    fun `predictionEngine null is safe`() {
-        val predictionEngine: (() -> Unit)? = null
-        // Should not throw
-        predictionEngine?.invoke()
-    }
 }

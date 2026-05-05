@@ -1,18 +1,14 @@
 package com.novaterm.core.session.manager
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import java.io.File
 
 /**
  * Builds the environment variable array for terminal sessions.
  *
- * Handles core terminal vars, XDG dirs, AI tool hints, W^X bypass
- * (LD_PRELOAD), NovaTerm compat vars, and API key export
- * from EncryptedSharedPreferences.
+ * Handles core terminal vars, XDG dirs, W^X bypass
+ * (LD_PRELOAD), and NovaTerm compat vars.
  */
 class EnvironmentBuilder(
     private val context: Context,
@@ -22,28 +18,6 @@ class EnvironmentBuilder(
     private val rootDir: String,
     private val shellFinder: () -> String,
 ) {
-    /**
-     * EncryptedSharedPreferences for API keys.
-     * Returns null if Android Keystore is unavailable.
-     */
-    private val securePrefs: SharedPreferences? by lazy {
-        try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                SECURE_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-        } catch (e: Exception) {
-            Log.e("NovaTerm", "EncryptedSharedPreferences unavailable, API keys skipped", e)
-            null
-        }
-    }
-
     fun buildEnvironment(extraVars: Map<String, String>): Array<String> {
         val env = LinkedHashMap<String, String>()
 
@@ -77,10 +51,6 @@ class EnvironmentBuilder(
         env["TERM_PROGRAM"] = "novaterm"
         env["TERM_PROGRAM_VERSION"] = appVersion
 
-        // AI coding tools defaults
-        env["CLAUDE_CODE_SCROLL_SPEED"] = "3"
-        env["AIDER_DARK_MODE"] = "true"
-
         // Terminal dimensions
         env["LINES"] = extraVars.getOrDefault("LINES", "40")
         env["COLUMNS"] = extraVars.getOrDefault("COLUMNS", "120")
@@ -105,9 +75,6 @@ class EnvironmentBuilder(
             ?: run { env["ANDROID_DATA"] = "/data" }
         System.getenv("ANDROID_ROOT")?.let { env["ANDROID_ROOT"] = it }
             ?: run { env["ANDROID_ROOT"] = "/system" }
-
-        // API keys from secure storage
-        exportApiKeys(env)
 
         env.putAll(extraVars)
         return env.map { "${it.key}=${it.value}" }.toTypedArray()
@@ -149,39 +116,4 @@ class EnvironmentBuilder(
         }
     }
 
-    private fun exportApiKeys(env: MutableMap<String, String>) {
-        try {
-            val apiPrefs = securePrefs ?: run {
-                Log.w("NovaTerm", "Skipping API key export — encrypted prefs unavailable")
-                return
-            }
-
-            // Security note: API keys are exported to terminal environment
-            // This is intentional for AI integration but has security implications:
-            // 1. Keys may be exposed in shell history
-            // 2. Keys may be captured by malicious processes running in the same session
-            // 3. Keys are visible to any user who gains access to the terminal
-            // Consider using session-specific tokens or restricting key export to trusted sessions
-
-            apiPrefs.getString("api_key_anthropic", null)?.takeIf { it.isNotEmpty() }?.let {
-                env["ANTHROPIC_API_KEY"] = it
-            }
-            apiPrefs.getString("api_key_google", null)?.takeIf { it.isNotEmpty() }?.let {
-                env["GOOGLE_API_KEY"] = it
-                env["GEMINI_API_KEY"] = it
-            }
-            apiPrefs.getString("api_key_openai", null)?.takeIf { it.isNotEmpty() }?.let {
-                env["OPENAI_API_KEY"] = it
-            }
-            apiPrefs.getString("api_key_openrouter", null)?.takeIf { it.isNotEmpty() }?.let {
-                env["OPENROUTER_API_KEY"] = it
-            }
-        } catch (e: Exception) {
-            Log.w("NovaTerm", "Failed to load API keys from secure preferences", e)
-        }
-    }
-
-    companion object {
-        private const val SECURE_PREFS_NAME = "novaterm_secure_prefs"
-    }
 }

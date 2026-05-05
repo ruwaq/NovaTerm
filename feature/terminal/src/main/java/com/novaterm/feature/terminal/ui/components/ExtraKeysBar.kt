@@ -218,37 +218,12 @@ private val MINIMAL_ROW_2 = listOf(
 )
 private val MINIMAL_ROWS = listOf(MINIMAL_ROW_1, MINIMAL_ROW_2)
 
-// ── AI layout ──────────────────────────────────────────────
-// Optimized for AI coding agents: Claude Code, Gemini CLI, Aider.
-// Ctrl+O (transcript) is a dedicated key — the most used shortcut in Claude Code.
-// Ctrl+B (scroll back) for reviewing long AI output on touch screens.
-private val AI_ROW_1 = listOf(
-    ExtraKey("ESC", "\u001b", popup = "exit", tooltipKey = "ESC"),
-    ExtraKey("^O", Sequences.CTRL_O, popup = "^L"),
-    ExtraKey("TAB", "\t", popup = "@", tooltipKey = "TAB"),
-    ExtraKey("|", popup = "&"),
-    ExtraKey("!", popup = "#"),
-    ExtraKey("▲", "\u001b[A", popup = "PgUp"),
-    ExtraKey("^C", Sequences.CTRL_C, popup = "^D"),
-)
-private val AI_ROW_2 = listOf(
-    ExtraKey("CTRL", isModifier = true, popup = "^C", tooltipKey = "CTRL"),
-    ExtraKey("ALT", isModifier = true, popup = "^R", tooltipKey = "ALT"),
-    ExtraKey("^B", Sequences.CTRL_B, popup = "^F"),
-    ExtraKey("/", popup = "\\"),
-    ExtraKey("~", popup = "`"),
-    ExtraKey("▼", "\u001b[B", popup = "PgDn"),
-    ExtraKey("^Z", Sequences.CTRL_Z, popup = "^\\"),
-    ExtraKey("⌨", code = "__KEYBOARD__"),
-)
-private val AI_ROWS = listOf(AI_ROW_1, AI_ROW_2)
 
 /** Returns the key layout rows for the given style name. */
 internal fun extraKeysRowsForStyle(style: String): List<List<ExtraKey>> = when (style) {
     "vim" -> VIM_ROWS
     "dev" -> DEV_ROWS
     "minimal" -> MINIMAL_ROWS
-    "ai" -> AI_ROWS
     else -> DEFAULT_ROWS
 }
 
@@ -270,11 +245,9 @@ fun ExtraKeysBar(
     onAltToggle: () -> Unit,
     onKeyboardToggle: () -> Unit = {},
     onVoiceInput: (() -> Unit)? = null,
-    onCameraOcr: (() -> Unit)? = null,
     onSplitHorizontal: (() -> Unit)? = null,
     onSplitVertical: (() -> Unit)? = null,
     onCloseSplitPane: (() -> Unit)? = null,
-    onAgentLaunch: (() -> Unit)? = null,
     hasSplitPanes: Boolean = false,
     ctrlActive: Boolean = false,
     altActive: Boolean = false,
@@ -300,14 +273,8 @@ fun ExtraKeysBar(
                 // Trailing buttons at the end of the last row
                 trailingContent = if (index == rows.lastIndex) {
                     {
-                        if (onCameraOcr != null) {
-                            CameraOcrButton(onCameraOcr, hapticEnabled, haptic)
-                        }
                         if (onVoiceInput != null) {
                             VoiceInputButton(onVoiceInput, hapticEnabled, haptic)
-                        }
-                        if (onAgentLaunch != null) {
-                            AgentLaunchButton(onAgentLaunch, hapticEnabled, haptic)
                         }
                         // Split pane button at the end (less accidental)
                         if (onSplitHorizontal != null) {
@@ -716,34 +683,3 @@ private fun ExtraKeyButton(
     }
 }
 
-/**
- * AI agent launch button for the extra keys bar.
- * Opens the AgentPresetSheet to choose an agent to launch.
- */
-@Composable
-private fun AgentLaunchButton(
-    onClick: () -> Unit,
-    hapticEnabled: Boolean,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-) {
-    IconButton(
-        onClick = {
-            if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            onClick()
-        },
-        modifier = Modifier
-            .semantics {
-                role = Role.Button
-                contentDescription = "Launch AI agent"
-            },
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
-    ) {
-        Icon(
-            imageVector = Icons.Default.SmartToy,
-            contentDescription = "Launch AI agent",
-            tint = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
