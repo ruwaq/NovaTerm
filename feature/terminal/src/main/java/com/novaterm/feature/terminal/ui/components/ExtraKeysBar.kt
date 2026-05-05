@@ -331,42 +331,6 @@ private fun VoiceInputButton(
 }
 
 /**
- * Camera button for OCR text recognition.
- * Opens the camera sheet to capture and paste text into the terminal.
- */
-@Composable
-private fun CameraOcrButton(
-    onClick: () -> Unit,
-    hapticEnabled: Boolean,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
-    val textColor = MaterialTheme.colorScheme.onSurface
-
-    IconButton(
-        onClick = {
-            if (hapticEnabled) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
-            onClick()
-        },
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = surfaceColor,
-            contentColor = textColor,
-        ),
-        modifier = Modifier
-            .height(48.dp)
-            .widthIn(min = 48.dp)
-            .clip(RoundedCornerShape(10.dp)),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.CameraAlt,
-            contentDescription = stringResource(R.string.cd_camera_ocr),
-        )
-    }
-}
-
-/**
  * Split pane button for the extra keys bar.
  * Tap = horizontal split (side by side), Long press = vertical split (top/bottom).
  * When panes are already split, shows a close button instead on long press.

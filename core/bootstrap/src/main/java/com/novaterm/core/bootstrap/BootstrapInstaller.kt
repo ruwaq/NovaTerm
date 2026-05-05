@@ -350,9 +350,6 @@ class BootstrapInstaller(private val context: Context) {
             // 13. Replace Termux MOTD with NovaTerm branding
             replaceMotd(prefixDir)
 
-            // 14. Copy AI tool setup scripts from assets (manual use only, not auto-executed)
-            copyAssetScript("setup-claude.sh", File(prefixDir, "bin/setup-claude"))
-
             // Diagnostic: verify critical files exist (before integrity check so logs survive cleanup)
             val criticalFiles = listOf(
                 "bin/bash", "bin/sh", "bin/login",

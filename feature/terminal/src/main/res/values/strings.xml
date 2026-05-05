@@ -23,16 +23,6 @@
     <!-- Voice input -->
     <string name="cd_voice_input">Voice input</string>
 
-    <!-- Camera OCR -->
-    <string name="cd_camera_ocr">Camera text recognition</string>
-    <string name="ocr_title">Camera OCR</string>
-    <string name="ocr_close">Close</string>
-    <string name="ocr_scanning">Scanning…</string>
-    <string name="ocr_permission_required">Camera permission required</string>
-    <string name="ocr_detected_text">Detected text:</string>
-    <string name="ocr_paste_to_terminal">Paste to terminal</string>
-    <string name="ocr_empty_hint">Point camera at text to scan</string>
-
     <!-- History search -->
     <string name="search_commands_hint">Search commands\u2026</string>
     <string name="search_results_count">%d commands</string>
@@ -53,7 +43,4 @@
     <string name="search_previous">Previous match</string>
     <string name="search_next">Next match</string>
     <string name="search_invalid_regex">Invalid regex pattern</string>
-
-    <!-- Suggestion bar -->
-    <string name="cd_suggestion">Suggestion: %s. Tap or press Tab to accept.</string>
 </resources>

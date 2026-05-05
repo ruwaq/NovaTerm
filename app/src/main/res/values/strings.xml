@@ -58,7 +58,7 @@
     <!-- About -->
     <string name="about_title">About</string>
     <string name="about_tagline">Next-gen Android terminal</string>
-    <string name="about_rust_powered">Rust-powered \u2022 GPU-accelerated \u2022 AI-native</string>
+    <string name="about_rust_powered">Rust-powered \u2022 GPU-accelerated</string>
     <string name="about_apache_license">Apache License 2.0</string>
     <string name="about_section_device">Device</string>
     <string name="about_section_terminal">Terminal</string>
@@ -112,10 +112,6 @@
     <string name="shortcut_new_session">New session</string>
     <string name="shortcut_new_session_long">Open a new terminal session</string>
     <string name="shortcut_session">Session %1$d</string>
-    <string name="shortcut_claude">Claude Code</string>
-    <string name="shortcut_claude_long">Launch Claude Code session</string>
-    <string name="shortcut_gemini">Gemini CLI</string>
-    <string name="shortcut_gemini_long">Launch Gemini CLI session</string>
 
     <!-- Permissions -->
     <string name="permission_run_command_description">Allows third-party apps to execute commands in NovaTerm terminal sessions</string>
@@ -130,11 +126,4 @@
     <string name="about_crash_dialog_share">Share</string>
     <string name="about_crash_dialog_close">Close</string>
     <string name="about_crash_share_chooser">Share crash log via\u2026</string>
-
-    <!-- MCP approval dialog -->
-    <string name="mcp_approval_title">MCP: %s</string>
-    <string name="mcp_approval_body">An AI tool wants to execute a dangerous operation.</string>
-    <string name="mcp_approval_risk">Risk: %s</string>
-    <string name="mcp_approval_allow">Allow</string>
-    <string name="mcp_approval_deny">Deny</string>
 </resources>

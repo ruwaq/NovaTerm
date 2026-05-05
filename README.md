@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/banner.svg" alt="NovaTerm — Rust-powered, GPU-accelerated, AI-native Android terminal" width="100%"/>
+  <img src=".github/banner.svg" alt="NovaTerm — Rust-powered, GPU-accelerated Android terminal" width="100%"/>
 </p>
 
 <p align="center">
@@ -21,8 +21,8 @@
 
 # NovaTerm
 
-> **The first Rust-powered, GPU-accelerated, AI-native terminal for Android.**
-> Runs on any Android 11+ phone — from ₹10K budget devices to flagships.
+> **A Rust-powered, GPU-accelerated terminal for Android.**
+> Runs on any Android 11+ phone — from budget devices to flagships.
 
 ## ⚡ Install in 30 seconds
 
@@ -32,33 +32,29 @@
 
 > Already use Termux? NovaTerm includes its own bootstrap — no setup needed.
 
-Next-generation Android terminal emulator. Rust-powered, GPU-accelerated, AI-native. Runs on any Android 11+ phone.
+Next-generation Android terminal emulator. Rust-powered, GPU-accelerated. Runs on any Android 11+ phone.
 
-Modern UI (Kotlin + Jetpack Compose) with a Rust core (wgpu + alacritty_terminal) and on-device AI. Built for developers who live in the terminal — from budget phones to flagships.
+Modern UI (Kotlin + Jetpack Compose) with a Rust core (wgpu + alacritty_terminal). Built for developers who live in the terminal — from budget phones to flagships.
 
 ## Highlights
 
 - **GPU-accelerated** — Vulkan compute shaders via wgpu (Adreno, Mali, PowerVR, Xclipse)
-- **Rust core** — VT parser (alacritty_terminal), PTY, renderer — 177 tests
-- **AI-first** — API key management, one-tap AI tool installer, session presets
-- **On-device AI** — Gemma 4 E2B for command suggestions, no cloud needed
-- **AI CLI ready** — Optimized for Claude Code, Gemini CLI, Aider, Codex
+- **Rust core** — VT parser (alacritty_terminal), PTY, renderer — 137 tests
 - **PiP floating window** — Multitask with a floating terminal overlay
 - **7 color schemes** — Gruvbox, Catppuccin, Solarized, Monokai, Nord, Dracula
 - **Session persistence** — Survives app kill, boot restore, crash-safe history
-- **MCP server** — 6 tools for AI agents to control the terminal
 - **Touch-first** — 48dp targets, swipe tabs, extra keys with popups
+- **Linux environment** — bash, apt, coreutils, git, ssh, node, python out of the box
 
 ## Features
 
 | Category | Features |
 |----------|----------|
 | **Terminal** | Truecolor, 10K scrollback, bracketed paste, Unicode/emoji, OSC 52 clipboard (64KB), synchronized output (DEC 2026), DECSET 45 |
-| **AI** | Shift+Enter (CSI 13;2u), OSC 133 semantic prompts, OSC 9 notifications, TERM_PROGRAM detection, API key management, AI tool installer, session presets, AI Coding extra keys |
-| **Sessions** | Swipe tabs, rename, close confirmation, SQLite block store, CAS dedup, scrollback configurable 1K-50K, session presets |
+| **Sessions** | Swipe tabs, rename, close confirmation, SQLite block store, CAS dedup, scrollback configurable 1K-50K, session grouping |
 | **Shell** | Professional .profile/.bashrc/.inputrc, XDG dirs, storage symlinks, command-not-found handler |
 | **UX** | History search, clickable URLs/IPs/paths, smart notifications, OEM battery guides, PiP floating window, voice input, dynamic shortcuts |
-| **Security** | MCP approval manager, blocked commands, localhost-only, no telemetry |
+| **Security** | No telemetry, GPG-signed APT repo, bootstrap integrity verification |
 
 ## Architecture
 
@@ -70,11 +66,9 @@ core/
   session/              Session lifecycle, Rust JNI bridge, SQLite persistence
   terminal-emulator/    VT parser + PTY JNI (from Termux, Apache 2.0)
   terminal-view/        Canvas renderer + gestures (from Termux, Apache 2.0)
-  mcp/                  AI agent protocol server (6 tools)
-  llm/                  On-device LLM (Gemma 4 E2B, GGUF)
 feature/
   terminal/             Terminal UI, extra keys, entity detection, color palettes
-  settings/             Preferences, color scheme picker, model download
+  settings/             Preferences, color scheme picker, onboarding
   oem-compat/           OEM detection + battery optimization guides
 rust-core/              Cargo workspace — 4 crates, 177 tests
   novaterm-vt/          VT parser (alacritty_terminal 0.25.1)
@@ -124,7 +118,7 @@ pkg install aapt2
 - [x] **Phase 1** — Functional terminal with bootstrap + Termux packages
 - [x] **Phase 2a** — Rust core (4 crates, 177 tests, JNI bridge)
 - [x] **Phase 2b** — Vulkan GPU renderer (wgpu compute shaders)
-- [x] **Phase 3** — AI integration (MCP server, Gemma 4, predictions)
+- [x] **Phase 3** — ~~AI integration removed~~ (refactored to minimal terminal — AI tools installable via apt/npm)
 - [ ] **Phase 4** — Desktop mode (Android 16+) + plugin system
 
 ## Contributing
