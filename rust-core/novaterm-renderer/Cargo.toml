@@ -16,7 +16,7 @@ novaterm-vt = { path = "../novaterm-vt" }
 log = { workspace = true }
 
 # Glyph atlas (always on)
-cosmic-text = "0.18"
+cosmic-text = "0.19"
 etagere = "0.3"
 
 # GPU rendering (behind vulkan feature flag)
