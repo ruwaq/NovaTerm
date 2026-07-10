@@ -21,5 +21,5 @@ novaterm-renderer = { path = "../novaterm-renderer", features = ["vulkan"], opti
 jni = "0.22"
 libc = { workspace = true }
 log = { workspace = true }
-android_logger = "0.14"
+android_logger = "0.15"
 parking_lot = { workspace = true }
