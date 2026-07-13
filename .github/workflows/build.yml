@@ -47,7 +47,7 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Android
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
   build:
     name: Build
@@ -63,7 +63,7 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Android
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v3
@@ -97,7 +97,7 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Android
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v3
